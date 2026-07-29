@@ -1960,7 +1960,7 @@
       "path": "src/adapters/sqlite/observability_projection/analytics.rs",
       "slices": [
         {
-          "responsibility": "model summaries, performance baseline, and optimization analytics",
+          "responsibility": "read-only observability analytics facade and owner exports",
           "target": "src/adapters/sqlite/observability_projection/analytics.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -1969,6 +1969,74 @@
             "src/adapters/sqlite/observability_projection/analytics.rs",
             "src/adapters/sqlite/observability_projection/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/model_summaries.rs",
+      "slices": [
+        {
+          "responsibility": "model-level metric summary queries",
+          "target": "src/adapters/sqlite/observability_projection/analytics/model_summaries.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/analytics.rs",
+            "src/adapters/sqlite/observability_projection/analytics/model_summaries.rs",
+            "src/adapters/sqlite/observability_projection/tests/storage.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/optimization_policy.rs",
+      "slices": [
+        {
+          "responsibility": "optimization policy projection from measured observability evidence",
+          "target": "src/adapters/sqlite/observability_projection/analytics/optimization_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/analytics.rs",
+            "src/adapters/sqlite/observability_projection/analytics/optimization_policy.rs",
+            "src/adapters/sqlite/observability_projection/tests/storage.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/performance_baseline.rs",
+      "slices": [
+        {
+          "responsibility": "performance baseline queries and metric aggregation",
+          "target": "src/adapters/sqlite/observability_projection/analytics/performance_baseline.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/analytics.rs",
+            "src/adapters/sqlite/observability_projection/analytics/performance_baseline.rs",
+            "src/adapters/sqlite/observability_projection/tests/storage.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/statistics.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic observability statistics helpers",
+          "target": "src/adapters/sqlite/observability_projection/analytics/statistics.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/analytics/performance_baseline.rs",
+            "src/adapters/sqlite/observability_projection/analytics/optimization_policy.rs",
+            "src/adapters/sqlite/observability_projection/analytics/statistics.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
           ]
         }
       ]
@@ -14454,6 +14522,22 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/observability_policy/observability/sqlite/analytics.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite observability analytics ownership and size-boundary contracts",
+          "target": "tests/architecture_contract/observability_policy/observability/sqlite/analytics.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/analytics.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite/analytics.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
       "slices": [
         {
@@ -16859,7 +16943,31 @@
     {
       "path": "src/adapters/sqlite/observability_projection/analytics.rs",
       "responsibilities": [
-        "model summaries, performance baseline, and optimization analytics"
+        "read-only observability analytics facade and owner exports"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/model_summaries.rs",
+      "responsibilities": [
+        "model-level metric summary queries"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/optimization_policy.rs",
+      "responsibilities": [
+        "optimization policy projection from measured observability evidence"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/performance_baseline.rs",
+      "responsibilities": [
+        "performance baseline queries and metric aggregation"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/statistics.rs",
+      "responsibilities": [
+        "deterministic observability statistics helpers"
       ]
     },
     {
@@ -21381,6 +21489,12 @@
       "path": "tests/architecture_contract/observability_policy/observability/sqlite.rs",
       "responsibilities": [
         "SQLite observability projection owner and regression boundary contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability/sqlite/analytics.rs",
+      "responsibilities": [
+        "SQLite observability analytics ownership and size-boundary contracts"
       ]
     },
     {

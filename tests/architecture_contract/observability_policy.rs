@@ -26,6 +26,10 @@ fn observability_policy_contracts_are_split_by_responsibility() {
             375,
         ),
         (
+            "tests/architecture_contract/observability_policy/observability/sqlite/analytics.rs",
+            125,
+        ),
+        (
             "tests/architecture_contract/observability_policy/knowledge_policy.rs",
             275,
         ),

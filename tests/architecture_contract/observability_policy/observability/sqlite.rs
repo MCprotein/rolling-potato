@@ -1,10 +1,7 @@
+include!("sqlite/analytics.rs");
+
 pub(super) fn assert_sqlite_observability_projection() {
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
-    let analytics_path = "src/adapters/sqlite/observability_projection/analytics.rs";
-    let latest_model_run_path =
-        "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs";
-    let latest_model_run_tests_path =
-        "src/adapters/sqlite/observability_projection/analytics/latest_model_run/tests.rs";
     let metrics_path = "src/adapters/sqlite/observability_projection/metrics.rs";
     let lifecycle_path = "src/adapters/sqlite/observability_projection/lifecycle.rs";
     let port_path = "src/adapters/sqlite/observability_projection/port.rs";
@@ -20,25 +17,23 @@ pub(super) fn assert_sqlite_observability_projection() {
     let sqlite_recovery_tests_path =
         "src/adapters/sqlite/observability_projection/tests/recovery.rs";
     let sqlite_storage_tests_path = "src/adapters/sqlite/observability_projection/tests/storage.rs";
-    assert!(Path::new(analytics_path).is_file());
-    assert!(Path::new(latest_model_run_path).is_file());
-    assert!(Path::new(latest_model_run_tests_path).is_file());
-    assert!(Path::new(metrics_path).is_file());
-    assert!(Path::new(lifecycle_path).is_file());
-    assert!(Path::new(port_path).is_file());
-    assert!(Path::new(queries_path).is_file());
-    assert!(Path::new(read_snapshot_path).is_file());
-    assert!(Path::new(replay_path).is_file());
-    assert!(Path::new(schema_path).is_file());
-    assert!(Path::new(sessions_path).is_file());
-    assert!(Path::new(store_path).is_file());
-    assert!(Path::new(sqlite_tests_path).is_file());
-    assert!(Path::new(sqlite_projection_tests_path).is_file());
-    assert!(Path::new(sqlite_recovery_tests_path).is_file());
-    assert!(Path::new(sqlite_storage_tests_path).is_file());
-    let analytics = fs::read_to_string(analytics_path).unwrap();
-    let latest_model_run = fs::read_to_string(latest_model_run_path).unwrap();
-    let latest_model_run_tests = fs::read_to_string(latest_model_run_tests_path).unwrap();
+    for path in [
+        metrics_path,
+        lifecycle_path,
+        port_path,
+        queries_path,
+        read_snapshot_path,
+        replay_path,
+        schema_path,
+        sessions_path,
+        store_path,
+        sqlite_tests_path,
+        sqlite_projection_tests_path,
+        sqlite_recovery_tests_path,
+        sqlite_storage_tests_path,
+    ] {
+        assert!(Path::new(path).is_file(), "missing SQLite owner: {path}");
+    }
     let metrics = fs::read_to_string(metrics_path).unwrap();
     let lifecycle = fs::read_to_string(lifecycle_path).unwrap();
     let port = fs::read_to_string(port_path).unwrap();
@@ -78,25 +73,7 @@ pub(super) fn assert_sqlite_observability_projection() {
         sqlite.lines().any(|line| line == "mod analytics;"),
         "SQLite projection does not register the analytics owner"
     );
-    assert!(
-        analytics
-            .lines()
-            .any(|line| line == "mod latest_model_run;"),
-        "SQLite analytics does not register its latest-model-run owner"
-    );
-    assert!(
-        latest_model_run.contains(
-            "pub(in crate::adapters::sqlite::observability_projection) fn latest_model_run_for_session_from_connection("
-        ),
-        "latest-model-run query owner is missing its session-scoped query"
-    );
-    assert!(
-        !analytics.contains("pub(super) fn latest_model_run_for_session_from_connection("),
-        "SQLite analytics still owns the session-scoped latest-model-run query"
-    );
-    assert!(
-        latest_model_run_tests.contains("fn latest_model_run_is_scoped_to_the_requested_session(")
-    );
+    assert_sqlite_observability_analytics();
     assert!(
         sqlite.lines().any(|line| line == "mod metrics;"),
         "SQLite projection does not register the metric owner"
@@ -132,23 +109,6 @@ pub(super) fn assert_sqlite_observability_projection() {
         assert!(
             schema.contains(responsibility),
             "SQLite schema owner is missing: {responsibility}"
-        );
-    }
-    for responsibility in [
-        "pub(super) fn model_summaries_from_connection(",
-        "pub(super) fn model_summaries(",
-        "pub(super) fn performance_baseline(",
-        "pub(super) fn optimization_policy(",
-        "fn query_baseline_model_rows(",
-        "fn benchmark_evidence_summary(",
-    ] {
-        assert!(
-            !sqlite.contains(responsibility),
-            "analytics responsibility escaped into projection facade: {responsibility}"
-        );
-        assert!(
-            analytics.contains(responsibility),
-            "SQLite analytics owner is missing: {responsibility}"
         );
     }
     for responsibility in [
@@ -324,12 +284,6 @@ pub(super) fn assert_sqlite_observability_projection() {
     assert!(queries.lines().count() < 150);
     assert!(store.lines().count() < 175);
     assert!(sessions.lines().count() < 175);
-    assert!(
-        analytics.lines().count() < 450,
-        "SQLite analytics module regrew beyond its ownership boundary"
-    );
-    assert!(latest_model_run.lines().count() < 100);
-    assert!(latest_model_run_tests.lines().count() < 75);
     assert!(
         metrics.lines().count() < 375,
         "SQLite metric module regrew beyond its ownership boundary"
