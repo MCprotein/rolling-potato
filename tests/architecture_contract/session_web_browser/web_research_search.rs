@@ -13,6 +13,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
         fs::read_to_string("src/surfaces/tui/controller/command_dispatch.rs").unwrap();
     let tui_workspace_dispatch =
         fs::read_to_string("src/surfaces/tui/controller/command_dispatch/workspace.rs").unwrap();
+    let tui_web_dispatch =
+        fs::read_to_string("src/surfaces/tui/controller/command_dispatch/web.rs").unwrap();
     let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
     let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
@@ -63,6 +65,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/tui_adapter/runtime/request/support.rs",
         "src/app/tui_adapter/web_tools.rs",
         "src/runtime_core/agent.rs",
+        "src/surfaces/tui/controller/command_dispatch/web.rs",
         "src/surfaces/tui/controller/command_dispatch/workspace.rs",
         "src/surfaces/tui/controller/source_selection.rs",
     ] {
@@ -110,7 +113,19 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_runtime.lines().any(|line| line == "mod web_sources;"));
     assert!(tui_controller.contains("mod source_selection;"));
     assert!(tui_command_dispatch.contains("mod workspace;"));
+    assert!(tui_command_dispatch.contains("mod web;"));
     assert!(tui_workspace_dispatch.contains("[\"/sources\"]"));
+    for command in ["[\"/search\"]", "[\"/open\"]", "[\"/find\"]"] {
+        assert!(
+            tui_web_dispatch.contains(command),
+            "web command owner is missing {command}"
+        );
+        assert!(
+            !tui_command_dispatch.contains(command),
+            "TUI command facade still owns {command}"
+        );
+    }
+    assert!(tui_web_dispatch.lines().count() < 125);
     assert!(tui_bridge.contains("struct TuiWebSourceOption"));
     assert!(tui_request.contains("web_search_adapter::route_tool_request"));
     assert!(tui_request.contains("execute_web_turn("));

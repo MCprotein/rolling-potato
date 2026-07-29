@@ -7,13 +7,12 @@ use super::super::view_model::{ConversationRole, InteractiveState, InteractiveVi
 use super::attachments::{
     attachment_path_candidate, capture_attachment_notice, looks_like_attachment_path,
 };
-use super::request_submission::{
-    submit_request_with_progress, submit_web_tool_command, test_secret_probe_enabled,
-};
+use super::request_submission::{submit_request_with_progress, test_secret_probe_enabled};
 use super::session_selection::resume_selected_session;
 use super::terminal_flow::{outcome_notice, terminal_fault_error, write_pre_dispatch_frame};
 use super::TuiRuntimePort;
 
+mod web;
 mod workflow;
 mod workspace;
 
@@ -44,6 +43,10 @@ pub(super) fn dispatch_line(
     if let Some(control) = workflow::dispatch_workflow(terminal, runtime, state, &words)? {
         return Ok(control);
     }
+    if let Some(control) = web::dispatch_web(terminal, runtime, state, width, height, line, &words)?
+    {
+        return Ok(control);
+    }
     let control = match words.as_slice() {
         [] | ["refresh"] => {
             state.notice = "정본 상태를 새로고침했습니다.".to_string();
@@ -69,69 +72,6 @@ pub(super) fn dispatch_line(
                 Ok(report) => report,
                 Err(error) => error.message,
             };
-            LoopControl::Continue
-        }
-        ["/search"] => {
-            state.notice = "사용법: /search <인터넷에서 찾을 질문>".to_string();
-            LoopControl::Continue
-        }
-        ["/search", ..] => {
-            state.view = InteractiveView::Conversation;
-            state.push_turn(ConversationRole::User, line.trim());
-            let progress =
-                "웹 조사 · 검색 중\n검색 ● → 결과 평가 ○ → 문서 읽기 ○ → 증거 구성 ○ → 답변 ○";
-            match submit_request_with_progress(
-                terminal,
-                runtime,
-                state,
-                width,
-                height,
-                line.trim(),
-                &[],
-                progress,
-            )? {
-                Ok(report) => state.push_turn(ConversationRole::Assistant, report),
-                Err(error) => state.push_turn(
-                    ConversationRole::Error,
-                    format!("웹 검색을 완료하지 못했습니다.\n{}", error.message),
-                ),
-            }
-            LoopControl::Continue
-        }
-        ["/open"] => {
-            state.notice = "사용법: /open <HTTPS URL>".to_string();
-            LoopControl::Continue
-        }
-        ["/open", url @ ..] => {
-            let request = format!("/open {}", url.join(" "));
-            submit_web_tool_command(
-                terminal,
-                runtime,
-                state,
-                width,
-                height,
-                &request,
-                "웹 조사 · 페이지 여는 중\n문서 읽기 ● → 증거 구성 ○ → 답변 ○",
-                "웹 페이지를 열지 못했습니다.",
-            )?;
-            LoopControl::Continue
-        }
-        ["/find"] => {
-            state.notice = "사용법: /find <열린 페이지에서 찾을 텍스트>".to_string();
-            LoopControl::Continue
-        }
-        ["/find", query @ ..] => {
-            let request = format!("/find {}", query.join(" "));
-            submit_web_tool_command(
-                terminal,
-                runtime,
-                state,
-                width,
-                height,
-                &request,
-                "웹 조사 · 페이지 찾는 중\n문서 읽기 ✓ → 본문 찾기 ● → 답변 ○",
-                "페이지 내부 찾기를 완료하지 못했습니다.",
-            )?;
             LoopControl::Continue
         }
         ["test-secret"] if test_secret_probe_enabled() => {

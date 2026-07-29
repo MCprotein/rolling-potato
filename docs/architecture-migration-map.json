@@ -9644,11 +9644,28 @@
           "evidence": [
             "src/surfaces/tui/controller.rs",
             "src/surfaces/tui/controller/command_dispatch.rs",
+            "src/surfaces/tui/controller/command_dispatch/web.rs",
             "src/surfaces/tui/controller/command_dispatch/workspace.rs",
             "src/surfaces/tui/controller/command_dispatch/workflow.rs",
             "src/app/tui_adapter/conversation_tests.rs",
             "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch/web.rs",
+      "slices": [
+        {
+          "responsibility": "TUI explicit search, open, and current-page find command handling",
+          "target": "src/surfaces/tui/controller/command_dispatch/web.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller/command_dispatch/web.rs",
+            "tests/surfaces/native_terminal/web.rs",
+            "tests/architecture_contract/session_web_browser/web_research_search.rs"
           ]
         }
       ]
@@ -18672,6 +18689,12 @@
       "path": "src/surfaces/tui/controller/command_dispatch.rs",
       "responsibilities": [
         "typed TUI command routing and loop-control decisions"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch/web.rs",
+      "responsibilities": [
+        "TUI explicit search, open, and current-page find command handling"
       ]
     },
     {
