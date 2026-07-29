@@ -1,49 +1,18 @@
-use super::*;
+use crate::adapters::filesystem::lease;
+use crate::app::workflow_adapter::{ledger, state};
+use crate::foundation::error::AppError;
+use crate::runtime_core::workflow::storage_compat::transcript::{
+    ToolOutputArtifactBinding, TranscriptRecord, TRANSCRIPT_SCHEMA_V1,
+};
 
-impl SanitizedToolOutputArtifact {
-    pub(in super::super) fn payload(&self) -> String {
-        format!(
-            "{{\"schema_version\":1,\"artifact_id\":\"{}\",\"project_id\":\"{}\",\"session_id\":\"{}\",\"workflow_id\":\"{}\",\"tool_id\":\"{}\",\"created_at_ms\":{},\"redaction_policy\":\"credential-and-control-redaction\",\"redaction_version\":1,\"stdout\":\"{}\",\"stderr\":\"{}\",\"stdout_original_bytes\":{},\"stderr_original_bytes\":{},\"stdout_retained_chars\":{},\"stderr_retained_chars\":{},\"stdout_truncated\":{},\"stderr_truncated\":{},\"stdout_redacted\":{},\"stderr_redacted\":{}}}",
-            ledger::json_string(&self.artifact_id),
-            ledger::json_string(&self.project_id),
-            ledger::json_string(&self.session_id),
-            ledger::json_string(&self.workflow_id),
-            ledger::json_string(&self.tool_id),
-            self.created_at_ms,
-            ledger::json_string(&self.stdout),
-            ledger::json_string(&self.stderr),
-            self.stdout_original_bytes,
-            self.stderr_original_bytes,
-            self.stdout_retained_chars,
-            self.stderr_retained_chars,
-            self.stdout_truncated,
-            self.stderr_truncated,
-            self.stdout_redacted,
-            self.stderr_redacted,
-        )
-    }
-
-    pub(in super::super) fn to_json(&self) -> String {
-        format!(
-            "{},\"content_hash\":\"{}\"}}",
-            self.payload().trim_end_matches('}'),
-            self.content_hash
-        )
-    }
-
-    pub(in super::super) fn binding(&self) -> ToolOutputArtifactBinding {
-        ToolOutputArtifactBinding {
-            id: self.artifact_id.clone(),
-            path: tool_output_artifact_relative_path(
-                &self.project_id,
-                &self.session_id,
-                &self.workflow_id,
-                &self.artifact_id,
-            ),
-            hash: self.content_hash.clone(),
-        }
-    }
-}
+use super::super::storage::{
+    load_tool_output_artifact, now_ms, validate_id, validate_tool_artifact_owner,
+    validated_tool_output_path,
+};
+use super::types::{
+    SanitizedToolOutputArtifact, MAX_SANITIZED_STREAM_BYTES, MAX_TOOL_ARTIFACT_BYTES,
+    UNAVAILABLE_STREAM,
+};
 
 pub(in super::super) fn record_tool_output_artifact(
     workflow: &state::WorkflowRecord,

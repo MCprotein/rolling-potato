@@ -14,7 +14,14 @@ fn v0375_domain_views_replace_legacy_definitions() {
         "src/app/workflow_adapter/transcript/storage/record_repository.rs";
     let transcript_storage_tools = "src/app/workflow_adapter/transcript/storage/tool_artifact.rs";
     let transcript_tool_turn = "src/app/workflow_adapter/transcript/tool_turn.rs";
+    let transcript_tool_decoding = "src/app/workflow_adapter/transcript/tool_turn/decoding.rs";
+    let transcript_tool_installation =
+        "src/app/workflow_adapter/transcript/tool_turn/installation.rs";
+    let transcript_tool_preparation =
+        "src/app/workflow_adapter/transcript/tool_turn/preparation.rs";
     let transcript_streams = "src/app/workflow_adapter/transcript/tool_turn/streams.rs";
+    let transcript_tool_types = "src/app/workflow_adapter/transcript/tool_turn/types.rs";
+    let transcript_tool_view = "src/app/workflow_adapter/transcript/tool_turn/view.rs";
     let transcript_tests = "src/app/workflow_adapter/transcript/tests.rs";
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
@@ -162,7 +169,12 @@ fn v0375_domain_views_replace_legacy_definitions() {
     assert!(Path::new(transcript_storage_records).is_file());
     assert!(Path::new(transcript_storage_tools).is_file());
     assert!(Path::new(transcript_tool_turn).is_file());
+    assert!(Path::new(transcript_tool_decoding).is_file());
+    assert!(Path::new(transcript_tool_installation).is_file());
+    assert!(Path::new(transcript_tool_preparation).is_file());
     assert!(Path::new(transcript_streams).is_file());
+    assert!(Path::new(transcript_tool_types).is_file());
+    assert!(Path::new(transcript_tool_view).is_file());
     assert!(Path::new(transcript_tests).is_file());
     let transcript_adapter_source = fs::read_to_string(transcript_adapter).unwrap();
     let transcript_ledger_projection_source =
@@ -176,7 +188,14 @@ fn v0375_domain_views_replace_legacy_definitions() {
     let transcript_storage_record_source = fs::read_to_string(transcript_storage_records).unwrap();
     let transcript_storage_tool_source = fs::read_to_string(transcript_storage_tools).unwrap();
     let transcript_tool_turn_source = fs::read_to_string(transcript_tool_turn).unwrap();
+    let transcript_tool_decoding_source = fs::read_to_string(transcript_tool_decoding).unwrap();
+    let transcript_tool_installation_source =
+        fs::read_to_string(transcript_tool_installation).unwrap();
+    let transcript_tool_preparation_source =
+        fs::read_to_string(transcript_tool_preparation).unwrap();
     let transcript_stream_source = fs::read_to_string(transcript_streams).unwrap();
+    let transcript_tool_types_source = fs::read_to_string(transcript_tool_types).unwrap();
+    let transcript_tool_view_source = fs::read_to_string(transcript_tool_view).unwrap();
     let transcript_test_source = fs::read_to_string(transcript_tests).unwrap();
     assert!(
         transcript_adapter_source
@@ -307,28 +326,56 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript adapter still owns storage validation: {responsibility}"
         );
     }
-    for responsibility in [
-        "pub(crate) struct PreparedTranscriptTurn",
-        "pub(crate) fn prepare_no_stream_tool_turn(",
-        "pub(crate) fn install_prepared_no_stream_tool_turn(",
-        "pub(crate) fn decode_prepared_no_stream_tool_turn(",
-        "pub(crate) fn tool_output_view_from_canonical_record(",
+    for owner in [
+        "decoding",
+        "installation",
+        "preparation",
+        "streams",
+        "types",
+        "view",
     ] {
         assert!(
-            transcript_tool_turn_source.contains(responsibility),
-            "transcript tool-turn owner is missing: {responsibility}"
+            transcript_tool_turn_source
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "transcript tool-turn facade does not register {owner}"
+        );
+    }
+    for (owner, responsibility) in [
+        (
+            &transcript_tool_types_source,
+            "pub(crate) struct PreparedTranscriptTurn",
+        ),
+        (
+            &transcript_tool_preparation_source,
+            "pub(crate) fn prepare_no_stream_tool_turn(",
+        ),
+        (
+            &transcript_tool_installation_source,
+            "pub(crate) fn install_prepared_no_stream_tool_turn(",
+        ),
+        (
+            &transcript_tool_decoding_source,
+            "pub(crate) fn decode_prepared_no_stream_tool_turn(",
+        ),
+        (
+            &transcript_tool_view_source,
+            "pub(crate) fn tool_output_view_from_canonical_record(",
+        ),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "transcript tool-turn responsibility owner is missing: {responsibility}"
+        );
+        assert!(
+            !transcript_tool_turn_source.contains(responsibility),
+            "transcript tool-turn facade still owns: {responsibility}"
         );
         assert!(
             !transcript_adapter_source.contains(responsibility),
             "transcript adapter still owns tool-turn behavior: {responsibility}"
         );
     }
-    assert!(
-        transcript_tool_turn_source
-            .lines()
-            .any(|line| line == "mod streams;"),
-        "transcript tool-turn owner does not register its stream policy owner"
-    );
     for responsibility in [
         "pub(in super::super) fn record_tool_output_artifact(",
         "pub(in super::super) fn sanitize_tool_stream(",
@@ -371,14 +418,20 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript storage {owner} exceeded its {line_budget}-line budget"
         );
     }
-    assert!(
-        transcript_tool_turn_source.lines().count() < 450,
-        "transcript tool-turn module regrew beyond its ownership boundary"
-    );
-    assert!(
-        transcript_stream_source.lines().count() < 275,
-        "transcript stream module regrew beyond its ownership boundary"
-    );
+    for (owner, source, line_budget) in [
+        ("facade", &transcript_tool_turn_source, 30),
+        ("decoding", &transcript_tool_decoding_source, 125),
+        ("installation", &transcript_tool_installation_source, 100),
+        ("preparation", &transcript_tool_preparation_source, 175),
+        ("stream policy", &transcript_stream_source, 250),
+        ("types", &transcript_tool_types_source, 150),
+        ("view", &transcript_tool_view_source, 100),
+    ] {
+        assert!(
+            source.lines().count() < line_budget,
+            "transcript tool-turn {owner} exceeded its {line_budget}-line budget"
+        );
+    }
     assert!(
         transcript_test_source.lines().count() < 425,
         "transcript regression module regrew beyond its ownership boundary"

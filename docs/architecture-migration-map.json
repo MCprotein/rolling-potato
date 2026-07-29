@@ -11129,8 +11129,73 @@
       "path": "src/app/workflow_adapter/transcript/tool_turn.rs",
       "slices": [
         {
-          "responsibility": "prepared transcript tool turns, exact artifact installation, decode, and tool-output views",
+          "responsibility": "prepared transcript tool-turn owner facade and stable exports",
           "target": "src/app/workflow_adapter/transcript/tool_turn.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/tool_turn.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/decoding.rs",
+      "slices": [
+        {
+          "responsibility": "strict prepared tool, transcript, and event member decoding and binding",
+          "target": "src/app/workflow_adapter/transcript/tool_turn/decoding.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/tool_turn/decoding.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/installation.rs",
+      "slices": [
+        {
+          "responsibility": "exact idempotent prepared tool-output and transcript artifact installation",
+          "target": "src/app/workflow_adapter/transcript/tool_turn/installation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tool_turn/installation.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/preparation.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic no-stream tool artifact, transcript record, and ledger event preparation",
+          "target": "src/app/workflow_adapter/transcript/tool_turn/preparation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/tool_turn/preparation.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic tool stream sanitization, redaction, artifact persistence, and replay validation",
+          "target": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
@@ -11145,20 +11210,35 @@
       ]
     },
     {
-      "path": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+      "path": "src/app/workflow_adapter/transcript/tool_turn/types.rs",
       "slices": [
         {
-          "responsibility": "deterministic tool stream sanitization, redaction, byte caps, artifact persistence, and replay validation",
-          "target": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+          "responsibility": "sanitized tool artifact canonical wire contract and prepared transcript turn data",
+          "target": "src/app/workflow_adapter/transcript/tool_turn/types.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/workflow_adapter/transcript.rs",
-            "src/app/workflow_adapter/transcript/storage.rs",
-            "src/app/workflow_adapter/transcript/tool_turn.rs",
-            "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+            "src/runtime_core/workflow/storage_compat/transcript.rs",
+            "src/app/workflow_adapter/transcript/tool_turn/types.rs",
             "src/app/workflow_adapter/transcript/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/view.rs",
+      "slices": [
+        {
+          "responsibility": "canonical transcript-bound tool-output read view reconstruction",
+          "target": "src/app/workflow_adapter/transcript/tool_turn/view.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transcript.rs",
+            "src/app/workflow_adapter/transcript/tool_turn/view.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract/domain_views.rs"
           ]
         }
       ]
@@ -19938,13 +20018,43 @@
     {
       "path": "src/app/workflow_adapter/transcript/tool_turn.rs",
       "responsibilities": [
-        "prepared transcript tool turns, exact artifact installation, decode, and tool-output views"
+        "prepared transcript tool-turn owner facade and stable exports"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/decoding.rs",
+      "responsibilities": [
+        "strict prepared tool, transcript, and event member decoding and binding"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/installation.rs",
+      "responsibilities": [
+        "exact idempotent prepared tool-output and transcript artifact installation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/preparation.rs",
+      "responsibilities": [
+        "deterministic no-stream tool artifact, transcript record, and ledger event preparation"
       ]
     },
     {
       "path": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
       "responsibilities": [
-        "deterministic tool stream sanitization, redaction, byte caps, artifact persistence, and replay validation"
+        "deterministic tool stream sanitization, redaction, artifact persistence, and replay validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/types.rs",
+      "responsibilities": [
+        "sanitized tool artifact canonical wire contract and prepared transcript turn data"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/view.rs",
+      "responsibilities": [
+        "canonical transcript-bound tool-output read view reconstruction"
       ]
     },
     {
