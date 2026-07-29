@@ -2662,12 +2662,111 @@
       "path": "src/adapters/llama_cpp/backend.rs",
       "slices": [
         {
-          "responsibility": "llama.cpp discovery, health, version probe, and request protocol",
+          "responsibility": "llama.cpp backend facade and shared adapter contracts",
           "target": "src/adapters/llama_cpp/backend.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
             "src/adapters/llama_cpp/backend.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/discovery.rs",
+      "slices": [
+        {
+          "responsibility": "llama.cpp binary discovery and executable checks",
+          "target": "src/adapters/llama_cpp/backend/discovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/discovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/health.rs",
+      "slices": [
+        {
+          "responsibility": "bounded llama.cpp HTTP health probing",
+          "target": "src/adapters/llama_cpp/backend/health.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/health.rs",
+            "src/adapters/llama_cpp/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/request.rs",
+      "slices": [
+        {
+          "responsibility": "OpenAI-compatible llama.cpp chat request serialization",
+          "target": "src/adapters/llama_cpp/backend/request.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/request.rs",
+            "src/adapters/llama_cpp/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/sidecar.rs",
+      "slices": [
+        {
+          "responsibility": "llama-server sidecar command construction",
+          "target": "src/adapters/llama_cpp/backend/sidecar.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/sidecar.rs",
+            "src/adapters/llama_cpp/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/tests.rs",
+      "slices": [
+        {
+          "responsibility": "llama.cpp backend protocol and sidecar regression tests",
+          "target": "src/adapters/llama_cpp/backend/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/version.rs",
+      "slices": [
+        {
+          "responsibility": "managed llama.cpp version validation and process probing",
+          "target": "src/adapters/llama_cpp/backend/version.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/version.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -10922,7 +11021,43 @@
     {
       "path": "src/adapters/llama_cpp/backend.rs",
       "responsibilities": [
-        "llama.cpp discovery, health, version probe, and request protocol"
+        "llama.cpp backend facade and shared adapter contracts"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/discovery.rs",
+      "responsibilities": [
+        "llama.cpp binary discovery and executable checks"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/health.rs",
+      "responsibilities": [
+        "bounded llama.cpp HTTP health probing"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/request.rs",
+      "responsibilities": [
+        "OpenAI-compatible llama.cpp chat request serialization"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/sidecar.rs",
+      "responsibilities": [
+        "llama-server sidecar command construction"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/tests.rs",
+      "responsibilities": [
+        "llama.cpp backend protocol and sidecar regression tests"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/version.rs",
+      "responsibilities": [
+        "managed llama.cpp version validation and process probing"
       ]
     },
     {

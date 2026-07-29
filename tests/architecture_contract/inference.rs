@@ -22,6 +22,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/adapters/filesystem/model_artifact/download.rs",
         "src/adapters/filesystem/model_artifact/store.rs",
         "src/adapters/llama_cpp/backend.rs",
+        "src/adapters/llama_cpp/backend/discovery.rs",
+        "src/adapters/llama_cpp/backend/health.rs",
+        "src/adapters/llama_cpp/backend/request.rs",
+        "src/adapters/llama_cpp/backend/sidecar.rs",
+        "src/adapters/llama_cpp/backend/tests.rs",
+        "src/adapters/llama_cpp/backend/version.rs",
         "src/adapters/llama_cpp/install.rs",
         "src/adapters/llama_cpp/install/archive.rs",
         "src/adapters/llama_cpp/stream.rs",
@@ -67,6 +73,36 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(model_cache.lines().count() < 250);
     assert!(model_download.lines().count() < 375);
     assert!(model_store.lines().count() < 125);
+
+    let llama_backend = fs::read_to_string("src/adapters/llama_cpp/backend.rs").unwrap();
+    let llama_discovery =
+        fs::read_to_string("src/adapters/llama_cpp/backend/discovery.rs").unwrap();
+    let llama_health = fs::read_to_string("src/adapters/llama_cpp/backend/health.rs").unwrap();
+    let llama_request = fs::read_to_string("src/adapters/llama_cpp/backend/request.rs").unwrap();
+    let llama_sidecar = fs::read_to_string("src/adapters/llama_cpp/backend/sidecar.rs").unwrap();
+    let llama_tests = fs::read_to_string("src/adapters/llama_cpp/backend/tests.rs").unwrap();
+    let llama_version = fs::read_to_string("src/adapters/llama_cpp/backend/version.rs").unwrap();
+    for owner in ["discovery", "health", "request", "sidecar", "version"] {
+        assert!(
+            llama_backend
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "llama.cpp backend facade does not register {owner}"
+        );
+    }
+    assert!(llama_discovery.contains("pub(crate) fn discover("));
+    assert!(llama_health.contains("pub(crate) fn probe_health("));
+    assert!(llama_request.contains("pub(crate) fn chat_request_body_for_input("));
+    assert!(llama_sidecar.contains("pub(crate) fn sidecar_command("));
+    assert!(llama_version.contains("pub(crate) fn probe_version("));
+    assert!(llama_tests.contains("fn multimodal_request_uses_openai_image_content_parts("));
+    assert!(llama_backend.lines().count() < 100);
+    assert!(llama_discovery.lines().count() < 125);
+    assert!(llama_health.lines().count() < 125);
+    assert!(llama_request.lines().count() < 225);
+    assert!(llama_sidecar.lines().count() < 50);
+    assert!(llama_tests.lines().count() < 325);
+    assert!(llama_version.lines().count() < 250);
 
     let install_adapter = fs::read_to_string("src/adapters/llama_cpp/install.rs").unwrap();
     let install_archive = fs::read_to_string("src/adapters/llama_cpp/install/archive.rs").unwrap();
