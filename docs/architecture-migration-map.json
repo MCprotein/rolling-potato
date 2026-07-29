@@ -9322,13 +9322,85 @@
       "path": "src/app/web_search_adapter/research.rs",
       "slices": [
         {
-          "responsibility": "bounded web research step and terminal-state orchestration",
+          "responsibility": "bounded web research facade and owner registration",
           "target": "src/app/web_search_adapter/research.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/web_search_adapter/research.rs",
+            "src/app/web_search_adapter/research/fallback.rs",
+            "src/app/web_search_adapter/research/session.rs",
+            "src/app/web_search_adapter/research/tests.rs",
+            "src/app/web_search_adapter/research/types.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/fallback.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic contextual freshness fallback routing",
+          "target": "src/app/web_search_adapter/research/fallback.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research.rs",
+            "src/app/web_search_adapter/research/fallback.rs",
+            "src/app/web_search_adapter/research/tests.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/session.rs",
+      "slices": [
+        {
+          "responsibility": "bounded web research session state, admission, evidence, and terminal transitions",
+          "target": "src/app/web_search_adapter/research/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research.rs",
+            "src/app/web_search_adapter/research/session.rs",
+            "src/app/web_search_adapter/research/tests.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/tests.rs",
+      "slices": [
+        {
+          "responsibility": "web research budget, lifecycle, evidence, fallback, and grounding regressions",
+          "target": "src/app/web_search_adapter/research/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research/session.rs",
+            "src/app/web_search_adapter/research/tests.rs",
+            "src/app/web_search_adapter/research/types.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/types.rs",
+      "slices": [
+        {
+          "responsibility": "web research value types, budgets, limits, terminal errors, and input validation",
+          "target": "src/app/web_search_adapter/research/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research.rs",
+            "src/app/web_search_adapter/research/session.rs",
+            "src/app/web_search_adapter/research/types.rs",
+            "tests/architecture_contract/session_web_browser.rs"
           ]
         }
       ]
@@ -14026,7 +14098,31 @@
     {
       "path": "src/app/web_search_adapter/research.rs",
       "responsibilities": [
-        "bounded web research step and terminal-state orchestration"
+        "bounded web research facade and owner registration"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/fallback.rs",
+      "responsibilities": [
+        "deterministic contextual freshness fallback routing"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/session.rs",
+      "responsibilities": [
+        "bounded web research session state, admission, evidence, and terminal transitions"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/tests.rs",
+      "responsibilities": [
+        "web research budget, lifecycle, evidence, fallback, and grounding regressions"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research/types.rs",
+      "responsibilities": [
+        "web research value types, budgets, limits, terminal errors, and input validation"
       ]
     },
     {

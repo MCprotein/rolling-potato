@@ -316,6 +316,11 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/page_tools.rs",
         "src/app/web_search_adapter/page_tools/find.rs",
         "src/app/web_search_adapter/page_tools/open.rs",
+        "src/app/web_search_adapter/research.rs",
+        "src/app/web_search_adapter/research/fallback.rs",
+        "src/app/web_search_adapter/research/session.rs",
+        "src/app/web_search_adapter/research/tests.rs",
+        "src/app/web_search_adapter/research/types.rs",
         "src/app/web_search_adapter/research_flow.rs",
         "src/app/web_search_adapter/routing/grounding_policy.rs",
         "src/app/web_search_adapter/routing/grounding_policy/features.rs",
@@ -352,6 +357,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "grounded_fallback",
         "page_session",
         "page_tools",
+        "research",
         "research_flow",
         "routing",
     ] {
@@ -401,6 +407,60 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(routing_query.lines().any(|line| line == "mod context;"));
     assert!(routing_query.lines().any(|line| line == "mod sanitize;"));
     assert!(routing_web_policy.contains("fn web_disabled("));
+    let research = fs::read_to_string("src/app/web_search_adapter/research.rs").unwrap();
+    let research_fallback =
+        fs::read_to_string("src/app/web_search_adapter/research/fallback.rs").unwrap();
+    let research_session =
+        fs::read_to_string("src/app/web_search_adapter/research/session.rs").unwrap();
+    let research_tests =
+        fs::read_to_string("src/app/web_search_adapter/research/tests.rs").unwrap();
+    let research_types =
+        fs::read_to_string("src/app/web_search_adapter/research/types.rs").unwrap();
+    for module in ["mod fallback;", "mod session;", "mod types;"] {
+        assert!(
+            research.lines().any(|line| line == module),
+            "web research facade does not register {module}"
+        );
+    }
+    assert!(research.contains("#[path = \"research/tests.rs\"]"));
+    for (owner, responsibility) in [
+        (research_types.as_str(), "enum WebResearchStep"),
+        (research_types.as_str(), "struct WebResearchBudget"),
+        (research_types.as_str(), "enum WebResearchTerminal"),
+        (research_session.as_str(), "struct WebResearchSession"),
+        (research_session.as_str(), "fn admit("),
+        (research_session.as_str(), "fn take_evidence("),
+        (research_session.as_str(), "fn deterministic_fallback("),
+        (
+            research_fallback.as_str(),
+            "fn deterministic_freshness_fallback_for_context(",
+        ),
+        (
+            research_tests.as_str(),
+            "fn routing_budget_stops_at_search_revision_and_document_find_limits(",
+        ),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "web research responsibility owner is missing: {responsibility}"
+        );
+        assert!(
+            !research.contains(responsibility),
+            "web research facade still owns behavior: {responsibility}"
+        );
+    }
+    for (owner, maximum_lines, path) in [
+        (research.as_str(), 50, "research.rs"),
+        (research_fallback.as_str(), 75, "research/fallback.rs"),
+        (research_session.as_str(), 275, "research/session.rs"),
+        (research_tests.as_str(), 375, "research/tests.rs"),
+        (research_types.as_str(), 175, "research/types.rs"),
+    ] {
+        assert!(
+            owner.lines().count() < maximum_lines,
+            "web research owner regrew beyond its boundary: {path}"
+        );
+    }
     for pure_owner in [
         "src/adapters/web_search/find.rs",
         "src/adapters/web_search/page.rs",
