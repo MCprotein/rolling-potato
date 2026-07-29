@@ -8393,18 +8393,38 @@
       "path": "src/app/collaboration_adapter/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent admission, status, and cancellation adapter",
+          "responsibility": "subagent application facade and public collaboration exports",
           "target": "src/app/collaboration_adapter/subagent.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
             "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/admission.rs",
             "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/lifecycle.rs",
             "src/app/collaboration_adapter/subagent/persistence.rs",
+            "src/app/collaboration_adapter/subagent/reporting.rs",
             "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/collaboration/subagent_lifecycle.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/admission.rs",
+      "slices": [
+        {
+          "responsibility": "subagent and team-member admission, immutable resume binding, and interrupted-child recovery",
+          "target": "src/app/collaboration_adapter/subagent/admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/admission.rs",
+            "src/app/collaboration_adapter/subagent/tests/admission.rs",
+            "src/app/collaboration_adapter/subagent/tests/execution.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
           ]
         }
       ]
@@ -8502,6 +8522,23 @@
       ]
     },
     {
+      "path": "src/app/collaboration_adapter/subagent/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "subagent cancellation transitions and ledger lifecycle event publication",
+          "target": "src/app/collaboration_adapter/subagent/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/lifecycle.rs",
+            "src/app/collaboration_adapter/subagent/tests/admission.rs",
+            "src/app/collaboration_adapter/subagent/tests/execution.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/collaboration_adapter/subagent/persistence.rs",
       "slices": [
         {
@@ -8515,6 +8552,23 @@
             "src/app/collaboration_adapter/subagent/persistence.rs",
             "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/reporting.rs",
+      "slices": [
+        {
+          "responsibility": "subagent launch orchestration and read-only status report rendering",
+          "target": "src/app/collaboration_adapter/subagent/reporting.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/reporting.rs",
+            "src/app/collaboration_adapter/subagent/tests/admission.rs",
+            "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
           ]
         }
       ]
@@ -17506,7 +17560,13 @@
     {
       "path": "src/app/collaboration_adapter/subagent.rs",
       "responsibilities": [
-        "subagent admission, status, and cancellation adapter"
+        "subagent application facade and public collaboration exports"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/admission.rs",
+      "responsibilities": [
+        "subagent and team-member admission, immutable resume binding, and interrupted-child recovery"
       ]
     },
     {
@@ -17540,9 +17600,21 @@
       ]
     },
     {
+      "path": "src/app/collaboration_adapter/subagent/lifecycle.rs",
+      "responsibilities": [
+        "subagent cancellation transitions and ledger lifecycle event publication"
+      ]
+    },
+    {
       "path": "src/app/collaboration_adapter/subagent/persistence.rs",
       "responsibilities": [
         "subagent canonical record persistence, revision checkpointing, and snapshot-chain validation"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/reporting.rs",
+      "responsibilities": [
+        "subagent launch orchestration and read-only status report rendering"
       ]
     },
     {

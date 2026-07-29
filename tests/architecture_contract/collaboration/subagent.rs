@@ -3,12 +3,15 @@ use super::*;
 #[test]
 fn subagent_adapter_delegates_execution_persistence_and_regressions() {
     let adapter_path = "src/app/collaboration_adapter/subagent.rs";
+    let admission_path = "src/app/collaboration_adapter/subagent/admission.rs";
     let execution_path = "src/app/collaboration_adapter/subagent/execution.rs";
     let completion_path = "src/app/collaboration_adapter/subagent/execution/completion.rs";
     let dispatch_path = "src/app/collaboration_adapter/subagent/execution/dispatch.rs";
     let member_path = "src/app/collaboration_adapter/subagent/execution/member.rs";
     let parent_merge_path = "src/app/collaboration_adapter/subagent/execution/parent_merge.rs";
+    let lifecycle_path = "src/app/collaboration_adapter/subagent/lifecycle.rs";
     let persistence_path = "src/app/collaboration_adapter/subagent/persistence.rs";
+    let reporting_path = "src/app/collaboration_adapter/subagent/reporting.rs";
     let tests_path = "src/app/collaboration_adapter/subagent/tests.rs";
     let test_admission_path = "src/app/collaboration_adapter/subagent/tests/admission.rs";
     let test_contract_path = "src/app/collaboration_adapter/subagent/tests/contract.rs";
@@ -17,12 +20,15 @@ fn subagent_adapter_delegates_execution_persistence_and_regressions() {
 
     for path in [
         adapter_path,
+        admission_path,
         execution_path,
         completion_path,
         dispatch_path,
         member_path,
         parent_merge_path,
+        lifecycle_path,
         persistence_path,
+        reporting_path,
         tests_path,
         test_admission_path,
         test_contract_path,
@@ -33,20 +39,26 @@ fn subagent_adapter_delegates_execution_persistence_and_regressions() {
     }
 
     let adapter = source(adapter_path);
+    let admission = source(admission_path);
     let execution = source(execution_path);
     let completion = source(completion_path);
     let dispatch = source(dispatch_path);
     let member = source(member_path);
     let parent_merge = source(parent_merge_path);
+    let lifecycle = source(lifecycle_path);
     let persistence = source(persistence_path);
+    let reporting = source(reporting_path);
     let tests = source(tests_path);
     let test_admission = source(test_admission_path);
     let test_contract = source(test_contract_path);
     let test_execution = source(test_execution_path);
     let test_persistence = source(test_persistence_path);
 
+    assert_registered(&adapter, "mod admission;", "subagent adapter");
     assert_registered(&adapter, "mod execution;", "subagent adapter");
+    assert_registered(&adapter, "mod lifecycle;", "subagent adapter");
     assert_registered(&adapter, "mod persistence;", "subagent adapter");
+    assert_registered(&adapter, "mod reporting;", "subagent adapter");
     assert!(
         adapter.contains("#[path = \"subagent/tests.rs\"]"),
         "subagent adapter does not register its regression-test owner"
@@ -59,6 +71,8 @@ fn subagent_adapter_delegates_execution_persistence_and_regressions() {
         &member,
         &parent_merge,
     );
+    assert_admission_boundaries(&adapter, &admission);
+    assert_lifecycle_and_reporting_boundaries(&adapter, &lifecycle, &reporting);
     assert_persistence_boundaries(&adapter, &persistence);
     assert_regression_boundaries(
         &tests,
@@ -69,14 +83,17 @@ fn subagent_adapter_delegates_execution_persistence_and_regressions() {
     );
     assert_facade_delegation(&adapter);
 
-    assert_line_bound(&adapter, 501, adapter_path);
+    assert_line_bound(&adapter, 75, adapter_path);
     for (owner, owner_source, limit) in [
+        (admission_path, admission.as_str(), 350),
         (execution_path, execution.as_str(), 100),
         (completion_path, completion.as_str(), 225),
         (dispatch_path, dispatch.as_str(), 175),
         (member_path, member.as_str(), 175),
         (parent_merge_path, parent_merge.as_str(), 125),
+        (lifecycle_path, lifecycle.as_str(), 100),
         (persistence_path, persistence.as_str(), 325),
+        (reporting_path, reporting.as_str(), 125),
         (tests_path, tests.as_str(), 100),
         (test_admission_path, test_admission.as_str(), 150),
         (test_contract_path, test_contract.as_str(), 150),
@@ -84,6 +101,36 @@ fn subagent_adapter_delegates_execution_persistence_and_regressions() {
         (test_persistence_path, test_persistence.as_str(), 125),
     ] {
         assert_line_bound(owner_source, limit, owner);
+    }
+}
+
+fn assert_admission_boundaries(adapter: &str, admission: &str) {
+    for responsibility in [
+        "pub(crate) struct AdmittedLaunch",
+        "pub(crate) struct TeamMemberLaunch",
+        "pub(crate) struct AdmittedTeamMember",
+        "pub(crate) fn admit_team_members(",
+        "pub(crate) fn resume_admitted_team_member(",
+        "pub(super) fn admit_launch(",
+        "fn recover_or_block_existing_child(",
+    ] {
+        assert_moved(admission, adapter, responsibility);
+    }
+}
+
+fn assert_lifecycle_and_reporting_boundaries(adapter: &str, lifecycle: &str, reporting: &str) {
+    for responsibility in [
+        "pub fn cancel_report(",
+        "pub(super) fn append_lifecycle_event(",
+    ] {
+        assert_moved(lifecycle, adapter, responsibility);
+    }
+    for responsibility in [
+        "pub fn launch_report(",
+        "pub fn status_report(",
+        "pub(super) fn render_status_report(",
+    ] {
+        assert_moved(reporting, adapter, responsibility);
     }
 }
 
