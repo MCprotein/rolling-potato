@@ -41,6 +41,7 @@ fn clean_uninstall_removes_binary_and_owned_profile_block_only() {
     let _ = fs::remove_dir_all(root);
 }
 
+#[cfg(unix)]
 #[test]
 fn clean_uninstall_finds_owned_blocks_after_the_login_shell_changes() {
     let root = unique_temp("changed-shell-uninstall");

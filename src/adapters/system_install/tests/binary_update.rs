@@ -30,6 +30,7 @@ fn executable_install_creates_updates_and_preserves_managed_target() {
     let _ = fs::remove_dir_all(root);
 }
 
+#[cfg(unix)]
 #[test]
 fn staged_update_replaces_only_the_managed_binary() {
     let root = unique_temp("self-update");

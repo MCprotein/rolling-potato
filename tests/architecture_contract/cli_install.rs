@@ -499,6 +499,11 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     ));
     assert!(profile_path_tests
         .contains("#[cfg(unix)]\n#[test]\nfn binary_and_profile_plans_are_exact_and_read_only()"));
+    assert!(uninstall_tests.contains(
+        "#[cfg(unix)]\n#[test]\nfn clean_uninstall_finds_owned_blocks_after_the_login_shell_changes()"
+    ));
+    assert!(binary_update_tests
+        .contains("#[cfg(unix)]\n#[test]\nfn staged_update_replaces_only_the_managed_binary()"));
     assert!(adapter.lines().count() < 200);
     assert!(binary_adapter.lines().count() < 425);
     assert!(clean_state_adapter.lines().count() < 125);

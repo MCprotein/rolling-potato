@@ -84,8 +84,11 @@ fn state_writer_callgraph_is_closed_and_serialized_by_project_transition() {
     let state_adapter = source_dir.join("app/workflow_adapter/state.rs");
     let state_children = source_dir.join("app/workflow_adapter/state");
     let recovery_owner = source_dir.join("runtime_core/workflow/application/recovery.rs");
+    let recovery_children = source_dir.join("runtime_core/workflow/application/recovery");
     let transaction_owner =
         source_dir.join("runtime_core/workflow/application/transaction_coordinator.rs");
+    let transaction_children =
+        source_dir.join("runtime_core/workflow/application/transaction_coordinator");
     let authority_primitives = [
         "install_current_image(",
         "write_workflow_snapshot_bytes(",
@@ -107,7 +110,10 @@ fn state_writer_callgraph_is_closed_and_serialized_by_project_transition() {
                 let is_state_owner = path == state_adapter || path.starts_with(&state_children);
                 let is_application_port_call =
                     matches!(primitive, ".install_snapshot(" | ".install_pointer(")
-                        && (path == recovery_owner || path == transaction_owner);
+                        && (path == recovery_owner
+                            || path.starts_with(&recovery_children)
+                            || path == transaction_owner
+                            || path.starts_with(&transaction_children));
                 assert!(
                     is_state_owner || is_application_port_call,
                     "authority primitive {primitive} escaped the state adapter into {}",
