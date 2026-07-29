@@ -12697,7 +12697,7 @@
       "path": "src/surfaces/tui/setup.rs",
       "slices": [
         {
-          "responsibility": "guided first-run model selection and managed backend setup",
+          "responsibility": "guided first-run setup orchestration and runtime port",
           "target": "src/surfaces/tui/setup.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -12705,7 +12705,23 @@
             "src/surfaces/tui/setup.rs",
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/setup/presentation.rs",
+      "slices": [
+        {
+          "responsibility": "first-run model list and confirmation presentation",
+          "target": "src/surfaces/tui/setup/presentation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/setup/presentation.rs",
+            "src/surfaces/tui/setup/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
           ]
         }
       ]
@@ -21242,7 +21258,13 @@
     {
       "path": "src/surfaces/tui/setup.rs",
       "responsibilities": [
-        "guided first-run model selection and managed backend setup"
+        "guided first-run setup orchestration and runtime port"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/setup/presentation.rs",
+      "responsibilities": [
+        "first-run model list and confirmation presentation"
       ]
     },
     {

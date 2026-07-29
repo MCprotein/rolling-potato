@@ -3,13 +3,29 @@ use super::*;
 #[test]
 fn tui_setup_separates_runtime_flow_from_terminal_fixtures() {
     let setup = fs::read_to_string("src/surfaces/tui/setup.rs").unwrap();
+    let presentation = fs::read_to_string("src/surfaces/tui/setup/presentation.rs").unwrap();
     let tests = fs::read_to_string("src/surfaces/tui/setup/tests.rs").unwrap();
 
-    assert!(setup.lines().count() < 250);
+    assert!(setup.lines().count() < 150);
+    assert!(presentation.lines().count() < 150);
     assert!(tests.lines().count() < 275);
+    assert!(setup.lines().any(|line| line == "mod presentation;"));
     assert!(setup.contains("#[path = \"setup/tests.rs\"]"));
     assert!(setup.contains("fn run_setup("));
-    assert!(setup.contains("fn render_setup_screen("));
+    for responsibility in [
+        "fn render_setup_screen(",
+        "fn model_choices(",
+        "fn confirmation_choices(",
+    ] {
+        assert!(
+            presentation.contains(responsibility),
+            "TUI setup presentation owner is missing {responsibility}"
+        );
+        assert!(
+            !setup.contains(responsibility),
+            "TUI setup flow still owns presentation rule: {responsibility}"
+        );
+    }
     for fixture in [
         "struct ScriptedTerminal",
         "struct SetupRuntime",
