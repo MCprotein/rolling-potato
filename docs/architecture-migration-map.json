@@ -12119,15 +12119,94 @@
       "path": "src/app/tui_adapter/conversation.rs",
       "slices": [
         {
-          "responsibility": "non-mutating TUI conversation routing and report presentation",
+          "responsibility": "non-mutating TUI conversation facade and owner registration",
           "target": "src/app/tui_adapter/conversation.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/conversation.rs",
-            "src/app/tui_adapter/conversation_tests.rs",
-            "tests/architecture_contract.rs"
+            "src/app/tui_adapter/conversation/tests/mod.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/decision.rs",
+      "slices": [
+        {
+          "responsibility": "conversation tool-decision and grounding regression tests",
+          "target": "src/app/tui_adapter/conversation/tests/decision.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/decision.rs",
+            "src/app/tui_adapter/conversation/tests/decision.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/local_facts.rs",
+      "slices": [
+        {
+          "responsibility": "conversation classification and runtime-fact regression tests",
+          "target": "src/app/tui_adapter/conversation/tests/local_facts.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/local_facts.rs",
+            "src/app/tui_adapter/conversation/tests/local_facts.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "conversation regression test owner registration",
+          "target": "src/app/tui_adapter/conversation/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/tests/mod.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/presentation.rs",
+      "slices": [
+        {
+          "responsibility": "public answer and agent-report presentation regression tests",
+          "target": "src/app/tui_adapter/conversation/tests/presentation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/presentation.rs",
+            "src/app/tui_adapter/conversation/tests/presentation.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/reply.rs",
+      "slices": [
+        {
+          "responsibility": "conversation context assembly regression tests",
+          "target": "src/app/tui_adapter/conversation/tests/reply.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/reply.rs",
+            "src/app/tui_adapter/conversation/tests/reply.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
           ]
         }
       ]
@@ -20694,7 +20773,37 @@
     {
       "path": "src/app/tui_adapter/conversation.rs",
       "responsibilities": [
-        "non-mutating TUI conversation routing and report presentation"
+        "non-mutating TUI conversation facade and owner registration"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/decision.rs",
+      "responsibilities": [
+        "conversation tool-decision and grounding regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/local_facts.rs",
+      "responsibilities": [
+        "conversation classification and runtime-fact regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/mod.rs",
+      "responsibilities": [
+        "conversation regression test owner registration"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/presentation.rs",
+      "responsibilities": [
+        "public answer and agent-report presentation regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/reply.rs",
+      "responsibilities": [
+        "conversation context assembly regression tests"
       ]
     },
     {

@@ -31,6 +31,10 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         fs::read_to_string("src/app/tui_adapter/conversation/presentation.rs").unwrap();
     let conversation_reply =
         fs::read_to_string("src/app/tui_adapter/conversation/reply.rs").unwrap();
+    let conversation_tests =
+        fs::read_to_string("src/app/tui_adapter/conversation/tests/mod.rs").unwrap();
+    let conversation_decision_tests =
+        fs::read_to_string("src/app/tui_adapter/conversation/tests/decision.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
 
     assert!(adapters.contains("pub(crate) mod browser;"));
@@ -67,6 +71,11 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         "src/app/tui_adapter/conversation/local_facts.rs",
         "src/app/tui_adapter/conversation/presentation.rs",
         "src/app/tui_adapter/conversation/reply.rs",
+        "src/app/tui_adapter/conversation/tests/decision.rs",
+        "src/app/tui_adapter/conversation/tests/local_facts.rs",
+        "src/app/tui_adapter/conversation/tests/mod.rs",
+        "src/app/tui_adapter/conversation/tests/presentation.rs",
+        "src/app/tui_adapter/conversation/tests/reply.rs",
         "src/runtime_core/browser.rs",
         "src/runtime_core/browser/interaction.rs",
         "src/runtime_core/browser/tests.rs",
@@ -133,8 +142,17 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
                 .any(|line| line == format!("mod {owner};")),
             "conversation facade does not register {owner}"
         );
+        assert!(
+            conversation_tests
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "conversation test facade does not register {owner}"
+        );
     }
-    assert!(conversation.contains("history_only_secret_cannot_become_network_tool_input"));
+    assert!(conversation.lines().any(|line| line == "mod tests;"));
+    assert!(
+        conversation_decision_tests.contains("history_only_secret_cannot_become_network_tool_input")
+    );
     assert!(conversation_decision.contains("RequestDecision::BrowserTool"));
     assert!(conversation_decision.contains("generate_structured_candidate_for_user"));
     assert!(conversation_decision.contains("TURN_DECISION_JSON_SCHEMA"));
@@ -159,9 +177,31 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(browser_policy.lines().count() < 225);
     assert!(interaction.lines().count() < 350);
     assert!(interaction_tests.lines().count() < 225);
-    assert!(conversation.lines().count() < 500);
+    assert!(conversation.lines().count() < 50);
     assert!(conversation_decision.lines().count() < 300);
     assert!(conversation_local_facts.lines().count() < 300);
     assert!(conversation_presentation.lines().count() < 125);
     assert!(conversation_reply.lines().count() < 125);
+    assert!(conversation_tests.lines().count() < 20);
+    for (path, line_budget) in [
+        (
+            "src/app/tui_adapter/conversation/tests/decision.rs",
+            250,
+        ),
+        (
+            "src/app/tui_adapter/conversation/tests/local_facts.rs",
+            225,
+        ),
+        (
+            "src/app/tui_adapter/conversation/tests/presentation.rs",
+            100,
+        ),
+        ("src/app/tui_adapter/conversation/tests/reply.rs", 75),
+    ] {
+        let source = fs::read_to_string(path).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "conversation test owner {path} exceeded its {line_budget}-line budget"
+        );
+    }
 }
