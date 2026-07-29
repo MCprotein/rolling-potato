@@ -42,3 +42,5 @@ mod domain;
 mod subagent;
 #[path = "collaboration/team.rs"]
 mod team;
+#[path = "collaboration/team_reconciliation.rs"]
+mod team_reconciliation;

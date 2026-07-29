@@ -9783,15 +9783,76 @@
       "path": "src/app/collaboration_adapter/team_reconciliation.rs",
       "slices": [
         {
-          "responsibility": "team evidence reconciliation adapter",
+          "responsibility": "team reconciliation stage sequencing and completion report coordination",
           "target": "src/app/collaboration_adapter/team_reconciliation.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/collaboration/team_reconciliation.rs",
             "src/app/collaboration_adapter/team_reconciliation.rs",
-            "tests/collaboration/team_runtime.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/collaboration/team_reconciliation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/artifact.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic reconciliation artifact rendering and atomic installation",
+          "target": "src/app/collaboration_adapter/team_reconciliation/artifact.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_reconciliation/artifact.rs",
+            "tests/architecture_contract/collaboration/team_reconciliation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "member freshness checks, parent evidence merge, and stop-gate verification",
+          "target": "src/app/collaboration_adapter/team_reconciliation/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_reconciliation/evidence.rs",
+            "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs",
+            "tests/architecture_contract/collaboration/team_reconciliation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/events.rs",
+      "slices": [
+        {
+          "responsibility": "idempotent reconciliation event journal and stop-gate failure persistence",
+          "target": "src/app/collaboration_adapter/team_reconciliation/events.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_reconciliation/events.rs",
+            "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs",
+            "tests/architecture_contract/collaboration/team_reconciliation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/members.rs",
+      "slices": [
+        {
+          "responsibility": "admitted worker binding, result loading, and action ownership reconciliation",
+          "target": "src/app/collaboration_adapter/team_reconciliation/members.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_reconciliation/members.rs",
+            "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs",
+            "tests/architecture_contract/collaboration/team_reconciliation.rs"
           ]
         }
       ]
@@ -12374,6 +12435,22 @@
             "src/app/collaboration_adapter/team.rs",
             "tests/architecture_contract/collaboration.rs",
             "tests/architecture_contract/collaboration/team.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/team_reconciliation.rs",
+      "slices": [
+        {
+          "responsibility": "team reconciliation coordinator and handler ownership contracts",
+          "target": "tests/architecture_contract/collaboration/team_reconciliation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_reconciliation.rs",
+            "tests/architecture_contract/collaboration.rs",
+            "tests/architecture_contract/collaboration/team_reconciliation.rs"
           ]
         }
       ]
@@ -17921,7 +17998,31 @@
     {
       "path": "src/app/collaboration_adapter/team_reconciliation.rs",
       "responsibilities": [
-        "team evidence reconciliation adapter"
+        "team reconciliation stage sequencing and completion report coordination"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/artifact.rs",
+      "responsibilities": [
+        "deterministic reconciliation artifact rendering and atomic installation"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/evidence.rs",
+      "responsibilities": [
+        "member freshness checks, parent evidence merge, and stop-gate verification"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/events.rs",
+      "responsibilities": [
+        "idempotent reconciliation event journal and stop-gate failure persistence"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation/members.rs",
+      "responsibilities": [
+        "admitted worker binding, result loading, and action ownership reconciliation"
       ]
     },
     {
@@ -18869,6 +18970,12 @@
       "path": "tests/architecture_contract/collaboration/team.rs",
       "responsibilities": [
         "team reporting, execution, persistence, reconciliation, and facade delegation contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/team_reconciliation.rs",
+      "responsibilities": [
+        "team reconciliation coordinator and handler ownership contracts"
       ]
     },
     {

@@ -244,7 +244,6 @@ fn assert_team_state_boundaries() {
 }
 
 fn assert_team_facade_delegation() {
-    let reconciliation_path = "src/app/collaboration_adapter/team_reconciliation.rs";
     for (facade_path, moved_definition, delegation) in [
         (
             "src/app/collaboration_adapter/team.rs",
@@ -282,16 +281,6 @@ fn assert_team_facade_delegation() {
             "validate_execution_binding",
         ),
         (
-            "src/app/collaboration_adapter/team_reconciliation.rs",
-            "fn validate_team_binding",
-            "validate_reconciliation_binding",
-        ),
-        (
-            "src/app/collaboration_adapter/team_reconciliation.rs",
-            "fn validate_member_record",
-            "validate_reconciliation_binding",
-        ),
-        (
             "src/app/collaboration_adapter/team_state.rs",
             "pub enum TeamStage",
             "collaboration::team_state",
@@ -318,7 +307,6 @@ fn assert_team_facade_delegation() {
             "team facade is missing owner delegation: {facade_path} -> {delegation}"
         );
     }
-    assert_line_bound(&source(reconciliation_path), 551, reconciliation_path);
 }
 
 fn assert_collaboration_adapter_registration() {
