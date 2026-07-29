@@ -16,6 +16,17 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
     let ledger_writer = "src/app/workflow_adapter/ledger/writer.rs";
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
+    let coordinator = "src/runtime_core/workflow/application/transaction_coordinator.rs";
+    let coordinator_approval =
+        "src/runtime_core/workflow/application/transaction_coordinator/approval.rs";
+    let coordinator_contracts =
+        "src/runtime_core/workflow/application/transaction_coordinator/contracts.rs";
+    let coordinator_event_sequence =
+        "src/runtime_core/workflow/application/transaction_coordinator/event_sequence.rs";
+    let coordinator_state_transition =
+        "src/runtime_core/workflow/application/transaction_coordinator/state_transition.rs";
+    let coordinator_terminal_action =
+        "src/runtime_core/workflow/application/transaction_coordinator/terminal_action.rs";
     for target in [
         ledger_adapter,
         ledger_append,
@@ -37,7 +48,13 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         "src/runtime_core/workflow/application/recovery/projection.rs",
         "src/runtime_core/workflow/application/recovery/transaction.rs",
         "src/runtime_core/workflow/application/recovery/validation.rs",
-        "src/runtime_core/workflow/application/transaction_coordinator.rs",
+        coordinator,
+        coordinator_approval,
+        coordinator_contracts,
+        coordinator_event_sequence,
+        coordinator_state_transition,
+        coordinator_terminal_action,
+        "src/runtime_core/workflow/application/transaction_coordinator/verification.rs",
         coordinator_tests,
         "src/runtime_core/workflow/domain/transition.rs",
         "tests/workflow/recovery.rs",
@@ -64,25 +81,87 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
 
-    let coordinator =
-        fs::read_to_string("src/runtime_core/workflow/application/transaction_coordinator.rs")
-            .unwrap();
+    let coordinator = fs::read_to_string(coordinator).unwrap();
+    let coordinator_approval = fs::read_to_string(coordinator_approval).unwrap();
+    let coordinator_contracts = fs::read_to_string(coordinator_contracts).unwrap();
+    let coordinator_event_sequence = fs::read_to_string(coordinator_event_sequence).unwrap();
+    let coordinator_state_transition = fs::read_to_string(coordinator_state_transition).unwrap();
+    let coordinator_terminal_action = fs::read_to_string(coordinator_terminal_action).unwrap();
+    let coordinator_verification = fs::read_to_string(
+        "src/runtime_core/workflow/application/transaction_coordinator/verification.rs",
+    )
+    .unwrap();
     let coordinator_tests = fs::read_to_string(coordinator_tests).unwrap();
     assert!(
         coordinator.contains("#[path = \"transaction_coordinator/tests.rs\"]"),
         "transaction coordinator does not register its regression-test owner"
     );
-    for rule in [
-        "fn execute_approval_transaction",
-        "fn execute_verification_transaction",
-        "fn execute_terminal_action_transaction",
-        "fn execute_state_transition",
-        "fn execute_reconcile_transaction",
+    for owner in [
+        "approval",
+        "contracts",
+        "event_sequence",
+        "state_transition",
+        "terminal_action",
+        "verification",
+    ] {
+        let declaration = format!("mod {owner};");
+        assert!(
+            coordinator.lines().any(|line| line == declaration),
+            "transaction coordinator facade is missing child owner: {owner}"
+        );
+    }
+    for (owner, rule) in [
+        (&coordinator_approval, "fn execute_approval_transaction"),
+        (
+            &coordinator_verification,
+            "fn execute_verification_transaction",
+        ),
+        (
+            &coordinator_terminal_action,
+            "fn execute_terminal_action_transaction",
+        ),
+        (
+            &coordinator_state_transition,
+            "fn execute_state_transition",
+        ),
+        (
+            &coordinator_state_transition,
+            "fn execute_reconcile_transaction",
+        ),
     ] {
         assert!(
-            coordinator.contains(rule),
-            "transaction coordinator is missing ordered use case: {rule}"
+            owner.contains(rule),
+            "transaction coordinator owner is missing ordered use case: {rule}"
         );
+        assert!(
+            !coordinator.contains(rule),
+            "transaction coordinator facade still owns ordered use case: {rule}"
+        );
+    }
+    for definition in [
+        "enum TransactionExecution",
+        "enum ApprovalFault",
+        "trait ApprovalTransactionPort",
+        "enum VerificationFault",
+        "trait VerificationTransactionPort",
+        "enum TerminalActionFault",
+        "trait TerminalActionTransactionPort",
+        "enum StateTransitionFault",
+        "trait StateTransitionTransactionPort",
+        "trait ReconcileTransactionPort",
+    ] {
+        assert!(
+            coordinator_contracts.contains(definition),
+            "transaction contracts owner is missing: {definition}"
+        );
+        assert!(!coordinator.contains(definition));
+    }
+    for definition in ["struct PlannedEvent", "struct TransactionCoordinator"] {
+        assert!(
+            coordinator_event_sequence.contains(definition),
+            "transaction event-sequence owner is missing: {definition}"
+        );
+        assert!(!coordinator.contains(definition));
     }
     for regression in [
         "fn accepts_only_the_next_bound_event(",
@@ -99,10 +178,13 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
             "transaction coordinator still owns inline regression: {regression}"
         );
     }
-    assert!(
-        coordinator.lines().count() < 500,
-        "transaction coordinator regrew beyond its ownership boundary"
-    );
+    assert!(coordinator.lines().count() < 50);
+    assert!(coordinator_approval.lines().count() < 100);
+    assert!(coordinator_contracts.lines().count() < 225);
+    assert!(coordinator_event_sequence.lines().count() < 100);
+    assert!(coordinator_state_transition.lines().count() < 75);
+    assert!(coordinator_terminal_action.lines().count() < 75);
+    assert!(coordinator_verification.lines().count() < 75);
     assert!(
         coordinator_tests.lines().count() < 550,
         "transaction coordinator regression module regrew beyond its ownership boundary"

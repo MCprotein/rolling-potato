@@ -7988,7 +7988,7 @@
       "path": "src/runtime_core/workflow/application/transaction_coordinator.rs",
       "slices": [
         {
-          "responsibility": "cross-store transaction coordination",
+          "responsibility": "workflow transaction coordinator facade and public re-exports",
           "target": "src/runtime_core/workflow/application/transaction_coordinator.rs",
           "release": "0.37.6",
           "state": "complete",
@@ -7997,6 +7997,102 @@
             "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
             "tests/workflow/recovery.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/approval.rs",
+      "slices": [
+        {
+          "responsibility": "approval transaction ordering and recovery-mode coordination",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/approval.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator/approval.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/contracts.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transaction ports, execution mode, revisions, and fault value objects",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/contracts.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator/contracts.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/event_sequence.rs",
+      "slices": [
+        {
+          "responsibility": "planned semantic-event sequence validation and append progress",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/event_sequence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator/event_sequence.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/state_transition.rs",
+      "slices": [
+        {
+          "responsibility": "state-transition and reconcile transaction ordering",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/state_transition.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator/state_transition.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/terminal_action.rs",
+      "slices": [
+        {
+          "responsibility": "terminal-action transaction ordering and recovery-mode coordination",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/terminal_action.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator/terminal_action.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/verification.rs",
+      "slices": [
+        {
+          "responsibility": "verification transaction ordering and recovery-mode coordination",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/verification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator/verification.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
           ]
         }
       ]
@@ -18302,7 +18398,43 @@
     {
       "path": "src/runtime_core/workflow/application/transaction_coordinator.rs",
       "responsibilities": [
-        "cross-store transaction coordination"
+        "workflow transaction coordinator facade and public re-exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/approval.rs",
+      "responsibilities": [
+        "approval transaction ordering and recovery-mode coordination"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/contracts.rs",
+      "responsibilities": [
+        "workflow transaction ports, execution mode, revisions, and fault value objects"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/event_sequence.rs",
+      "responsibilities": [
+        "planned semantic-event sequence validation and append progress"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/state_transition.rs",
+      "responsibilities": [
+        "state-transition and reconcile transaction ordering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/terminal_action.rs",
+      "responsibilities": [
+        "terminal-action transaction ordering and recovery-mode coordination"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/verification.rs",
+      "responsibilities": [
+        "verification transaction ordering and recovery-mode coordination"
       ]
     },
     {
