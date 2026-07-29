@@ -13317,13 +13317,61 @@
       "path": "tests/architecture_contract/observability_policy/observability.rs",
       "slices": [
         {
-          "responsibility": "observability and projection ownership architecture contracts",
+          "responsibility": "observability architecture contract facade and owner registration",
           "target": "tests/architecture_contract/observability_policy/observability.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "tests/architecture_contract/observability_policy/observability.rs",
+            "tests/architecture_contract/observability_policy/observability/boundaries.rs",
+            "tests/architecture_contract/observability_policy/observability/runtime.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs",
             "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability/boundaries.rs",
+      "slices": [
+        {
+          "responsibility": "canonical observability adapter and projection barrier boundary contracts",
+          "target": "tests/architecture_contract/observability_policy/observability/boundaries.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy/observability/boundaries.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability/runtime.rs",
+      "slices": [
+        {
+          "responsibility": "runtime observability port, monitor, and HTML ownership contracts",
+          "target": "tests/architecture_contract/observability_policy/observability/runtime.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy/observability/runtime.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability/sqlite.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite observability projection owner and regression boundary contracts",
+          "target": "tests/architecture_contract/observability_policy/observability/sqlite.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
           ]
         }
       ]
@@ -19840,7 +19888,25 @@
     {
       "path": "tests/architecture_contract/observability_policy/observability.rs",
       "responsibilities": [
-        "observability and projection ownership architecture contracts"
+        "observability architecture contract facade and owner registration"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability/boundaries.rs",
+      "responsibilities": [
+        "canonical observability adapter and projection barrier boundary contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability/runtime.rs",
+      "responsibilities": [
+        "runtime observability port, monitor, and HTML ownership contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability/sqlite.rs",
+      "responsibilities": [
+        "SQLite observability projection owner and regression boundary contracts"
       ]
     },
     {

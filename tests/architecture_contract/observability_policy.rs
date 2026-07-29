@@ -8,10 +8,22 @@ include!("observability_policy/ontology.rs");
 #[test]
 fn observability_policy_contracts_are_split_by_responsibility() {
     for (path, maximum_lines) in [
-        ("tests/architecture_contract/observability_policy.rs", 50),
+        ("tests/architecture_contract/observability_policy.rs", 60),
         (
             "tests/architecture_contract/observability_policy/observability.rs",
-            475,
+            25,
+        ),
+        (
+            "tests/architecture_contract/observability_policy/observability/boundaries.rs",
+            100,
+        ),
+        (
+            "tests/architecture_contract/observability_policy/observability/runtime.rs",
+            200,
+        ),
+        (
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs",
+            375,
         ),
         (
             "tests/architecture_contract/observability_policy/knowledge_policy.rs",
