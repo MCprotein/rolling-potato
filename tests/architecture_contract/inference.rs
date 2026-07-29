@@ -18,6 +18,9 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/adapters/filesystem/backend_state.rs",
         "src/adapters/filesystem/benchmark_artifact.rs",
         "src/adapters/filesystem/model_artifact.rs",
+        "src/adapters/filesystem/model_artifact/cache.rs",
+        "src/adapters/filesystem/model_artifact/download.rs",
+        "src/adapters/filesystem/model_artifact/store.rs",
         "src/adapters/llama_cpp/backend.rs",
         "src/adapters/llama_cpp/install.rs",
         "src/adapters/llama_cpp/install/archive.rs",
@@ -38,6 +41,32 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "legacy inference owner remains: {legacy}"
         );
     }
+
+    let model_artifact = fs::read_to_string("src/adapters/filesystem/model_artifact.rs").unwrap();
+    let model_cache =
+        fs::read_to_string("src/adapters/filesystem/model_artifact/cache.rs").unwrap();
+    let model_download =
+        fs::read_to_string("src/adapters/filesystem/model_artifact/download.rs").unwrap();
+    let model_store =
+        fs::read_to_string("src/adapters/filesystem/model_artifact/store.rs").unwrap();
+    for owner in ["cache", "download", "store"] {
+        assert!(
+            model_artifact
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "model-artifact facade does not register {owner}"
+        );
+    }
+    assert!(model_cache.contains("pub(crate) fn cleanup_failed_artifacts("));
+    assert!(model_cache.contains("pub(crate) fn local_artifact_state("));
+    assert!(model_download.contains("pub(crate) fn fetch_evaluation_artifact("));
+    assert!(model_download.contains("pub(crate) fn fetch_managed_projector_artifact("));
+    assert!(model_store.contains("pub(crate) fn read_registry_entries("));
+    assert!(model_store.contains("pub(crate) fn read_default_selection("));
+    assert!(model_artifact.lines().count() < 175);
+    assert!(model_cache.lines().count() < 250);
+    assert!(model_download.lines().count() < 375);
+    assert!(model_store.lines().count() < 125);
 
     let install_adapter = fs::read_to_string("src/adapters/llama_cpp/install.rs").unwrap();
     let install_archive = fs::read_to_string("src/adapters/llama_cpp/install/archive.rs").unwrap();

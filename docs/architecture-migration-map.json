@@ -3899,12 +3899,60 @@
       "path": "src/adapters/filesystem/model_artifact.rs",
       "slices": [
         {
-          "responsibility": "model artifact download, verification, cleanup, and registry persistence I/O",
+          "responsibility": "model artifact filesystem facade and fetch-status presentation",
           "target": "src/adapters/filesystem/model_artifact.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
             "src/adapters/filesystem/model_artifact.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact/cache.rs",
+      "slices": [
+        {
+          "responsibility": "local model artifact cache state, cleanup, and revision-scoped paths",
+          "target": "src/adapters/filesystem/model_artifact/cache.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/adapters/filesystem/model_artifact/cache.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact/download.rs",
+      "slices": [
+        {
+          "responsibility": "bounded resumable model artifact download and verification",
+          "target": "src/adapters/filesystem/model_artifact/download.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/adapters/filesystem/model_artifact/download.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact/store.rs",
+      "slices": [
+        {
+          "responsibility": "model registry, evidence, and default-selection persistence",
+          "target": "src/adapters/filesystem/model_artifact/store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/adapters/filesystem/model_artifact/store.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -11320,7 +11368,25 @@
     {
       "path": "src/adapters/filesystem/model_artifact.rs",
       "responsibilities": [
-        "model artifact download, verification, cleanup, and registry persistence I/O"
+        "model artifact filesystem facade and fetch-status presentation"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact/cache.rs",
+      "responsibilities": [
+        "local model artifact cache state, cleanup, and revision-scoped paths"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact/download.rs",
+      "responsibilities": [
+        "bounded resumable model artifact download and verification"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact/store.rs",
+      "responsibilities": [
+        "model registry, evidence, and default-selection persistence"
       ]
     },
     {
