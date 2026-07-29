@@ -2,6 +2,7 @@ use super::*;
 
 include!("patch_runtime/patch_domain_lifecycle.rs");
 include!("patch_runtime/application_adapter_contracts.rs");
+include!("patch_runtime/intent_adapter.rs");
 include!("patch_runtime/runtime_reporting.rs");
 
 #[test]
@@ -14,6 +15,10 @@ fn patch_runtime_contract_children_are_bounded() {
         (
             "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
             500,
+        ),
+        (
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs",
+            125,
         ),
         (
             "tests/architecture_contract/patch_runtime/runtime_reporting.rs",

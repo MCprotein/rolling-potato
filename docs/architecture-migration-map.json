@@ -3805,16 +3805,118 @@
       "path": "src/app/intent_adapter.rs",
       "slices": [
         {
-          "responsibility": "intent facade, model answer and evidence gates, and agent prompt composition",
+          "responsibility": "intent application facade and stable routing or execution exports",
           "target": "src/app/intent_adapter.rs",
           "release": "0.37.9",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
             "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/context_requirements.rs",
             "src/app/intent_adapter/execution.rs",
+            "src/app/intent_adapter/lifecycle.rs",
+            "src/app/intent_adapter/outcomes.rs",
+            "src/app/intent_adapter/prompt.rs",
+            "src/app/intent_adapter/reporting.rs",
+            "src/app/intent_adapter/routing.rs",
             "src/app/intent_adapter/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/context_requirements.rs",
+      "slices": [
+        {
+          "responsibility": "skill context-requirement admission against available runtime evidence",
+          "target": "src/app/intent_adapter/context_requirements.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/context_requirements.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "skill hook dispatch and workflow failure checkpoint lifecycle",
+          "target": "src/app/intent_adapter/lifecycle.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/lifecycle.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/outcomes.rs",
+      "slices": [
+        {
+          "responsibility": "non-mutating evidence and stop-criterion outcome recording",
+          "target": "src/app/intent_adapter/outcomes.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/outcomes.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/prompt.rs",
+      "slices": [
+        {
+          "responsibility": "model-context-bounded agent prompt preparation",
+          "target": "src/app/intent_adapter/prompt.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/prompt.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/reporting.rs",
+      "slices": [
+        {
+          "responsibility": "model answer validation and intent execution report rendering",
+          "target": "src/app/intent_adapter/reporting.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/reporting.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/routing.rs",
+      "slices": [
+        {
+          "responsibility": "intent classification and explicit skill command routing",
+          "target": "src/app/intent_adapter/routing.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/routing.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
           ]
         }
       ]
@@ -11547,6 +11649,22 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/patch_runtime/intent_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "intent router, prompt, lifecycle, outcome, and reporting owner contracts",
+          "target": "tests/architecture_contract/patch_runtime/intent_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/patch_runtime.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/tui_bridge.rs",
       "slices": [
         {
@@ -14816,7 +14934,43 @@
     {
       "path": "src/app/intent_adapter.rs",
       "responsibilities": [
-        "intent facade, model answer and evidence gates, and agent prompt composition"
+        "intent application facade and stable routing or execution exports"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/context_requirements.rs",
+      "responsibilities": [
+        "skill context-requirement admission against available runtime evidence"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/lifecycle.rs",
+      "responsibilities": [
+        "skill hook dispatch and workflow failure checkpoint lifecycle"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/outcomes.rs",
+      "responsibilities": [
+        "non-mutating evidence and stop-criterion outcome recording"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/prompt.rs",
+      "responsibilities": [
+        "model-context-bounded agent prompt preparation"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/reporting.rs",
+      "responsibilities": [
+        "model answer validation and intent execution report rendering"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/routing.rs",
+      "responsibilities": [
+        "intent classification and explicit skill command routing"
       ]
     },
     {
@@ -17601,6 +17755,12 @@
       "path": "tests/architecture_contract/patch_runtime.rs",
       "responsibilities": [
         "patch lifecycle, runtime dispatch, and reporting ownership contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/intent_adapter.rs",
+      "responsibilities": [
+        "intent router, prompt, lifecycle, outcome, and reporting owner contracts"
       ]
     },
     {
