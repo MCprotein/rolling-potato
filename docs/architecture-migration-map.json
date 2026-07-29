@@ -6678,13 +6678,85 @@
       "path": "src/app/collaboration_adapter/subagent/tests.rs",
       "slices": [
         {
-          "responsibility": "subagent adapter lifecycle and dispatch regression tests",
+          "responsibility": "subagent regression scenario facade and shared fixtures",
           "target": "src/app/collaboration_adapter/subagent/tests.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/subagent/tests.rs",
+            "src/app/collaboration_adapter/subagent/tests/admission.rs",
+            "src/app/collaboration_adapter/subagent/tests/contract.rs",
+            "src/app/collaboration_adapter/subagent/tests/execution.rs",
+            "src/app/collaboration_adapter/subagent/tests/persistence.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/admission.rs",
+      "slices": [
+        {
+          "responsibility": "subagent admission, cancellation, status, and interrupted-child recovery regressions",
+          "target": "src/app/collaboration_adapter/subagent/tests/admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "src/app/collaboration_adapter/subagent/tests/admission.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/contract.rs",
+      "slices": [
+        {
+          "responsibility": "subagent launch contract and lifecycle transition regressions",
+          "target": "src/app/collaboration_adapter/subagent/tests/contract.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "src/app/collaboration_adapter/subagent/tests/contract.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/execution.rs",
+      "slices": [
+        {
+          "responsibility": "subagent dispatch, result merge, timeout, cancellation, and stale-binding regressions",
+          "target": "src/app/collaboration_adapter/subagent/tests/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "src/app/collaboration_adapter/subagent/tests/execution.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/persistence.rs",
+      "slices": [
+        {
+          "responsibility": "subagent state hash-chain, immutable binding, tamper, and snapshot regressions",
+          "target": "src/app/collaboration_adapter/subagent/tests/persistence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/persistence.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "src/app/collaboration_adapter/subagent/tests/persistence.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -12956,7 +13028,31 @@
     {
       "path": "src/app/collaboration_adapter/subagent/tests.rs",
       "responsibilities": [
-        "subagent adapter lifecycle and dispatch regression tests"
+        "subagent regression scenario facade and shared fixtures"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/admission.rs",
+      "responsibilities": [
+        "subagent admission, cancellation, status, and interrupted-child recovery regressions"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/contract.rs",
+      "responsibilities": [
+        "subagent launch contract and lifecycle transition regressions"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/execution.rs",
+      "responsibilities": [
+        "subagent dispatch, result merge, timeout, cancellation, and stale-binding regressions"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests/persistence.rs",
+      "responsibilities": [
+        "subagent state hash-chain, immutable binding, tamper, and snapshot regressions"
       ]
     },
     {

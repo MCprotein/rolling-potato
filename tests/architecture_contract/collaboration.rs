@@ -13,6 +13,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         "src/app/collaboration_adapter/subagent/execution/parent_merge.rs";
     let subagent_persistence = "src/app/collaboration_adapter/subagent/persistence.rs";
     let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
+    let subagent_test_admission = "src/app/collaboration_adapter/subagent/tests/admission.rs";
+    let subagent_test_contract = "src/app/collaboration_adapter/subagent/tests/contract.rs";
+    let subagent_test_execution = "src/app/collaboration_adapter/subagent/tests/execution.rs";
+    let subagent_test_persistence = "src/app/collaboration_adapter/subagent/tests/persistence.rs";
     let subagent_launch = "src/runtime_core/collaboration/subagent/launch.rs";
     let subagent_record_codec = "src/runtime_core/collaboration/subagent/record_codec.rs";
     let subagent_result_evidence = "src/runtime_core/collaboration/subagent_result/evidence.rs";
@@ -143,6 +147,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_execution_parent_merge).is_file());
     assert!(Path::new(subagent_persistence).is_file());
     assert!(Path::new(subagent_tests).is_file());
+    assert!(Path::new(subagent_test_admission).is_file());
+    assert!(Path::new(subagent_test_contract).is_file());
+    assert!(Path::new(subagent_test_execution).is_file());
+    assert!(Path::new(subagent_test_persistence).is_file());
     assert!(Path::new(subagent_launch).is_file());
     assert!(Path::new(subagent_record_codec).is_file());
     assert!(Path::new(subagent_result_evidence).is_file());
@@ -184,6 +192,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         fs::read_to_string(subagent_execution_parent_merge).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
     let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
+    let subagent_test_admission_source = fs::read_to_string(subagent_test_admission).unwrap();
+    let subagent_test_contract_source = fs::read_to_string(subagent_test_contract).unwrap();
+    let subagent_test_execution_source = fs::read_to_string(subagent_test_execution).unwrap();
+    let subagent_test_persistence_source = fs::read_to_string(subagent_test_persistence).unwrap();
     let team_source = fs::read_to_string(team_adapter).unwrap();
     let team_admission_source = fs::read_to_string(team_admission).unwrap();
     let team_admission_report_source = fs::read_to_string(team_admission_report).unwrap();
@@ -335,15 +347,42 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         subagent_source.contains("#[path = \"subagent/tests.rs\"]"),
         "subagent adapter does not register its regression-test owner"
     );
-    for regression in [
-        "fn launch_contract_enforces_role_tool_and_write_boundaries(",
-        "fn canonical_state_round_trips_and_preserves_hash_chain(",
-        "fn dispatch_completes_and_merges_evidence_once(",
-        "fn stale_running_child_recovers_as_failed_without_backend_replay(",
+    for module in [
+        "#[path = \"tests/admission.rs\"]",
+        "#[path = \"tests/contract.rs\"]",
+        "#[path = \"tests/execution.rs\"]",
+        "#[path = \"tests/persistence.rs\"]",
     ] {
         assert!(
-            subagent_test_source.contains(regression),
-            "subagent regression owner is missing: {regression}"
+            subagent_test_source.lines().any(|line| line == module),
+            "subagent test facade does not register scenario owner: {module}"
+        );
+    }
+    for (source, regression) in [
+        (
+            subagent_test_contract_source.as_str(),
+            "fn launch_contract_enforces_role_tool_and_write_boundaries(",
+        ),
+        (
+            subagent_test_persistence_source.as_str(),
+            "fn canonical_state_round_trips_and_preserves_hash_chain(",
+        ),
+        (
+            subagent_test_execution_source.as_str(),
+            "fn dispatch_completes_and_merges_evidence_once(",
+        ),
+        (
+            subagent_test_admission_source.as_str(),
+            "fn stale_running_child_recovers_as_failed_without_backend_replay(",
+        ),
+    ] {
+        assert!(
+            source.contains(regression),
+            "subagent regression scenario owner is missing: {regression}"
+        );
+        assert!(
+            !subagent_test_source.contains(regression),
+            "subagent test facade still owns scenario: {regression}"
         );
     }
     assert!(
@@ -798,10 +837,34 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         subagent_persistence_source.lines().count() < 325,
         "subagent persistence module regrew beyond its ownership boundary"
     );
-    assert!(
-        subagent_test_source.lines().count() < 675,
-        "subagent regression module regrew beyond its ownership boundary"
-    );
+    for (source, maximum_lines, owner) in [
+        (subagent_test_source.as_str(), 100, subagent_tests),
+        (
+            subagent_test_admission_source.as_str(),
+            150,
+            subagent_test_admission,
+        ),
+        (
+            subagent_test_contract_source.as_str(),
+            150,
+            subagent_test_contract,
+        ),
+        (
+            subagent_test_execution_source.as_str(),
+            350,
+            subagent_test_execution,
+        ),
+        (
+            subagent_test_persistence_source.as_str(),
+            125,
+            subagent_test_persistence,
+        ),
+    ] {
+        assert!(
+            source.lines().count() < maximum_lines,
+            "subagent regression module regrew beyond its ownership boundary: {owner}"
+        );
+    }
     assert!(
         team_test_source.lines().count() < 525,
         "team regression module regrew beyond its ownership boundary"
