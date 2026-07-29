@@ -2,6 +2,11 @@
 fn v03713_transition_adapter_delegates_source_install_contract() {
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     let bundle_codec_adapter = "src/app/workflow_adapter/transition/bundle_codec.rs";
+    let bundle_additional_members_adapter =
+        "src/app/workflow_adapter/transition/bundle_codec/additional_members.rs";
+    let bundle_semantic_adapter = "src/app/workflow_adapter/transition/bundle_codec/semantic.rs";
+    let bundle_source_members_adapter =
+        "src/app/workflow_adapter/transition/bundle_codec/source_members.rs";
     let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
     let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
     let bundle_event_chain_adapter =
@@ -29,6 +34,9 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     for target in [
         transition_adapter,
         bundle_codec_adapter,
+        bundle_additional_members_adapter,
+        bundle_semantic_adapter,
+        bundle_source_members_adapter,
         bundle_preparation_adapter,
         bundle_validation_adapter,
         bundle_event_chain_adapter,
@@ -54,6 +62,9 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
 
     let transition = fs::read_to_string(transition_adapter).unwrap();
     let bundle_codec = fs::read_to_string(bundle_codec_adapter).unwrap();
+    let bundle_additional_members = fs::read_to_string(bundle_additional_members_adapter).unwrap();
+    let bundle_semantic = fs::read_to_string(bundle_semantic_adapter).unwrap();
+    let bundle_source_members = fs::read_to_string(bundle_source_members_adapter).unwrap();
     let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
     let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
     let bundle_event_chain = fs::read_to_string(bundle_event_chain_adapter).unwrap();
@@ -97,22 +108,49 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         transition.lines().any(|line| line == "mod bundle_codec;"),
         "transition adapter does not register the bundle-codec owner"
     );
-    for responsibility in [
-        "pub(super) fn render_source_members(",
-        "pub(super) fn parse_source_members(",
-        "pub(super) struct PreparedMemberParseContext",
-        "pub(super) fn parse_semantic_events(",
-        "pub(super) fn parse_event_chain_plan(",
-        "pub(super) fn prepared_member_order(",
+    for owner in ["additional_members", "semantic", "source_members"] {
+        assert!(
+            bundle_codec
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "bundle-codec facade does not register {owner}"
+        );
+    }
+    for (owner, responsibilities) in [
+        (
+            bundle_source_members.as_str(),
+            &["fn render_source_members(", "fn parse_source_members("][..],
+        ),
+        (
+            bundle_additional_members.as_str(),
+            &[
+                "struct PreparedMemberParseContext",
+                "fn parse_additional_members(",
+            ][..],
+        ),
+        (
+            bundle_semantic.as_str(),
+            &[
+                "fn parse_semantic_events(",
+                "fn parse_event_chain_plan(",
+                "fn prepared_member_order(",
+            ][..],
+        ),
     ] {
-        assert!(
-            !transition.contains(responsibility),
-            "bundle-codec responsibility escaped into transition facade: {responsibility}"
-        );
-        assert!(
-            bundle_codec.contains(responsibility),
-            "bundle-codec adapter is missing responsibility: {responsibility}"
-        );
+        for responsibility in responsibilities {
+            assert!(
+                !transition.contains(responsibility),
+                "bundle-codec responsibility escaped into transition facade: {responsibility}"
+            );
+            assert!(
+                !bundle_codec.contains(responsibility),
+                "bundle-codec facade still owns responsibility: {responsibility}"
+            );
+            assert!(
+                owner.contains(responsibility),
+                "bundle-codec child is missing responsibility: {responsibility}"
+            );
+        }
     }
     assert!(
         transition
@@ -329,7 +367,18 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     }
     for (path, contents, maximum_lines) in [
         (transition_adapter, transition.as_str(), 125),
-        (bundle_codec_adapter, bundle_codec.as_str(), 550),
+        (bundle_codec_adapter, bundle_codec.as_str(), 30),
+        (
+            bundle_additional_members_adapter,
+            bundle_additional_members.as_str(),
+            175,
+        ),
+        (bundle_semantic_adapter, bundle_semantic.as_str(), 175),
+        (
+            bundle_source_members_adapter,
+            bundle_source_members.as_str(),
+            275,
+        ),
         (bundle_preparation_adapter, bundle_preparation.as_str(), 500),
         (bundle_validation_adapter, bundle_validation.as_str(), 125),
         (bundle_event_chain_adapter, bundle_event_chain.as_str(), 100),

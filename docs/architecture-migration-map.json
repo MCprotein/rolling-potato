@@ -9350,15 +9350,66 @@
       "path": "src/app/workflow_adapter/transition/bundle_codec.rs",
       "slices": [
         {
-          "responsibility": "prepared member, semantic-event, and event-chain codec adapter",
+          "responsibility": "canonical transition-bundle codec facade and stable codec exports",
           "target": "src/app/workflow_adapter/transition/bundle_codec.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/domain/transition.rs",
             "src/app/workflow_adapter/transition/bundle_codec.rs",
+            "src/app/workflow_adapter/transition/bundle_codec/additional_members.rs",
+            "src/app/workflow_adapter/transition/bundle_codec/semantic.rs",
+            "src/app/workflow_adapter/transition/bundle_codec/source_members.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec/additional_members.rs",
+      "slices": [
+        {
+          "responsibility": "additional prepared-member decode and workflow semantic-role binding",
+          "target": "src/app/workflow_adapter/transition/bundle_codec/additional_members.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/bundle_codec.rs",
+            "src/app/workflow_adapter/transition/bundle_codec/additional_members.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec/semantic.rs",
+      "slices": [
+        {
+          "responsibility": "semantic-event, event-chain, projection-lag, and member ordering codec",
+          "target": "src/app/workflow_adapter/transition/bundle_codec/semantic.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/bundle_codec.rs",
+            "src/app/workflow_adapter/transition/bundle_codec/semantic.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec/source_members.rs",
+      "slices": [
+        {
+          "responsibility": "source-install member rendering and strict source-member decoding",
+          "target": "src/app/workflow_adapter/transition/bundle_codec/source_members.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/bundle_codec.rs",
+            "src/app/workflow_adapter/transition/bundle_codec/source_members.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
           ]
         }
       ]
@@ -16971,7 +17022,25 @@
     {
       "path": "src/app/workflow_adapter/transition/bundle_codec.rs",
       "responsibilities": [
-        "prepared member, semantic-event, and event-chain codec adapter"
+        "canonical transition-bundle codec facade and stable codec exports"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec/additional_members.rs",
+      "responsibilities": [
+        "additional prepared-member decode and workflow semantic-role binding"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec/semantic.rs",
+      "responsibilities": [
+        "semantic-event, event-chain, projection-lag, and member ordering codec"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec/source_members.rs",
+      "responsibilities": [
+        "source-install member rendering and strict source-member decoding"
       ]
     },
     {
