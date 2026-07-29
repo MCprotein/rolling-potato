@@ -246,6 +246,28 @@ fn assert_facade_delegation(adapter: &str) {
 
     let result_adapter_path = "src/app/collaboration_adapter/subagent_result.rs";
     let result_adapter = source(result_adapter_path);
+    let result_storage_path = "src/app/collaboration_adapter/subagent_result/storage.rs";
+    let result_tests_path = "src/app/collaboration_adapter/subagent_result/tests.rs";
+    let result_types_path = "src/app/collaboration_adapter/subagent_result/types.rs";
+    let result_validation_path = "src/app/collaboration_adapter/subagent_result/validation.rs";
+    let result_verification_path = "src/app/collaboration_adapter/subagent_result/verification.rs";
+    let result_storage = source(result_storage_path);
+    let result_tests = source(result_tests_path);
+    let result_types = source(result_types_path);
+    let result_validation = source(result_validation_path);
+    let result_verification = source(result_verification_path);
+    for registration in [
+        "#[path = \"subagent_result/storage.rs\"]",
+        "#[path = \"subagent_result/tests.rs\"]",
+        "#[path = \"subagent_result/types.rs\"]",
+        "#[path = \"subagent_result/validation.rs\"]",
+        "#[path = \"subagent_result/verification.rs\"]",
+    ] {
+        assert!(
+            result_adapter.contains(registration),
+            "subagent result facade is missing owner registration: {registration}"
+        );
+    }
     for moved_definition in [
         "const RESULT_KEYS",
         "const EVIDENCE_V2_KEYS",
@@ -264,11 +286,51 @@ fn assert_facade_delegation(adapter: &str) {
         );
     }
     assert!(
-        result_adapter.contains("result_policy::parse_result_shape"),
-        "subagent result facade is missing policy delegation"
+        result_validation.contains("result_policy::parse_result_shape"),
+        "subagent result validation owner is missing policy delegation"
     );
-    assert!(
-        result_adapter.lines().count() <= 800,
-        "subagent result facade regrew beyond its boundary"
-    );
+    for (owner, source, responsibility) in [
+        (
+            result_storage_path,
+            &result_storage,
+            "pub fn parse_and_store(",
+        ),
+        (
+            result_types_path,
+            &result_types,
+            "pub struct StoredSubagentResult",
+        ),
+        (
+            result_validation_path,
+            &result_validation,
+            "pub(super) fn parse_result_shape(",
+        ),
+        (
+            result_verification_path,
+            &result_verification,
+            "pub fn verify_completed_artifacts(",
+        ),
+    ] {
+        assert!(
+            source.contains(responsibility),
+            "subagent result owner {owner} is missing {responsibility}"
+        );
+        assert!(
+            !result_adapter.contains(responsibility),
+            "subagent result facade still owns {responsibility}"
+        );
+    }
+    for (owner, source, line_budget) in [
+        (result_adapter_path, &result_adapter, 50),
+        (result_storage_path, &result_storage, 100),
+        (result_tests_path, &result_tests, 225),
+        (result_types_path, &result_types, 50),
+        (result_validation_path, &result_validation, 100),
+        (result_verification_path, &result_verification, 175),
+    ] {
+        assert!(
+            source.lines().count() < line_budget,
+            "subagent result owner {owner} exceeded its {line_budget}-line budget"
+        );
+    }
 }

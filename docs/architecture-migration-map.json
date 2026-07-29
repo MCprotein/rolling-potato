@@ -8788,8 +8788,91 @@
           "evidence": [
             "src/runtime_core/collaboration/subagent_result.rs",
             "src/app/collaboration_adapter/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent_result/storage.rs",
+            "src/app/collaboration_adapter/subagent_result/tests.rs",
+            "src/app/collaboration_adapter/subagent_result/types.rs",
+            "src/app/collaboration_adapter/subagent_result/validation.rs",
+            "src/app/collaboration_adapter/subagent_result/verification.rs",
             "tests/collaboration/subagent_lifecycle.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/collaboration/subagent.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/storage.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic subagent result and evidence artifact storage",
+          "target": "src/app/collaboration_adapter/subagent_result/storage.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent_result/storage.rs",
+            "src/app/collaboration_adapter/subagent_result/tests.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/tests.rs",
+      "slices": [
+        {
+          "responsibility": "subagent result artifact regression fixtures",
+          "target": "src/app/collaboration_adapter/subagent_result/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent_result/tests.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/types.rs",
+      "slices": [
+        {
+          "responsibility": "stored subagent result value type",
+          "target": "src/app/collaboration_adapter/subagent_result/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent_result/types.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/validation.rs",
+      "slices": [
+        {
+          "responsibility": "subagent result shape, context binding, and sensitive-output validation",
+          "target": "src/app/collaboration_adapter/subagent_result/validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent_result/validation.rs",
+            "src/app/collaboration_adapter/subagent_result/tests.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/verification.rs",
+      "slices": [
+        {
+          "responsibility": "completed subagent artifact integrity and source freshness verification",
+          "target": "src/app/collaboration_adapter/subagent_result/verification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent_result/verification.rs",
+            "src/app/collaboration_adapter/subagent_result/tests.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
           ]
         }
       ]
@@ -17878,6 +17961,36 @@
       "path": "src/app/collaboration_adapter/subagent_result.rs",
       "responsibilities": [
         "subagent result and evidence artifact adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/storage.rs",
+      "responsibilities": [
+        "deterministic subagent result and evidence artifact storage"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/tests.rs",
+      "responsibilities": [
+        "subagent result artifact regression fixtures"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/types.rs",
+      "responsibilities": [
+        "stored subagent result value type"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/validation.rs",
+      "responsibilities": [
+        "subagent result shape, context binding, and sensitive-output validation"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result/verification.rs",
+      "responsibilities": [
+        "completed subagent artifact integrity and source freshness verification"
       ]
     },
     {
