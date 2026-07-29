@@ -1984,6 +1984,51 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/tests/projection.rs",
+      "slices": [
+        {
+          "responsibility": "event, workflow, and CSV observability projection regressions",
+          "target": "src/adapters/sqlite/observability_projection/tests/projection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/tests/projection.rs",
+            "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/tests/recovery.rs",
+      "slices": [
+        {
+          "responsibility": "observability projection recovery and atomic replay regressions",
+          "target": "src/adapters/sqlite/observability_projection/tests/recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/tests/recovery.rs",
+            "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/tests/storage.rs",
+      "slices": [
+        {
+          "responsibility": "model, resource, and benchmark observability storage regressions",
+          "target": "src/adapters/sqlite/observability_projection/tests/storage.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/tests/storage.rs",
+            "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/transcript_projection.rs",
       "slices": [
         {
@@ -2654,6 +2699,111 @@
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/diagnostics.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend diagnostic regressions",
+          "target": "src/app/inference_adapter/backend/tests/diagnostics.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/diagnostics.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/discovery.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend discovery regressions",
+          "target": "src/app/inference_adapter/backend/tests/discovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/discovery.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/generation.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend generation and request regressions",
+          "target": "src/app/inference_adapter/backend/tests/generation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/generation.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/installation.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend installation regressions",
+          "target": "src/app/inference_adapter/backend/tests/installation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/installation.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend lifecycle regressions",
+          "target": "src/app/inference_adapter/backend/tests/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/lifecycle.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/records.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend runtime record regressions",
+          "target": "src/app/inference_adapter/backend/tests/records.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/records.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/termination.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend termination regressions",
+          "target": "src/app/inference_adapter/backend/tests/termination.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/termination.rs",
+            "tests/architecture_contract/inference.rs"
           ]
         }
       ]
@@ -10504,6 +10654,51 @@
       ]
     },
     {
+      "path": "tests/surfaces/native_terminal/adapter_matrix/full_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal full-adapter PTY journeys",
+          "target": "tests/surfaces/native_terminal/adapter_matrix/full_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/adapter_matrix/full_adapter.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/adapter_matrix/outcome_oracles.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal output and denial oracles",
+          "target": "tests/surfaces/native_terminal/adapter_matrix/outcome_oracles.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/adapter_matrix/outcome_oracles.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/adapter_matrix/state_oracles.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal state and ledger oracles",
+          "target": "tests/surfaces/native_terminal/adapter_matrix/state_oracles.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/adapter_matrix/state_oracles.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/surfaces/native_terminal/interaction.rs",
       "slices": [
         {
@@ -11631,6 +11826,24 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/tests/projection.rs",
+      "responsibilities": [
+        "event, workflow, and CSV observability projection regressions"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/tests/recovery.rs",
+      "responsibilities": [
+        "observability projection recovery and atomic replay regressions"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/tests/storage.rs",
+      "responsibilities": [
+        "model, resource, and benchmark observability storage regressions"
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/transcript_projection.rs",
       "responsibilities": [
         "transcript projection"
@@ -11862,6 +12075,48 @@
       "path": "src/app/inference_adapter/backend/tests.rs",
       "responsibilities": [
         "inference backend integration regression tests"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/diagnostics.rs",
+      "responsibilities": [
+        "inference backend diagnostic regressions"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/discovery.rs",
+      "responsibilities": [
+        "inference backend discovery regressions"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/generation.rs",
+      "responsibilities": [
+        "inference backend generation and request regressions"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/installation.rs",
+      "responsibilities": [
+        "inference backend installation regressions"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/lifecycle.rs",
+      "responsibilities": [
+        "inference backend lifecycle regressions"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/records.rs",
+      "responsibilities": [
+        "inference backend runtime record regressions"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/termination.rs",
+      "responsibilities": [
+        "inference backend termination regressions"
       ]
     },
     {
@@ -14696,6 +14951,24 @@
       "path": "tests/surfaces/native_terminal/adapter_matrix.rs",
       "responsibilities": [
         "native terminal full-adapter, failure, approval, normalization, and zero-delta journey matrix"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/adapter_matrix/full_adapter.rs",
+      "responsibilities": [
+        "native terminal full-adapter PTY journeys"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/adapter_matrix/outcome_oracles.rs",
+      "responsibilities": [
+        "native terminal output and denial oracles"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/adapter_matrix/state_oracles.rs",
+      "responsibilities": [
+        "native terminal state and ledger oracles"
       ]
     },
     {

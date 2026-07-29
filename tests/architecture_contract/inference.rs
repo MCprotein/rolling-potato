@@ -314,6 +314,13 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
     let backend_state_path = "src/adapters/filesystem/backend_state.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
+    let backend_tests_termination_path = "src/app/inference_adapter/backend/tests/termination.rs";
+    let backend_tests_discovery_path = "src/app/inference_adapter/backend/tests/discovery.rs";
+    let backend_tests_installation_path = "src/app/inference_adapter/backend/tests/installation.rs";
+    let backend_tests_records_path = "src/app/inference_adapter/backend/tests/records.rs";
+    let backend_tests_generation_path = "src/app/inference_adapter/backend/tests/generation.rs";
+    let backend_tests_lifecycle_path = "src/app/inference_adapter/backend/tests/lifecycle.rs";
+    let backend_tests_diagnostics_path = "src/app/inference_adapter/backend/tests/diagnostics.rs";
     let context_window_path = "src/app/inference_adapter/context_window.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
@@ -340,6 +347,13 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_sidecar_startup_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
+    assert!(Path::new(backend_tests_termination_path).is_file());
+    assert!(Path::new(backend_tests_discovery_path).is_file());
+    assert!(Path::new(backend_tests_installation_path).is_file());
+    assert!(Path::new(backend_tests_records_path).is_file());
+    assert!(Path::new(backend_tests_generation_path).is_file());
+    assert!(Path::new(backend_tests_lifecycle_path).is_file());
+    assert!(Path::new(backend_tests_diagnostics_path).is_file());
     assert!(Path::new(context_window_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
@@ -364,6 +378,13 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
     let backend_state = fs::read_to_string(backend_state_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
+    let backend_tests_termination = fs::read_to_string(backend_tests_termination_path).unwrap();
+    let backend_tests_discovery = fs::read_to_string(backend_tests_discovery_path).unwrap();
+    let backend_tests_installation = fs::read_to_string(backend_tests_installation_path).unwrap();
+    let backend_tests_records = fs::read_to_string(backend_tests_records_path).unwrap();
+    let backend_tests_generation = fs::read_to_string(backend_tests_generation_path).unwrap();
+    let backend_tests_lifecycle = fs::read_to_string(backend_tests_lifecycle_path).unwrap();
+    let backend_tests_diagnostics = fs::read_to_string(backend_tests_diagnostics_path).unwrap();
     let inference_facade = fs::read_to_string("src/app/inference_adapter.rs").unwrap();
     let context_window = fs::read_to_string(context_window_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
@@ -383,6 +404,20 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
         "inference backend adapter does not register its regression-test owner"
     );
+    for owner in [
+        "termination",
+        "discovery",
+        "installation",
+        "records",
+        "generation",
+        "lifecycle",
+        "diagnostics",
+    ] {
+        assert!(
+            backend_tests.contains(&format!("include!(\"tests/{owner}.rs\");")),
+            "inference backend regression facade does not register its {owner} owner"
+        );
+    }
     assert!(
         model_adapter.contains("#[path = \"model/tests.rs\"]"),
         "model adapter does not register its regression-test owner"
@@ -752,15 +787,43 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         !backend_sidecar_startup.contains("fn create_log_file("),
         "inference backend startup orchestration still owns log persistence"
     );
-    for responsibility in [
-        "fn release_manifest_has_source_backed_supported_artifacts(",
-        "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
-        "fn parallel_generation_cancel_reaches_secondary_and_keeps_state_until_last_release(",
-        "fn start_timeout_removes_record_and_keeps_logs(",
+    for (owner, responsibility) in [
+        (
+            &backend_tests_termination,
+            "fn termination_fallback_forces_a_process_after_graceful_command_failure(",
+        ),
+        (
+            &backend_tests_discovery,
+            "fn default_discovery_uses_managed_path(",
+        ),
+        (
+            &backend_tests_installation,
+            "fn release_manifest_has_source_backed_supported_artifacts(",
+        ),
+        (
+            &backend_tests_records,
+            "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
+        ),
+        (
+            &backend_tests_generation,
+            "fn parallel_generation_cancel_reaches_secondary_and_keeps_state_until_last_release(",
+        ),
+        (
+            &backend_tests_lifecycle,
+            "fn start_timeout_removes_record_and_keeps_logs(",
+        ),
+        (
+            &backend_tests_diagnostics,
+            "fn health_check_report_is_diagnostic_not_process_start(",
+        ),
     ] {
         assert!(
-            backend_tests.contains(responsibility),
+            owner.contains(responsibility),
             "inference backend regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_tests.contains(responsibility),
+            "inference backend regression facade still owns: {responsibility}"
         );
     }
     for responsibility in [
@@ -816,10 +879,14 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         backend_sidecar_startup.lines().count() < 300,
         "inference backend sidecar startup module regrew beyond its ownership boundary"
     );
-    assert!(
-        backend_tests.lines().count() < 900,
-        "inference backend regression module regrew beyond its ownership boundary"
-    );
+    assert!(backend_tests.lines().count() < 75);
+    assert!(backend_tests_termination.lines().count() < 100);
+    assert!(backend_tests_discovery.lines().count() < 75);
+    assert!(backend_tests_installation.lines().count() < 250);
+    assert!(backend_tests_records.lines().count() < 150);
+    assert!(backend_tests_generation.lines().count() < 325);
+    assert!(backend_tests_lifecycle.lines().count() < 150);
+    assert!(backend_tests_diagnostics.lines().count() < 50);
     assert!(
         model_adapter.lines().count() < 550,
         "model adapter regrew beyond its local evidence extraction boundary"

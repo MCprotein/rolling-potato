@@ -99,6 +99,11 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     let schema_path = "src/adapters/sqlite/observability_projection/schema.rs";
     let sessions_path = "src/adapters/sqlite/observability_projection/sessions.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
+    let sqlite_projection_tests_path =
+        "src/adapters/sqlite/observability_projection/tests/projection.rs";
+    let sqlite_recovery_tests_path =
+        "src/adapters/sqlite/observability_projection/tests/recovery.rs";
+    let sqlite_storage_tests_path = "src/adapters/sqlite/observability_projection/tests/storage.rs";
     assert!(Path::new(analytics_path).is_file());
     assert!(Path::new(latest_model_run_path).is_file());
     assert!(Path::new(latest_model_run_tests_path).is_file());
@@ -108,6 +113,9 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(Path::new(schema_path).is_file());
     assert!(Path::new(sessions_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
+    assert!(Path::new(sqlite_projection_tests_path).is_file());
+    assert!(Path::new(sqlite_recovery_tests_path).is_file());
+    assert!(Path::new(sqlite_storage_tests_path).is_file());
     let analytics = fs::read_to_string(analytics_path).unwrap();
     let latest_model_run = fs::read_to_string(latest_model_run_path).unwrap();
     let latest_model_run_tests = fs::read_to_string(latest_model_run_tests_path).unwrap();
@@ -117,6 +125,9 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     let schema = fs::read_to_string(schema_path).unwrap();
     let sessions = fs::read_to_string(sessions_path).unwrap();
     let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
+    let sqlite_projection_tests = fs::read_to_string(sqlite_projection_tests_path).unwrap();
+    let sqlite_recovery_tests = fs::read_to_string(sqlite_recovery_tests_path).unwrap();
+    let sqlite_storage_tests = fs::read_to_string(sqlite_storage_tests_path).unwrap();
     let projection_port_impl = "impl ObservabilityProjectionPort for SqliteObservabilityProjection";
     assert!(
         sqlite.contains(projection_port_impl),
@@ -274,15 +285,52 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         sqlite.contains("#[path = \"observability_projection/tests.rs\"]"),
         "SQLite projection does not register its regression-test owner"
     );
-    for responsibility in [
+    for include in [
+        "include!(\"tests/recovery.rs\");",
+        "include!(\"tests/projection.rs\");",
+        "include!(\"tests/storage.rs\");",
+    ] {
+        assert!(
+            sqlite_tests.contains(include),
+            "SQLite projection regression facade is missing: {include}"
+        );
+    }
+    for (owner, responsibility) in [
+        (
+            &sqlite_recovery_tests,
+            "fn corrupt_sqlite_is_preserved_before_canonical_ledger_failure(",
+        ),
+        (
+            &sqlite_recovery_tests,
+            "fn sqlite_replay_faults_are_atomic_and_concurrent_readers_see_complete_rows(",
+        ),
+        (
+            &sqlite_storage_tests,
+            "fn performance_baseline_aggregates_local_metrics(",
+        ),
+        (
+            &sqlite_storage_tests,
+            "fn optimization_policy_reads_metrics_and_measured_benchmark_evidence(",
+        ),
+        (
+            &sqlite_projection_tests,
+            "fn supplied_event_ordinal_avoids_a_canonical_ledger_rescan(",
+        ),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "SQLite projection regression owner is missing: {responsibility}"
+        );
+    }
+    for moved_responsibility in [
         "fn corrupt_sqlite_is_preserved_before_canonical_ledger_failure(",
         "fn sqlite_replay_faults_are_atomic_and_concurrent_readers_see_complete_rows(",
         "fn performance_baseline_aggregates_local_metrics(",
         "fn optimization_policy_reads_metrics_and_measured_benchmark_evidence(",
     ] {
         assert!(
-            sqlite_tests.contains(responsibility),
-            "SQLite projection regression owner is missing: {responsibility}"
+            !sqlite_tests.contains(moved_responsibility),
+            "SQLite projection regression responsibility escaped into facade: {moved_responsibility}"
         );
     }
     assert!(
@@ -313,9 +361,12 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         "SQLite schema module regrew beyond its ownership boundary"
     );
     assert!(
-        sqlite_tests.lines().count() < 825,
+        sqlite_tests.lines().count() < 150,
         "SQLite projection regression module regrew beyond its ownership boundary"
     );
+    assert!(sqlite_projection_tests.lines().count() < 125);
+    assert!(sqlite_recovery_tests.lines().count() < 125);
+    assert!(sqlite_storage_tests.lines().count() < 500);
 
     let transcript = fs::read_to_string("src/adapters/sqlite/transcript_projection.rs").unwrap();
     assert!(
