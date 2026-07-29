@@ -17,6 +17,11 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     let prompt_budget_tests =
         fs::read_to_string("src/app/intent_adapter/tests/prompt_budget.rs").unwrap();
     let context = fs::read_to_string("src/runtime_core/knowledge/context.rs").unwrap();
+    let context_assembly =
+        fs::read_to_string("src/runtime_core/knowledge/context/assembly.rs").unwrap();
+    let context_budget =
+        fs::read_to_string("src/runtime_core/knowledge/context/budget.rs").unwrap();
+    let context_types = fs::read_to_string("src/runtime_core/knowledge/context/types.rs").unwrap();
     let compaction = fs::read_to_string("src/runtime_core/knowledge/compaction.rs").unwrap();
     let compaction_checkpoint =
         fs::read_to_string("src/runtime_core/knowledge/compaction/checkpoint.rs").unwrap();
@@ -94,14 +99,18 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
             "intent regression facade contains prompt-budget test: {responsibility}"
         );
     }
-    for responsibility in [
-        "struct AgentPromptBudget",
-        "struct AgentPromptParts",
-        "fn assemble_agent_prompt(",
+    for (owner, responsibility) in [
+        (&context_budget, "struct AgentPromptBudget"),
+        (&context_types, "struct AgentPromptParts"),
+        (&context_assembly, "fn assemble_agent_prompt("),
     ] {
         assert!(
-            context.contains(responsibility),
+            owner.contains(responsibility),
             "context owner is missing agent prompt policy: {responsibility}"
+        );
+        assert!(
+            !context.contains(responsibility),
+            "context facade still owns agent prompt policy: {responsibility}"
         );
     }
 

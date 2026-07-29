@@ -75,6 +75,14 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         );
     }
 
+    let context = fs::read_to_string("src/runtime_core/knowledge/context.rs").unwrap();
+    for owner in ["assembly", "budget", "resume", "sources", "types"] {
+        assert!(
+            context.contains(&format!("#[path = \"context/{owner}.rs\"]")),
+            "context facade does not register its {owner} owner"
+        );
+    }
+
     for (owner, rules) in [
         (
             "src/runtime_core/knowledge/compaction/checkpoint.rs",
@@ -89,15 +97,16 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
             ["fn estimate_tokens"].as_slice(),
         ),
         (
-            "src/runtime_core/knowledge/context.rs",
-            [
-                "struct ContextPack",
-                "struct ResumeContext",
-                "struct ResumeContextBudget",
-                "fn enforce_shared_source_budget",
-                "fn truncate_chars",
-            ]
-            .as_slice(),
+            "src/runtime_core/knowledge/context/types.rs",
+            ["struct ContextPack", "struct ResumeContext"].as_slice(),
+        ),
+        (
+            "src/runtime_core/knowledge/context/budget.rs",
+            ["struct ResumeContextBudget", "struct AgentPromptBudget"].as_slice(),
+        ),
+        (
+            "src/runtime_core/knowledge/context/sources.rs",
+            ["fn enforce_shared_source_budget", "fn truncate_chars"].as_slice(),
         ),
         (
             "src/runtime_core/knowledge/evidence.rs",
@@ -149,6 +158,21 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
                 "runtime knowledge/policy owner has concrete reverse dependency: {owner} -> {forbidden}"
             );
         }
+    }
+
+    for (owner, line_budget) in [
+        ("src/runtime_core/knowledge/context.rs", 50),
+        ("src/runtime_core/knowledge/context/assembly.rs", 125),
+        ("src/runtime_core/knowledge/context/budget.rs", 100),
+        ("src/runtime_core/knowledge/context/resume.rs", 100),
+        ("src/runtime_core/knowledge/context/sources.rs", 150),
+        ("src/runtime_core/knowledge/context/types.rs", 75),
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "context owner {owner} exceeded its {line_budget}-line budget"
+        );
     }
 
     let policy_facade = fs::read_to_string("src/app/policy_adapter.rs").unwrap();

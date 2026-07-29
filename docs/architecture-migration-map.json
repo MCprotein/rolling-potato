@@ -6100,13 +6100,115 @@
       "path": "src/runtime_core/knowledge/context.rs",
       "slices": [
         {
-          "responsibility": "bounded source context",
+          "responsibility": "bounded context facade and stable context assembly API",
           "target": "src/runtime_core/knowledge/context.rs",
           "release": "0.37.8",
           "state": "complete",
           "evidence": [
             "src/runtime_core/knowledge/context.rs",
-            "tests/architecture_contract.rs"
+            "src/runtime_core/knowledge/context/assembly.rs",
+            "src/runtime_core/knowledge/context/budget.rs",
+            "src/runtime_core/knowledge/context/resume.rs",
+            "src/runtime_core/knowledge/context/sources.rs",
+            "src/runtime_core/knowledge/context/types.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs",
+            "tests/architecture_contract/session_web_browser/session_persistence.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/assembly.rs",
+      "slices": [
+        {
+          "responsibility": "bounded prompt assembly and untrusted context section framing",
+          "target": "src/runtime_core/knowledge/context/assembly.rs",
+          "release": "0.37.8",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/context.rs",
+            "src/runtime_core/knowledge/context/assembly.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/budget.rs",
+      "slices": [
+        {
+          "responsibility": "model-context-derived resume and agent prompt budgets",
+          "target": "src/runtime_core/knowledge/context/budget.rs",
+          "release": "0.37.8",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/context.rs",
+            "src/runtime_core/knowledge/context/budget.rs",
+            "tests/architecture_contract/session_web_browser/session_persistence.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/resume.rs",
+      "slices": [
+        {
+          "responsibility": "checkpoint, transcript, and source resume context rendering",
+          "target": "src/runtime_core/knowledge/context/resume.rs",
+          "release": "0.37.8",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/context.rs",
+            "src/runtime_core/knowledge/context/resume.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/sources.rs",
+      "slices": [
+        {
+          "responsibility": "source deduplication, shared budgets, and bounded character truncation",
+          "target": "src/runtime_core/knowledge/context/sources.rs",
+          "release": "0.37.8",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/context.rs",
+            "src/runtime_core/knowledge/context/sources.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/tests.rs",
+      "slices": [
+        {
+          "responsibility": "bounded context budget, assembly, and source regression tests",
+          "target": "src/runtime_core/knowledge/context/tests.rs",
+          "release": "0.37.8",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/context.rs",
+            "src/runtime_core/knowledge/context/tests.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/types.rs",
+      "slices": [
+        {
+          "responsibility": "typed source, resume, and agent prompt context contracts",
+          "target": "src/runtime_core/knowledge/context/types.rs",
+          "release": "0.37.8",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/context.rs",
+            "src/runtime_core/knowledge/context/types.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
           ]
         }
       ]
@@ -15507,7 +15609,43 @@
     {
       "path": "src/runtime_core/knowledge/context.rs",
       "responsibilities": [
-        "bounded source context"
+        "bounded context facade and stable context assembly API"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/assembly.rs",
+      "responsibilities": [
+        "bounded prompt assembly and untrusted context section framing"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/budget.rs",
+      "responsibilities": [
+        "model-context-derived resume and agent prompt budgets"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/resume.rs",
+      "responsibilities": [
+        "checkpoint, transcript, and source resume context rendering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/sources.rs",
+      "responsibilities": [
+        "source deduplication, shared budgets, and bounded character truncation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/tests.rs",
+      "responsibilities": [
+        "bounded context budget, assembly, and source regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/context/types.rs",
+      "responsibilities": [
+        "typed source, resume, and agent prompt context contracts"
       ]
     },
     {
