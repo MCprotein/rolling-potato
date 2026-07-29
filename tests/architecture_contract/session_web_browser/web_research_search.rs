@@ -11,6 +11,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
     let tui_command_dispatch =
         fs::read_to_string("src/surfaces/tui/controller/command_dispatch.rs").unwrap();
+    let tui_workspace_dispatch =
+        fs::read_to_string("src/surfaces/tui/controller/command_dispatch/workspace.rs").unwrap();
     let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
     let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
@@ -47,6 +49,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/routing/grounding_policy/features.rs",
         "src/app/web_search_adapter/routing/grounding_policy/query_plan.rs",
         "src/app/web_search_adapter/routing/grounding_policy/tests.rs",
+        "src/app/web_search_adapter/routing/page_intent.rs",
         "src/app/web_search_adapter/routing/protocol.rs",
         "src/app/web_search_adapter/routing/query.rs",
         "src/app/web_search_adapter/routing/query/context.rs",
@@ -60,6 +63,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/tui_adapter/runtime/request/support.rs",
         "src/app/tui_adapter/web_tools.rs",
         "src/runtime_core/agent.rs",
+        "src/surfaces/tui/controller/command_dispatch/workspace.rs",
         "src/surfaces/tui/controller/source_selection.rs",
     ] {
         assert!(Path::new(path).is_file(), "missing web tool owner: {path}");
@@ -105,7 +109,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
     assert!(tui_runtime.lines().any(|line| line == "mod web_sources;"));
     assert!(tui_controller.contains("mod source_selection;"));
-    assert!(tui_command_dispatch.contains("[\"/sources\"]"));
+    assert!(tui_command_dispatch.contains("mod workspace;"));
+    assert!(tui_workspace_dispatch.contains("[\"/sources\"]"));
     assert!(tui_bridge.contains("struct TuiWebSourceOption"));
     assert!(tui_request.contains("web_search_adapter::route_tool_request"));
     assert!(tui_request.contains("execute_web_turn("));
@@ -125,6 +130,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let routing = fs::read_to_string("src/app/web_search_adapter/routing.rs").unwrap();
     let routing_protocol =
         fs::read_to_string("src/app/web_search_adapter/routing/protocol.rs").unwrap();
+    let routing_page_intent =
+        fs::read_to_string("src/app/web_search_adapter/routing/page_intent.rs").unwrap();
     let routing_web_policy =
         fs::read_to_string("src/app/web_search_adapter/routing/web_policy.rs").unwrap();
     let routing_query = fs::read_to_string("src/app/web_search_adapter/routing/query.rs").unwrap();
@@ -133,9 +140,12 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let routing_query_sanitize =
         fs::read_to_string("src/app/web_search_adapter/routing/query/sanitize.rs").unwrap();
     assert!(routing.lines().any(|line| line == "mod protocol;"));
+    assert!(routing.lines().any(|line| line == "mod page_intent;"));
     assert!(routing.lines().any(|line| line == "mod query;"));
     assert!(routing.lines().any(|line| line == "mod web_policy;"));
     assert!(routing_protocol.contains("fn route_tool_request("));
+    assert!(routing_page_intent.contains("fn route_current_page_find("));
+    assert!(tui_request.contains("web_search_adapter::route_current_page_find"));
     assert!(!routing_protocol.contains("WEB TOOL:"));
     assert!(routing_query.contains("fn contextualize_search_input("));
     assert!(routing_query.lines().any(|line| line == "mod context;"));
@@ -231,6 +241,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     );
     assert!(routing.lines().count() < 225);
     assert!(routing_protocol.lines().count() < 150);
+    assert!(routing_page_intent.lines().count() < 75);
     assert!(routing_query.lines().count() < 225);
     assert!(routing_query_context.lines().count() < 100);
     assert!(routing_query_sanitize.lines().count() < 150);

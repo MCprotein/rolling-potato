@@ -3,12 +3,14 @@ use super::WebGroundingEvidence;
 use crate::foundation::error::AppError;
 
 mod grounding_policy;
+mod page_intent;
 mod protocol;
 mod query;
 mod text;
 mod web_policy;
 
 pub(super) use grounding_policy::{requires_external_grounding, strengthen_search_query};
+pub(crate) use page_intent::route_current_page_find;
 pub(crate) use protocol::route_tool_request;
 pub(crate) use query::contextualize_search_input;
 pub(super) use text::{best_query_term, overlap_score};

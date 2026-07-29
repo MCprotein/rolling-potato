@@ -66,7 +66,13 @@ fn execute_routed(
         )
         .map(plain_execution);
     }
-    if let Some(route) = web_search_adapter::route_tool_request(user_request) {
+    let immediate_web_route = web_search_adapter::route_tool_request(user_request).or_else(|| {
+        web_search_adapter::route_current_page_find(
+            user_request,
+            adapter.web_pages.current().is_some(),
+        )
+    });
+    if let Some(route) = immediate_web_route {
         let web_conversation_context = match &route {
             WebToolRoute::Search { .. } => {
                 web_conversation_context(history, user_request, context_limit_tokens)?

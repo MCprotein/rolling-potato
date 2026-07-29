@@ -21,8 +21,8 @@ pub(crate) use research::{
     WebResearchStep as WebToolRoute,
 };
 pub(crate) use routing::{
-    can_reuse_prior_grounding, contextualize_search_input, route_tool_request,
-    validate_public_web_step, web_disabled,
+    can_reuse_prior_grounding, contextualize_search_input, route_current_page_find,
+    route_tool_request, validate_public_web_step, web_disabled,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

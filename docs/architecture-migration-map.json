@@ -12360,6 +12360,24 @@
       ]
     },
     {
+      "path": "src/app/web_search_adapter/routing/page_intent.rs",
+      "slices": [
+        {
+          "responsibility": "current-page find intent classification and bounded query extraction",
+          "target": "src/app/web_search_adapter/routing/page_intent.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/page_intent.rs",
+            "src/app/web_search_adapter/routing/tests.rs",
+            "src/app/tui_adapter/runtime/request.rs",
+            "tests/surfaces/native_terminal/web.rs",
+            "tests/architecture_contract/session_web_browser/web_research_search.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/web_search_adapter/routing/protocol.rs",
       "slices": [
         {
@@ -12380,12 +12398,13 @@
       "path": "src/app/web_search_adapter/routing/tests.rs",
       "slices": [
         {
-          "responsibility": "web routing credential, follow-up, and grounding-reuse regression tests",
+          "responsibility": "web routing credential, current-page intent, follow-up, and grounding-reuse regression tests",
           "target": "src/app/web_search_adapter/routing/tests.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/web_search_adapter/routing.rs",
+            "src/app/web_search_adapter/routing/page_intent.rs",
             "src/app/web_search_adapter/routing/protocol.rs",
             "src/app/web_search_adapter/routing/tests.rs",
             "tests/architecture_contract.rs"
@@ -19627,6 +19646,12 @@
       ]
     },
     {
+      "path": "src/app/web_search_adapter/routing/page_intent.rs",
+      "responsibilities": [
+        "current-page find intent classification and bounded query extraction"
+      ]
+    },
+    {
       "path": "src/app/web_search_adapter/routing/protocol.rs",
       "responsibilities": [
         "bounded small-model web-tool protocol parsing and current-request projection"
@@ -19635,7 +19660,7 @@
     {
       "path": "src/app/web_search_adapter/routing/tests.rs",
       "responsibilities": [
-        "web routing credential, follow-up, and grounding-reuse regression tests"
+        "web routing credential, current-page intent, follow-up, and grounding-reuse regression tests"
       ]
     },
     {
