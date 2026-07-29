@@ -7,6 +7,12 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_derived = "src/app/workflow_adapter/ledger/derived.rs";
     let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
     let ledger_storage = "src/app/workflow_adapter/ledger/storage.rs";
+    let ledger_storage_chain = "src/app/workflow_adapter/ledger/storage/chain.rs";
+    let ledger_storage_diagnostics = "src/app/workflow_adapter/ledger/storage/diagnostics.rs";
+    let ledger_storage_head = "src/app/workflow_adapter/ledger/storage/head.rs";
+    let ledger_storage_read_only = "src/app/workflow_adapter/ledger/storage/read_only.rs";
+    let ledger_storage_repository = "src/app/workflow_adapter/ledger/storage/repository.rs";
+    let ledger_storage_write = "src/app/workflow_adapter/ledger/storage/write.rs";
     let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
     let ledger_writer = "src/app/workflow_adapter/ledger/writer.rs";
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
@@ -16,6 +22,12 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         ledger_derived,
         ledger_query,
         ledger_storage,
+        ledger_storage_chain,
+        ledger_storage_diagnostics,
+        ledger_storage_head,
+        ledger_storage_read_only,
+        ledger_storage_repository,
+        ledger_storage_write,
         ledger_tests,
         ledger_writer,
         transition_adapter,
@@ -151,6 +163,12 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_derived_outputs = fs::read_to_string(ledger_derived).unwrap();
     let ledger_queries = fs::read_to_string(ledger_query).unwrap();
     let ledger_persistence = fs::read_to_string(ledger_storage).unwrap();
+    let ledger_chain = fs::read_to_string(ledger_storage_chain).unwrap();
+    let ledger_diagnostics = fs::read_to_string(ledger_storage_diagnostics).unwrap();
+    let ledger_head = fs::read_to_string(ledger_storage_head).unwrap();
+    let ledger_read_only = fs::read_to_string(ledger_storage_read_only).unwrap();
+    let ledger_repository = fs::read_to_string(ledger_storage_repository).unwrap();
+    let ledger_storage_write_source = fs::read_to_string(ledger_storage_write).unwrap();
     let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
     let ledger_writes = fs::read_to_string(ledger_writer).unwrap();
     assert!(
@@ -204,22 +222,54 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         ledger.lines().any(|line| line == "mod storage;"),
         "ledger adapter does not register its storage owner"
     );
-    for responsibility in [
-        "pub fn read_runtime_events(",
-        "pub(crate) fn read_runtime_tail_read_only(",
-        "pub(super) fn read_runtime_events_unlocked(",
-        "pub(super) fn validate_ledger_contents(",
-        "pub(super) fn append_chained_event(",
-        "pub(super) fn write_ledger_head(",
-        "fn validate_ledger_head(",
+    for registration in [
+        "#[path = \"storage/chain.rs\"]",
+        "#[path = \"storage/diagnostics.rs\"]",
+        "#[path = \"storage/head.rs\"]",
+        "#[path = \"storage/read_only.rs\"]",
+        "#[path = \"storage/repository.rs\"]",
+        "#[path = \"storage/write.rs\"]",
     ] {
         assert!(
-            ledger_persistence.contains(responsibility),
-            "ledger storage owner is missing: {responsibility}"
+            ledger_persistence.contains(registration),
+            "ledger storage facade is missing owner registration: {registration}"
+        );
+    }
+    for (owner, source, responsibility) in [
+        (
+            ledger_storage_repository,
+            &ledger_repository,
+            "pub fn read_runtime_events(",
+        ),
+        (
+            ledger_storage_read_only,
+            &ledger_read_only,
+            "pub(crate) fn read_runtime_tail_read_only(",
+        ),
+        (
+            ledger_storage_chain,
+            &ledger_chain,
+            "fn validate_ledger_contents(",
+        ),
+        (
+            ledger_storage_write,
+            &ledger_storage_write_source,
+            "fn append_chained_event(",
+        ),
+        (ledger_storage_head, &ledger_head, "fn write_ledger_head("),
+        (
+            ledger_storage_diagnostics,
+            &ledger_diagnostics,
+            "fn ledger_corrupt(",
+        ),
+    ] {
+        assert!(
+            source.contains(responsibility),
+            "ledger storage owner {owner} is missing: {responsibility}"
         );
         assert!(
-            !ledger.contains(responsibility),
-            "ledger adapter still owns storage behavior: {responsibility}"
+            !ledger_persistence.contains(responsibility),
+            "ledger storage facade still owns behavior: {responsibility}"
         );
     }
     assert!(
@@ -275,10 +325,20 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         ledger_queries.lines().count() < 125,
         "ledger query module regrew beyond its ownership boundary"
     );
-    assert!(
-        ledger_persistence.lines().count() < 475,
-        "ledger storage module regrew beyond its ownership boundary"
-    );
+    for (owner, source, line_budget) in [
+        (ledger_storage, &ledger_persistence, 50),
+        (ledger_storage_chain, &ledger_chain, 125),
+        (ledger_storage_diagnostics, &ledger_diagnostics, 50),
+        (ledger_storage_head, &ledger_head, 175),
+        (ledger_storage_read_only, &ledger_read_only, 225),
+        (ledger_storage_repository, &ledger_repository, 75),
+        (ledger_storage_write, &ledger_storage_write_source, 75),
+    ] {
+        assert!(
+            source.lines().count() < line_budget,
+            "ledger storage owner {owner} regrew beyond its {line_budget}-line boundary"
+        );
+    }
     assert!(
         ledger_append.lines().count() < 75,
         "ledger append primitive regrew beyond its ownership boundary"

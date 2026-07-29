@@ -4492,16 +4492,116 @@
       "path": "src/app/workflow_adapter/ledger/storage.rs",
       "slices": [
         {
-          "responsibility": "runtime ledger bounded reads, canonical append, chain validation, and durable head repair",
+          "responsibility": "stable runtime ledger storage facade and owner registration",
           "target": "src/app/workflow_adapter/ledger/storage.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/workflow/storage_compat/ledger.rs",
-            "src/app/workflow_adapter/ledger.rs",
             "src/app/workflow_adapter/ledger/storage.rs",
+            "src/app/workflow_adapter/ledger/storage/chain.rs",
+            "src/app/workflow_adapter/ledger/storage/diagnostics.rs",
+            "src/app/workflow_adapter/ledger/storage/head.rs",
+            "src/app/workflow_adapter/ledger/storage/read_only.rs",
+            "src/app/workflow_adapter/ledger/storage/repository.rs",
+            "src/app/workflow_adapter/ledger/storage/write.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/chain.rs",
+      "slices": [
+        {
+          "responsibility": "strict ledger JSONL parsing and physical hash-chain validation",
+          "target": "src/app/workflow_adapter/ledger/storage/chain.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger/storage/chain.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/diagnostics.rs",
+      "slices": [
+        {
+          "responsibility": "ledger corruption evidence and validation-gap diagnostics",
+          "target": "src/app/workflow_adapter/ledger/storage/diagnostics.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger/storage/diagnostics.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/head.rs",
+      "slices": [
+        {
+          "responsibility": "durable ledger head codec and bounded append-gap repair",
+          "target": "src/app/workflow_adapter/ledger/storage/head.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger/storage/head.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/read_only.rs",
+      "slices": [
+        {
+          "responsibility": "bounded immutable ledger tail reads and snapshot-change detection",
+          "target": "src/app/workflow_adapter/ledger/storage/read_only.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger/storage/read_only.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/repository.rs",
+      "slices": [
+        {
+          "responsibility": "leased and unlocked runtime ledger repository reads",
+          "target": "src/app/workflow_adapter/ledger/storage/repository.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger/storage/repository.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/write.rs",
+      "slices": [
+        {
+          "responsibility": "canonical chained ledger append and atomic head persistence",
+          "target": "src/app/workflow_adapter/ledger/storage/write.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger/storage/write.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
           ]
         }
       ]
@@ -16548,7 +16648,43 @@
     {
       "path": "src/app/workflow_adapter/ledger/storage.rs",
       "responsibilities": [
-        "runtime ledger bounded reads, canonical append, chain validation, and durable head repair"
+        "stable runtime ledger storage facade and owner registration"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/chain.rs",
+      "responsibilities": [
+        "strict ledger JSONL parsing and physical hash-chain validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/diagnostics.rs",
+      "responsibilities": [
+        "ledger corruption evidence and validation-gap diagnostics"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/head.rs",
+      "responsibilities": [
+        "durable ledger head codec and bounded append-gap repair"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/read_only.rs",
+      "responsibilities": [
+        "bounded immutable ledger tail reads and snapshot-change detection"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/repository.rs",
+      "responsibilities": [
+        "leased and unlocked runtime ledger repository reads"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage/write.rs",
+      "responsibilities": [
+        "canonical chained ledger append and atomic head persistence"
       ]
     },
     {
