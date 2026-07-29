@@ -11,7 +11,14 @@ fn assert_application_adapter_contracts() {
         "src/app/patch_adapter/tests/verification_cases.rs",
     ];
     let approval_transaction_adapter = "src/app/patch_adapter/approval_transaction.rs";
+    let approval_hook_event_adapter =
+        "src/app/patch_adapter/approval_transaction/hook_event.rs";
+    let approval_members_adapter = "src/app/patch_adapter/approval_transaction/members.rs";
+    let approval_receipt_adapter = "src/app/patch_adapter/approval_transaction/receipt.rs";
     let approval_recovery_adapter = "src/app/patch_adapter/approval_transaction/recovery.rs";
+    let approval_source_adapter = "src/app/patch_adapter/approval_transaction/source.rs";
+    let approval_orchestration_adapter =
+        "src/app/patch_adapter/approval_transaction/transaction.rs";
     let execution_adapter = "src/app/patch_adapter/execution.rs";
     let guard_adapter = "src/app/patch_adapter/guard.rs";
     let proposal_builder_adapter = "src/app/patch_adapter/proposal_builder.rs";
@@ -30,7 +37,12 @@ fn assert_application_adapter_contracts() {
     let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
     let patch_facade = fs::read_to_string("src/app/patch_adapter.rs").unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
+    let approval_hook_event = fs::read_to_string(approval_hook_event_adapter).unwrap();
+    let approval_members = fs::read_to_string(approval_members_adapter).unwrap();
+    let approval_receipt = fs::read_to_string(approval_receipt_adapter).unwrap();
     let approval_recovery = fs::read_to_string(approval_recovery_adapter).unwrap();
+    let approval_source = fs::read_to_string(approval_source_adapter).unwrap();
+    let approval_orchestration = fs::read_to_string(approval_orchestration_adapter).unwrap();
     let execution = fs::read_to_string(execution_adapter).unwrap();
     let guard = fs::read_to_string(guard_adapter).unwrap();
     let proposal_builder = fs::read_to_string(proposal_builder_adapter).unwrap();
@@ -135,15 +147,50 @@ fn assert_application_adapter_contracts() {
     assert!(approval_transaction
         .lines()
         .any(|line| line == "mod recovery;"));
+    for owner in ["hook_event", "members", "receipt", "source", "transaction"] {
+        assert!(
+            approval_transaction
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "approval transaction facade does not register owner: {owner}"
+        );
+    }
     let approval_responsibility = "fn approve_prepared_skill_transaction(";
     assert!(
         !patch_facade.contains(approval_responsibility),
         "approval transaction responsibility escaped into patch facade: {approval_responsibility}"
     );
     assert!(
-        approval_transaction.contains(approval_responsibility),
+        approval_orchestration.contains(approval_responsibility),
         "approval transaction adapter is missing responsibility: {approval_responsibility}"
     );
+    for (owner, responsibility) in [
+        (
+            approval_hook_event.as_str(),
+            "fn prepare_transaction_hook_event(",
+        ),
+        (
+            approval_members.as_str(),
+            "fn prepared_approval_members(",
+        ),
+        (
+            approval_receipt.as_str(),
+            "fn prepared_approval_receipt_exists(",
+        ),
+        (
+            approval_source.as_str(),
+            "fn prepare_approval_source(",
+        ),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "approval transaction owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !approval_transaction.contains(responsibility),
+            "approval transaction facade still owns responsibility: {responsibility}"
+        );
+    }
     for recovery_responsibility in [
         "fn recover_prepared_approval_bundle(",
         "fn recover_prepared_verification_bundle(",
@@ -158,8 +205,13 @@ fn assert_application_adapter_contracts() {
             "approval transaction orchestration still owns recovery: {recovery_responsibility}"
         );
     }
-    assert!(approval_transaction.lines().count() < 550);
+    assert!(approval_transaction.lines().count() < 30);
+    assert!(approval_hook_event.lines().count() < 50);
+    assert!(approval_members.lines().count() < 175);
+    assert!(approval_receipt.lines().count() < 75);
     assert!(approval_recovery.lines().count() < 450);
+    assert!(approval_source.lines().count() < 75);
+    assert!(approval_orchestration.lines().count() < 275);
     assert!(patch_facade.lines().any(|line| line == "mod execution;"));
     for escaped_responsibility in [
         "fn apply_proposal(",

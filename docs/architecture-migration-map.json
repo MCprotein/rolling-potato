@@ -5288,7 +5288,7 @@
       "path": "src/app/patch_adapter/approval_transaction.rs",
       "slices": [
         {
-          "responsibility": "prepared patch approval transaction orchestration adapter",
+          "responsibility": "prepared patch approval transaction facade and responsibility registration",
           "target": "src/app/patch_adapter/approval_transaction.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5297,6 +5297,59 @@
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/transition.rs",
             "src/app/patch_adapter/approval_transaction.rs",
+            "src/app/patch_adapter/approval_transaction/hook_event.rs",
+            "src/app/patch_adapter/approval_transaction/members.rs",
+            "src/app/patch_adapter/approval_transaction/receipt.rs",
+            "src/app/patch_adapter/approval_transaction/source.rs",
+            "src/app/patch_adapter/approval_transaction/transaction.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/hook_event.rs",
+      "slices": [
+        {
+          "responsibility": "prepared approval hook-event construction and skill runtime recording",
+          "target": "src/app/patch_adapter/approval_transaction/hook_event.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction/hook_event.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/members.rs",
+      "slices": [
+        {
+          "responsibility": "prepared approval journal member construction",
+          "target": "src/app/patch_adapter/approval_transaction/members.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction/members.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/receipt.rs",
+      "slices": [
+        {
+          "responsibility": "prepared approval ledger receipt recognition",
+          "target": "src/app/patch_adapter/approval_transaction/receipt.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction/receipt.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5314,6 +5367,38 @@
             "src/app/patch_adapter/approval_transaction/recovery.rs",
             "src/app/patch_adapter/tests/approval_cases.rs",
             "src/app/patch_adapter/tests/verification_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/source.rs",
+      "slices": [
+        {
+          "responsibility": "prepared approval source policy, hash, and install preflight",
+          "target": "src/app/patch_adapter/approval_transaction/source.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction/source.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/transaction.rs",
+      "slices": [
+        {
+          "responsibility": "prepared patch approval transaction orchestration adapter",
+          "target": "src/app/patch_adapter/approval_transaction/transaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction/transaction.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -16061,13 +16146,43 @@
     {
       "path": "src/app/patch_adapter/approval_transaction.rs",
       "responsibilities": [
-        "prepared patch approval transaction orchestration adapter"
+        "prepared patch approval transaction facade and responsibility registration"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/hook_event.rs",
+      "responsibilities": [
+        "prepared approval hook-event construction and skill runtime recording"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/members.rs",
+      "responsibilities": [
+        "prepared approval journal member construction"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/receipt.rs",
+      "responsibilities": [
+        "prepared approval ledger receipt recognition"
       ]
     },
     {
       "path": "src/app/patch_adapter/approval_transaction/recovery.rs",
       "responsibilities": [
         "prepared patch approval and verification crash recovery adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/source.rs",
+      "responsibilities": [
+        "prepared approval source policy, hash, and install preflight"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_transaction/transaction.rs",
+      "responsibilities": [
+        "prepared patch approval transaction orchestration adapter"
       ]
     },
     {
