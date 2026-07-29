@@ -1,7 +1,9 @@
 # 저장소 전면 리팩터링 계획
 
-상태: 실행 중 (2026-07-29 기준)  
-대상 branch: `fix/autonomous-web-grounding`  
+상태: 완료 (2026-07-29, PR #119 merge 및 exact-head candidate 검증)
+
+실행 branch: `fix/autonomous-web-grounding`
+
 원칙: 동작 보존 회귀 테스트 → 책임 분리 → targeted 검증 → 논리 커밋·푸시
 
 ## 목표
@@ -55,19 +57,18 @@
 
 ## 진행 현황
 
-아래 상태는 2026-07-29 현재 작업 tree의 파일 경계와 완료된 targeted 검증을
-기준으로 한다. `구조 변경 완료`는 해당 단계의 책임 분리와 targeted 검증이
-끝났다는 뜻이며, PR candidate 전체 검증이나 merge 완료를 뜻하지 않는다.
+아래 상태는 2026-07-29 merge된 PR #119의 파일 경계와 exact-head candidate
+검증을 기준으로 한다.
 
 | 단계 | 상태 | 확인된 결과 | 남은 종료 조건 |
 | --- | --- | --- | --- |
-| R1 하드코딩 제거 | 1차 경계 완료 | domain-specific grounding 분기를 generic query plan과 typed answer binding으로 교체하고 web·conversation owner를 분리 | 최종 candidate HEAD의 PR 검증 |
-| R2 아키텍처 테스트 | 1차 경계 완료 | `tests/architecture_contract.rs`를 400줄 미만 facade와 domain별 contract owner로 분리 | 최종 candidate HEAD의 전체 architecture contract |
-| R3 TUI | 하드닝 중 | attachment, keymap, render, native PTY process·capture·fixture 책임을 별도 module로 분리 | 잔여 setup·conversation·action owner 점검과 최종 native-terminal candidate 검증 |
-| R4 session/context | 하드닝 중 | context usage 정본 계산, compaction domain, session memory·restoration·assembly 경계를 분리 | 기본 대화·누적 context·compaction·`/resume` candidate journey |
-| R5 backend/model/install | 하드닝 중 | llama protocol·process, model artifact·download, install plan·mutation 책임을 분리 | 잔여 production hotspot 점검과 managed backend·model cache hit candidate 검증 |
-| R6 workflow/patch/collaboration | 하드닝 중 | recovery, transaction, snapshot, patch use case, collaboration persistence·report 경계를 분리하고 관련 targeted 검증을 통과 | 잔여 transition·transcript·terminal·collaboration owner 점검과 최종 PR 검증 |
-| R7 문서 | 1차 경계 완료 | 영문·한국어 release notes와 실행 회고를 짧은 index와 800줄 미만 archive로 분리하고, architecture·product plan과 release·development runbook 경계를 index에서 구분 | 최종 candidate HEAD의 문서·링크 검증 |
+| R1 하드코딩 제거 | 완료 | domain-specific grounding 분기를 generic query plan과 typed answer binding으로 교체하고 web·conversation owner를 분리 | 없음 |
+| R2 아키텍처 테스트 | 완료 | `tests/architecture_contract.rs`를 400줄 미만 facade와 domain별 contract owner로 분리 | 없음 |
+| R3 TUI | 완료 | attachment, keymap, render, native PTY process·capture·fixture 책임을 별도 module로 분리 | 없음 |
+| R4 session/context | 완료 | context usage 정본 계산, compaction domain, session memory·restoration·assembly 경계를 분리 | 없음 |
+| R5 backend/model/install | 완료 | llama protocol·process, model artifact·download, install plan·mutation 책임을 분리 | 없음 |
+| R6 workflow/patch/collaboration | 완료 | recovery, transaction, snapshot, patch use case, collaboration persistence·report 경계를 분리하고 관련 targeted 검증을 통과 | 없음 |
+| R7 문서 | 완료 | 영문·한국어 release notes와 실행 회고를 짧은 index와 800줄 미만 archive로 분리하고, architecture·product plan과 release·development runbook 경계를 index에서 구분 | 없음 |
 
 ## 구조 하드닝 체크포인트
 
