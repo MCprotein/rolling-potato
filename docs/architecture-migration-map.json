@@ -4218,16 +4218,60 @@
       "path": "src/app/intent_adapter/execution.rs",
       "slices": [
         {
-          "responsibility": "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff",
+          "responsibility": "intent execution coordination across prepared context, model turn, and action handoff",
           "target": "src/app/intent_adapter/execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/patch/intent.rs",
-            "src/app/intent_adapter.rs",
             "src/app/intent_adapter/execution.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/model_turn.rs",
+      "slices": [
+        {
+          "responsibility": "bounded backend model request, guarded transcript extraction, and action checkpoint recording",
+          "target": "src/app/intent_adapter/execution/model_turn.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter/execution/model_turn.rs",
             "src/app/intent_adapter/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/patch_handoff.rs",
+      "slices": [
+        {
+          "responsibility": "patch action safety admission, fix-test baseline, proposal preparation, and pending approval reporting",
+          "target": "src/app/intent_adapter/execution/patch_handoff.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter/execution/patch_handoff.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/preparation.rs",
+      "slices": [
+        {
+          "responsibility": "skill workflow preparation, imported capability admission, context enforcement, and action candidate recording",
+          "target": "src/app/intent_adapter/execution/preparation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter/execution/preparation.rs",
+            "src/app/intent_adapter/tests.rs",
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
           ]
         }
       ]
@@ -12428,7 +12472,7 @@
       "path": "tests/architecture_contract/patch_runtime/intent_adapter.rs",
       "slices": [
         {
-          "responsibility": "intent router, prompt, lifecycle, outcome, and reporting owner contracts",
+          "responsibility": "intent routing, prompt, lifecycle, execution, outcome, and reporting owner contracts",
           "target": "tests/architecture_contract/patch_runtime/intent_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -12691,6 +12735,21 @@
           "state": "complete",
           "evidence": [
             "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/proposal_domain.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal codec, preview, and facade architecture contracts",
+          "target": "tests/architecture_contract/patch_runtime/proposal_domain.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/patch_runtime/proposal_domain.rs",
             "tests/architecture_contract/patch_runtime.rs"
           ]
         }
@@ -13982,7 +14041,7 @@
           "state": "complete",
           "evidence": [
             "src/app/intent_adapter/execution/non_mutating.rs",
-            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+            "tests/architecture_contract/patch_runtime/intent_adapter.rs"
           ]
         }
       ]
@@ -15875,7 +15934,25 @@
     {
       "path": "src/app/intent_adapter/execution.rs",
       "responsibilities": [
-        "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff"
+        "intent execution coordination across prepared context, model turn, and action handoff"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/model_turn.rs",
+      "responsibilities": [
+        "bounded backend model request, guarded transcript extraction, and action checkpoint recording"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/patch_handoff.rs",
+      "responsibilities": [
+        "patch action safety admission, fix-test baseline, proposal preparation, and pending approval reporting"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/preparation.rs",
+      "responsibilities": [
+        "skill workflow preparation, imported capability admission, context enforcement, and action candidate recording"
       ]
     },
     {
@@ -18833,7 +18910,7 @@
     {
       "path": "tests/architecture_contract/patch_runtime/intent_adapter.rs",
       "responsibilities": [
-        "intent router, prompt, lifecycle, outcome, and reporting owner contracts"
+        "intent routing, prompt, lifecycle, execution, outcome, and reporting owner contracts"
       ]
     },
     {
@@ -18936,6 +19013,12 @@
       "path": "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs",
       "responsibilities": [
         "patch domain and lifecycle architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/proposal_domain.rs",
+      "responsibilities": [
+        "patch proposal codec, preview, and facade architecture contracts"
       ]
     },
     {

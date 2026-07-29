@@ -1,6 +1,12 @@
-use super::*;
+use super::super::{
+    dispatch_skill_hook, fail_skill_workflow, plugin_completion_fault,
+    record_non_mutating_outcomes, render_non_mutating_report,
+};
 use crate::app::context_adapter::{ContextPack, ResumeContext};
-use crate::runtime_core::patch::intent::ParsedModelAction;
+use crate::app::extensions_adapter::{plugin, skill};
+use crate::app::workflow_adapter::state;
+use crate::foundation::error::AppError;
+use crate::runtime_core::patch::intent::{IntentDecision, ParsedModelAction};
 
 pub(super) fn complete(
     request: &str,

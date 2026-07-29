@@ -4,6 +4,7 @@ include!("patch_runtime/patch_domain_lifecycle.rs");
 include!("patch_runtime/application_adapter_contracts.rs");
 include!("patch_runtime/intent_adapter.rs");
 include!("patch_runtime/runtime_reporting.rs");
+include!("patch_runtime/proposal_domain.rs");
 
 #[test]
 fn patch_runtime_contract_children_are_bounded() {
@@ -18,11 +19,15 @@ fn patch_runtime_contract_children_are_bounded() {
         ),
         (
             "tests/architecture_contract/patch_runtime/intent_adapter.rs",
-            125,
+            200,
         ),
         (
             "tests/architecture_contract/patch_runtime/runtime_reporting.rs",
             300,
+        ),
+        (
+            "tests/architecture_contract/patch_runtime/proposal_domain.rs",
+            125,
         ),
     ] {
         let source = fs::read_to_string(owner)

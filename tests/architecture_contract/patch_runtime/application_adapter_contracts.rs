@@ -1,7 +1,4 @@
 fn assert_application_adapter_contracts() {
-    let intent_execution_path = "src/app/intent_adapter/execution.rs";
-    let intent_non_mutating_execution_path = "src/app/intent_adapter/execution/non_mutating.rs";
-    let intent_tests_path = "src/app/intent_adapter/tests.rs";
     let patch_test_modules = [
         "src/app/patch_adapter/tests/mod.rs",
         "src/app/patch_adapter/tests/approval_cases.rs",
@@ -30,11 +27,6 @@ fn assert_application_adapter_contracts() {
     let workflow_execution_adapter = "src/app/patch_adapter/workflow_execution.rs";
     let plugin_completion_adapter = "src/app/patch_adapter/workflow_execution/plugin_completion.rs";
     let skill_lifecycle_adapter = "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs";
-    let intent_facade = fs::read_to_string("src/app/intent_adapter.rs").unwrap();
-    let intent_execution = fs::read_to_string(intent_execution_path).unwrap();
-    let intent_non_mutating_execution =
-        fs::read_to_string(intent_non_mutating_execution_path).unwrap();
-    let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
     let patch_facade = fs::read_to_string("src/app/patch_adapter.rs").unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
     let approval_hook_event = fs::read_to_string(approval_hook_event_adapter).unwrap();
@@ -72,71 +64,6 @@ fn assert_application_adapter_contracts() {
     ];
     let patch_workflow_journey_sources =
         patch_workflow_journey_owners.map(|owner| fs::read_to_string(owner).unwrap());
-    assert!(
-        intent_facade.contains("#[path = \"intent_adapter/tests.rs\"]"),
-        "intent facade does not register its regression-test owner"
-    );
-    assert!(
-        intent_facade.lines().any(|line| line == "mod execution;"),
-        "intent facade does not register its execution owner"
-    );
-    for responsibility in [
-        "pub(super) fn run_with_decision(",
-        "mod non_mutating;",
-        "plugin.capability.admitted",
-        "action.candidate.prepared",
-    ] {
-        assert!(
-            intent_execution.contains(responsibility),
-            "intent execution owner is missing: {responsibility}"
-        );
-    }
-    for responsibility in [
-        "pub(super) fn complete(",
-        "invalid-or-hostile-model-action",
-        "plugin.capability.completed",
-        "render_non_mutating_report(",
-    ] {
-        assert!(
-            intent_non_mutating_execution.contains(responsibility),
-            "intent non-mutating execution owner is missing: {responsibility}"
-        );
-    }
-    assert!(
-        !intent_facade.contains("pub(super) fn run_with_decision("),
-        "intent facade still owns workflow execution"
-    );
-    for regression in [
-        "fn explicit_skill_has_priority(",
-        "fn model_action_parser_blocks_requested_side_effects(",
-        "fn model_answer_fails_closed_on_non_korean_natural_language(",
-        "fn review_outcomes_require_answer_bound_file_and_severity_evidence(",
-    ] {
-        assert!(
-            intent_tests.contains(regression),
-            "intent regression owner is missing: {regression}"
-        );
-        assert!(
-            !intent_facade.contains(regression),
-            "intent facade still owns regression test: {regression}"
-        );
-    }
-    assert!(
-        intent_facade.lines().count() < 600,
-        "intent facade regrew beyond the v0.37.9 boundary"
-    );
-    assert!(
-        intent_execution.lines().count() < 500,
-        "intent execution module regrew beyond its ownership boundary"
-    );
-    assert!(
-        intent_non_mutating_execution.lines().count() < 500,
-        "intent non-mutating execution module regrew beyond its ownership boundary"
-    );
-    assert!(
-        intent_tests.lines().count() < 325,
-        "intent regression module regrew beyond its ownership boundary"
-    );
     assert!(
         patch_facade.lines().count() < 500,
         "patch facade regrew beyond the v0.37.9 boundary"
