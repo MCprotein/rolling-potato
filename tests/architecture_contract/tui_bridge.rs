@@ -1,6 +1,92 @@
 use super::*;
 
 #[test]
+fn runtime_bridge_facade_delegates_value_objects_to_bounded_owners() {
+    let facade_path = "src/surfaces/tui/runtime_bridge.rs";
+    let facade = fs::read_to_string(facade_path).unwrap();
+    assert!(facade.lines().count() < 50);
+
+    for (owner, definitions, line_budget) in [
+        (
+            "conversation",
+            &[
+                "enum TuiAttachmentKind",
+                "struct TuiAttachment",
+                "enum TuiConversationRole",
+                "struct TuiSessionTransition",
+            ][..],
+            75,
+        ),
+        (
+            "intent",
+            &[
+                "fn new_tui_intent_id",
+                "enum TuiGateKind",
+                "enum TuiIntent",
+                "struct OneShotSecret",
+            ][..],
+            125,
+        ),
+        (
+            "model",
+            &["struct TuiModelOption", "fn model_artifact_label"][..],
+            75,
+        ),
+        (
+            "read",
+            &[
+                "struct TuiReadBudget",
+                "enum TuiReadRequest",
+                "struct TuiReadPage",
+                "enum TuiReadContinuation",
+                "struct TuiReadAuthority",
+                "enum TuiFreshness",
+            ][..],
+            175,
+        ),
+        (
+            "selection",
+            &[
+                "struct SelectionLease",
+                "struct SelectionObservation",
+                "fn lease_matches_active_workflow",
+            ][..],
+            90,
+        ),
+        (
+            "status",
+            &[
+                "struct TuiStatusSnapshot",
+                "enum TuiVisionStatus",
+                "enum TuiBackendStatus",
+            ][..],
+            90,
+        ),
+    ] {
+        assert!(
+            facade.lines().any(|line| line == format!("mod {owner};")),
+            "TUI runtime bridge does not register {owner}"
+        );
+        let path = format!("src/surfaces/tui/runtime_bridge/{owner}.rs");
+        let source = fs::read_to_string(&path).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "{path} exceeded its {line_budget}-line budget"
+        );
+        for definition in definitions {
+            assert!(
+                source.contains(definition),
+                "{path} is missing {definition}"
+            );
+            assert!(
+                !facade.contains(definition),
+                "TUI runtime bridge facade still owns {definition}"
+            );
+        }
+    }
+}
+
+#[test]
 fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
     assert!(!Path::new("src/test_support.rs").exists());
     assert!(Path::new("tests/support/runtime_fixture.rs").is_file());
@@ -37,6 +123,10 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "application root does not register the TUI adapter"
     );
     let bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
+    let bridge_read = fs::read_to_string("src/surfaces/tui/runtime_bridge/read.rs").unwrap();
+    let bridge_intent = fs::read_to_string("src/surfaces/tui/runtime_bridge/intent.rs").unwrap();
+    let bridge_selection =
+        fs::read_to_string("src/surfaces/tui/runtime_bridge/selection.rs").unwrap();
     let tui_runtime_source = fs::read_to_string(tui_runtime).unwrap();
     let runtime_backend = fs::read_to_string(tui_runtime_backend).unwrap();
     assert!(tui_runtime_source
@@ -44,24 +134,39 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         .any(|line| line == "mod backend;"));
     assert!(!tui_runtime_source.contains("fn ensure_runtime_ready("));
     assert!(runtime_backend.contains("pub(super) fn ensure_runtime_ready("));
-    for definition in [
-        "struct TuiReadBudget",
-        "enum TuiReadRequest",
-        "struct TuiReadPage",
-        "struct SelectionLease",
-        "struct SelectionObservation",
-        "enum TuiFreshness",
-        "enum TuiIntent",
-        "struct OneShotSecret",
-        "fn new_tui_intent_id",
-        "fn lease_matches_active_workflow",
-        "fn lease_matches_terminal_selection",
+    for owner in [
+        "conversation",
+        "intent",
+        "model",
+        "read",
+        "selection",
+        "status",
     ] {
         assert!(
-            bridge.contains(definition),
-            "TUI runtime bridge is missing {definition}"
+            bridge.lines().any(|line| line == format!("mod {owner};")),
+            "TUI runtime bridge does not register {owner}"
         );
     }
+    for (owner, definition) in [
+        (&bridge_read, "struct TuiReadBudget"),
+        (&bridge_read, "enum TuiReadRequest"),
+        (&bridge_read, "struct TuiReadPage"),
+        (&bridge_read, "enum TuiFreshness"),
+        (&bridge_selection, "struct SelectionLease"),
+        (&bridge_selection, "struct SelectionObservation"),
+        (&bridge_selection, "fn lease_matches_active_workflow"),
+        (&bridge_selection, "fn lease_matches_terminal_selection"),
+        (&bridge_intent, "enum TuiIntent"),
+        (&bridge_intent, "struct OneShotSecret"),
+        (&bridge_intent, "fn new_tui_intent_id"),
+    ] {
+        assert!(
+            owner.contains(definition),
+            "TUI runtime bridge owner is missing {definition}"
+        );
+        assert!(!bridge.contains(definition));
+    }
+    assert!(bridge.lines().count() < 50);
 
     let outcome_path = "src/surfaces/tui/outcome.rs";
     let outcome_oracle_path = "src/surfaces/tui/outcome/oracle.rs";

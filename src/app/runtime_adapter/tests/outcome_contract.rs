@@ -320,8 +320,10 @@ fn tui_outcome_public_dto_and_exact_fixtures_share_field_order() {
 
 #[test]
 fn one_shot_secret_plaintext_accessor_consumes_value() {
-    assert!(include_str!("../../../surfaces/tui/runtime_bridge.rs")
-        .contains("fn expose<R>(self, use_plaintext: impl FnOnce(&str) -> R) -> R"));
+    assert!(
+        include_str!("../../../surfaces/tui/runtime_bridge/intent.rs")
+            .contains("fn expose<R>(self, use_plaintext: impl FnOnce(&str) -> R) -> R")
+    );
     let secret = OneShotSecret::new("secret-value".to_string()).unwrap();
     assert_eq!(secret.expose(str::to_string), "secret-value");
     assert!(OneShotSecret::new(String::new()).is_err());

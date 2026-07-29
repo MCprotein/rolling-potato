@@ -10020,13 +10020,126 @@
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "slices": [
         {
-          "responsibility": "TUI read, selection, and intent contracts with one-shot secret",
+          "responsibility": "stable TUI runtime value-object facade and owner registration",
           "target": "src/surfaces/tui/runtime_bridge.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/runtime_bridge.rs",
-            "tests/architecture_contract.rs"
+            "src/surfaces/tui/runtime_bridge/conversation.rs",
+            "src/surfaces/tui/runtime_bridge/intent.rs",
+            "src/surfaces/tui/runtime_bridge/model.rs",
+            "src/surfaces/tui/runtime_bridge/read.rs",
+            "src/surfaces/tui/runtime_bridge/selection.rs",
+            "src/surfaces/tui/runtime_bridge/status.rs",
+            "src/surfaces/tui/runtime_bridge/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/conversation.rs",
+      "slices": [
+        {
+          "responsibility": "TUI attachment, conversation turn, and session transition value objects",
+          "target": "src/surfaces/tui/runtime_bridge/conversation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/conversation.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/intent.rs",
+      "slices": [
+        {
+          "responsibility": "TUI mutation intents, intent identity, and one-shot secret boundary",
+          "target": "src/surfaces/tui/runtime_bridge/intent.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/intent.rs",
+            "src/app/runtime_adapter/tests/outcome_contract.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/model.rs",
+      "slices": [
+        {
+          "responsibility": "TUI model option and artifact-readiness labels",
+          "target": "src/surfaces/tui/runtime_bridge/model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/model.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/read.rs",
+      "slices": [
+        {
+          "responsibility": "bounded TUI read requests, pages, freshness, continuation, and authority",
+          "target": "src/surfaces/tui/runtime_bridge/read.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/read.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/selection.rs",
+      "slices": [
+        {
+          "responsibility": "TUI selection observations, leases, and stale-selection validation",
+          "target": "src/surfaces/tui/runtime_bridge/selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/selection.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/status.rs",
+      "slices": [
+        {
+          "responsibility": "TUI backend, vision, context, and session status value objects",
+          "target": "src/surfaces/tui/runtime_bridge/status.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/status.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/tests.rs",
+      "slices": [
+        {
+          "responsibility": "TUI runtime bridge value-object and secret regression tests",
+          "target": "src/surfaces/tui/runtime_bridge/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
           ]
         }
       ]
@@ -18677,7 +18790,49 @@
     {
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "responsibilities": [
-        "TUI read, selection, and intent contracts with one-shot secret"
+        "stable TUI runtime value-object facade and owner registration"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/conversation.rs",
+      "responsibilities": [
+        "TUI attachment, conversation turn, and session transition value objects"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/intent.rs",
+      "responsibilities": [
+        "TUI mutation intents, intent identity, and one-shot secret boundary"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/model.rs",
+      "responsibilities": [
+        "TUI model option and artifact-readiness labels"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/read.rs",
+      "responsibilities": [
+        "bounded TUI read requests, pages, freshness, continuation, and authority"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/selection.rs",
+      "responsibilities": [
+        "TUI selection observations, leases, and stale-selection validation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/status.rs",
+      "responsibilities": [
+        "TUI backend, vision, context, and session status value objects"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/tests.rs",
+      "responsibilities": [
+        "TUI runtime bridge value-object and secret regression tests"
       ]
     },
     {
