@@ -9230,7 +9230,7 @@
       "path": "src/app/workflow_adapter/transcript/storage.rs",
       "slices": [
         {
-          "responsibility": "transcript and tool-output canonical decode, validation, and filesystem boundary enforcement",
+          "responsibility": "transcript persistence facade and stable storage validation API",
           "target": "src/app/workflow_adapter/transcript/storage.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -9238,8 +9238,76 @@
             "src/runtime_core/workflow/storage_compat/transcript.rs",
             "src/app/workflow_adapter/transcript.rs",
             "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/storage/contract.rs",
+            "src/app/workflow_adapter/transcript/storage/path_resolution.rs",
+            "src/app/workflow_adapter/transcript/storage/record_repository.rs",
+            "src/app/workflow_adapter/transcript/storage/tool_artifact.rs",
             "src/app/workflow_adapter/transcript/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/contract.rs",
+      "slices": [
+        {
+          "responsibility": "transcript domain validation, detail parsing, and timestamp contracts",
+          "target": "src/app/workflow_adapter/transcript/storage/contract.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/storage/contract.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/path_resolution.rs",
+      "slices": [
+        {
+          "responsibility": "safe transcript and tool-artifact path resolution with directory boundaries",
+          "target": "src/app/workflow_adapter/transcript/storage/path_resolution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/storage/path_resolution.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/record_repository.rs",
+      "slices": [
+        {
+          "responsibility": "canonical transcript record load, install, validation, and idempotency",
+          "target": "src/app/workflow_adapter/transcript/storage/record_repository.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/storage/record_repository.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/tool_artifact.rs",
+      "slices": [
+        {
+          "responsibility": "bounded tool-output artifact codec, owner binding, and hash validation",
+          "target": "src/app/workflow_adapter/transcript/storage/tool_artifact.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/storage/tool_artifact.rs",
+            "tests/architecture_contract/domain_views.rs"
           ]
         }
       ]
@@ -16861,7 +16929,31 @@
     {
       "path": "src/app/workflow_adapter/transcript/storage.rs",
       "responsibilities": [
-        "transcript and tool-output canonical decode, validation, and filesystem boundary enforcement"
+        "transcript persistence facade and stable storage validation API"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/contract.rs",
+      "responsibilities": [
+        "transcript domain validation, detail parsing, and timestamp contracts"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/path_resolution.rs",
+      "responsibilities": [
+        "safe transcript and tool-artifact path resolution with directory boundaries"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/record_repository.rs",
+      "responsibilities": [
+        "canonical transcript record load, install, validation, and idempotency"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage/tool_artifact.rs",
+      "responsibilities": [
+        "bounded tool-output artifact codec, owner binding, and hash validation"
       ]
     },
     {

@@ -5,6 +5,11 @@ fn v0375_domain_views_replace_legacy_definitions() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
     let transcript_storage = "src/app/workflow_adapter/transcript/storage.rs";
+    let transcript_storage_contract = "src/app/workflow_adapter/transcript/storage/contract.rs";
+    let transcript_storage_paths = "src/app/workflow_adapter/transcript/storage/path_resolution.rs";
+    let transcript_storage_records =
+        "src/app/workflow_adapter/transcript/storage/record_repository.rs";
+    let transcript_storage_tools = "src/app/workflow_adapter/transcript/storage/tool_artifact.rs";
     let transcript_tool_turn = "src/app/workflow_adapter/transcript/tool_turn.rs";
     let transcript_streams = "src/app/workflow_adapter/transcript/tool_turn/streams.rs";
     let transcript_tests = "src/app/workflow_adapter/transcript/tests.rs";
@@ -98,11 +103,20 @@ fn v0375_domain_views_replace_legacy_definitions() {
         "transcript adapter is not registered under workflow_adapter"
     );
     assert!(Path::new(transcript_storage).is_file());
+    assert!(Path::new(transcript_storage_contract).is_file());
+    assert!(Path::new(transcript_storage_paths).is_file());
+    assert!(Path::new(transcript_storage_records).is_file());
+    assert!(Path::new(transcript_storage_tools).is_file());
     assert!(Path::new(transcript_tool_turn).is_file());
     assert!(Path::new(transcript_streams).is_file());
     assert!(Path::new(transcript_tests).is_file());
     let transcript_adapter_source = fs::read_to_string(transcript_adapter).unwrap();
     let transcript_storage_source = fs::read_to_string(transcript_storage).unwrap();
+    let transcript_storage_contract_source =
+        fs::read_to_string(transcript_storage_contract).unwrap();
+    let transcript_storage_path_source = fs::read_to_string(transcript_storage_paths).unwrap();
+    let transcript_storage_record_source = fs::read_to_string(transcript_storage_records).unwrap();
+    let transcript_storage_tool_source = fs::read_to_string(transcript_storage_tools).unwrap();
     let transcript_tool_turn_source = fs::read_to_string(transcript_tool_turn).unwrap();
     let transcript_stream_source = fs::read_to_string(transcript_streams).unwrap();
     let transcript_test_source = fs::read_to_string(transcript_tests).unwrap();
@@ -133,19 +147,62 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript regression owner is missing: {regression}"
         );
     }
-    for responsibility in [
-        "pub(super) fn load_record_path(",
-        "pub(super) fn load_tool_output_artifact(",
-        "pub(super) fn parse_tool_output_artifact_body(",
-        "pub(super) fn validate_tool_binding_for_record(",
-        "pub(super) fn validate_expected_record(",
-        "pub(super) fn validated_tool_output_path(",
-        "pub(super) fn validated_transcript_path(",
-        "fn ensure_directory_boundary(",
+    for owner in [
+        "contract",
+        "path_resolution",
+        "record_repository",
+        "tool_artifact",
     ] {
         assert!(
-            transcript_storage_source.contains(responsibility),
-            "transcript storage owner is missing: {responsibility}"
+            transcript_storage_source
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "transcript storage facade does not register {owner}"
+        );
+    }
+    for (owner, responsibility) in [
+        (&transcript_storage_record_source, "fn load_record_path("),
+        (&transcript_storage_record_source, "fn install_record("),
+        (
+            &transcript_storage_record_source,
+            "fn validate_expected_record(",
+        ),
+        (
+            &transcript_storage_tool_source,
+            "fn load_tool_output_artifact(",
+        ),
+        (
+            &transcript_storage_tool_source,
+            "fn parse_tool_output_artifact_body(",
+        ),
+        (
+            &transcript_storage_tool_source,
+            "fn validate_tool_binding_for_record(",
+        ),
+        (
+            &transcript_storage_path_source,
+            "fn validated_tool_output_path(",
+        ),
+        (
+            &transcript_storage_path_source,
+            "fn validated_transcript_path(",
+        ),
+        (
+            &transcript_storage_path_source,
+            "fn ensure_directory_boundary(",
+        ),
+        (
+            &transcript_storage_contract_source,
+            "fn validate_event_details_for_schema(",
+        ),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "transcript storage responsibility owner is missing: {responsibility}"
+        );
+        assert!(
+            !transcript_storage_source.contains(responsibility),
+            "transcript storage facade still owns: {responsibility}"
         );
         assert!(
             !transcript_adapter_source.contains(responsibility),
@@ -193,10 +250,18 @@ fn v0375_domain_views_replace_legacy_definitions() {
         transcript_adapter_source.lines().count() < 450,
         "transcript adapter regrew beyond its orchestration boundary"
     );
-    assert!(
-        transcript_storage_source.lines().count() < 550,
-        "transcript storage module regrew beyond its ownership boundary"
-    );
+    for (owner, source, line_budget) in [
+        ("facade", &transcript_storage_source, 30),
+        ("contract", &transcript_storage_contract_source, 90),
+        ("path resolution", &transcript_storage_path_source, 240),
+        ("record repository", &transcript_storage_record_source, 100),
+        ("tool artifact", &transcript_storage_tool_source, 250),
+    ] {
+        assert!(
+            source.lines().count() < line_budget,
+            "transcript storage {owner} exceeded its {line_budget}-line budget"
+        );
+    }
     assert!(
         transcript_tool_turn_source.lines().count() < 450,
         "transcript tool-turn module regrew beyond its ownership boundary"
