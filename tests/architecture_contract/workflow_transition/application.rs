@@ -33,6 +33,10 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         transition_adapter,
         "src/runtime_core/workflow/application/mod.rs",
         "src/runtime_core/workflow/application/recovery.rs",
+        "src/runtime_core/workflow/application/recovery/contracts.rs",
+        "src/runtime_core/workflow/application/recovery/projection.rs",
+        "src/runtime_core/workflow/application/recovery/transaction.rs",
+        "src/runtime_core/workflow/application/recovery/validation.rs",
         "src/runtime_core/workflow/application/transaction_coordinator.rs",
         coordinator_tests,
         "src/runtime_core/workflow/domain/transition.rs",
@@ -114,6 +118,23 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
             "workflow recovery owner is missing policy: {rule}"
         );
     }
+    for child in ["contracts", "projection", "transaction", "validation"] {
+        let declaration = format!("mod {child};");
+        assert!(
+            recovery.lines().any(|line| line == declaration),
+            "workflow recovery facade is missing child owner: {child}"
+        );
+    }
+    assert!(
+        recovery
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap()
+            .lines()
+            .count()
+            < 50,
+        "workflow recovery facade regrew beyond its ownership boundary"
+    );
 
     for (facade, moved_definition) in [
         (ledger_adapter, "struct PlannedEvent"),

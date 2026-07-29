@@ -1,187 +1,27 @@
-//! Workflow transaction recovery ordering over explicit persistence ports.
+//! Facade for workflow transaction and prepared-state recovery.
+
+mod contracts;
+mod projection;
+mod transaction;
+mod validation;
 
 use crate::foundation::error::AppError;
-use crate::runtime_core::workflow::storage_compat::ledger::{RuntimeIdentity, WorkflowCheckpoint};
-use crate::runtime_core::workflow::storage_compat::record::{WorkflowPointer, WorkflowRecord};
 
-pub(crate) struct PendingWorkflowTransaction {
-    pub schema_version: u64,
-    pub record: WorkflowRecord,
-    pub body: String,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) enum RecoveryArtifact {
-    Transaction,
-    Pointer,
-}
-
-pub(crate) trait WorkflowRecoveryPort {
-    fn load_transaction(
-        &self,
-        workflow_id: &str,
-    ) -> Result<Option<PendingWorkflowTransaction>, AppError>;
-
-    fn load_pointer(&self, workflow_id: &str) -> Result<Option<WorkflowPointer>, AppError>;
-
-    fn checkpoints(&self, workflow_id: &str) -> Result<Vec<WorkflowCheckpoint>, AppError>;
-
-    fn validate_chain(
-        &self,
-        workflow_id: &str,
-        committed_revision: u64,
-        expected_latest_schema: u64,
-    ) -> Result<WorkflowRecord, AppError>;
-
-    fn validate_chain_with_checkpoints(
-        &self,
-        workflow_id: &str,
-        committed_revision: u64,
-        expected_latest_schema: u64,
-        checkpoints: &[WorkflowCheckpoint],
-    ) -> Result<WorkflowRecord, AppError>;
-
-    fn current_identity(&self) -> Result<RuntimeIdentity, AppError>;
-
-    fn checkpoint_exists(
-        &self,
-        workflow_id: &str,
-        revision: u64,
-        artifact_hash: &str,
-    ) -> Result<bool, AppError>;
-
-    fn install_snapshot(&self, record: &WorkflowRecord, body: &[u8]) -> Result<(), AppError>;
-
-    fn install_pointer(&self, record: &WorkflowRecord, schema_version: u64)
-        -> Result<(), AppError>;
-
-    fn remove_transaction(&self, workflow_id: &str) -> Result<(), AppError>;
-
-    fn corrupt(&self, workflow_id: &str, artifact: RecoveryArtifact) -> AppError;
-}
-
-pub(crate) trait PreparedStateRecoveryPort {
-    fn install_reconcile_backup(&mut self) -> Result<(), AppError>;
-
-    fn install_workflow_snapshot(&mut self) -> Result<(), AppError>;
-
-    fn append_event(&mut self) -> Result<(), AppError>;
-
-    fn install_workflow_pointer(&mut self) -> Result<(), AppError>;
-
-    fn finish_events(&mut self) -> Result<(), AppError>;
-
-    fn validate_ledger_binding(&mut self) -> Result<(), AppError>;
-
-    fn install_current_state(&mut self) -> Result<(), AppError>;
-
-    fn converge_projections(&mut self) -> Result<(), AppError>;
-}
+pub(crate) use contracts::{
+    PendingWorkflowTransaction, PreparedStateRecoveryPort, RecoveryArtifact, WorkflowRecoveryPort,
+};
 
 pub(crate) fn recover_prepared_state_transition(
     port: &mut impl PreparedStateRecoveryPort,
 ) -> Result<(), AppError> {
-    port.install_reconcile_backup()?;
-    port.install_workflow_snapshot()?;
-    port.append_event()?;
-    port.install_workflow_pointer()?;
-    port.finish_events()?;
-    port.validate_ledger_binding()?;
-    port.install_current_state()?;
-    port.converge_projections()
+    projection::recover_prepared_state_transition(port)
 }
 
 pub(crate) fn recover_workflow_transaction(
     port: &impl WorkflowRecoveryPort,
     workflow_id: &str,
 ) -> Result<(), AppError> {
-    let Some(transaction) = port.load_transaction(workflow_id)? else {
-        return Ok(());
-    };
-    let record = &transaction.record;
-    if record.workflow_id != workflow_id {
-        return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-    }
-
-    if let Some(pointer) = port.load_pointer(workflow_id)? {
-        if pointer.workflow_id != workflow_id {
-            return Err(port.corrupt(workflow_id, RecoveryArtifact::Pointer));
-        }
-        if pointer.committed_revision == record.revision
-            && pointer.artifact_hash == record.artifact_hash
-        {
-            if pointer.schema_version != transaction.schema_version {
-                return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-            }
-            port.validate_chain(
-                workflow_id,
-                pointer.committed_revision,
-                pointer.schema_version,
-            )?;
-            return port.remove_transaction(workflow_id);
-        }
-
-        let schema_transition_allowed = pointer.schema_version <= transaction.schema_version;
-        if pointer.committed_revision.checked_add(1) != Some(record.revision)
-            || record.previous_hash != pointer.artifact_hash
-            || !schema_transition_allowed
-        {
-            return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-        }
-        let checkpoints = port.checkpoints(workflow_id)?;
-        if checkpoints.len() != pointer.committed_revision as usize
-            && checkpoints.len() != record.revision as usize
-        {
-            return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-        }
-        let committed = port.validate_chain_with_checkpoints(
-            workflow_id,
-            pointer.committed_revision,
-            pointer.schema_version,
-            &checkpoints[..pointer.committed_revision as usize],
-        )?;
-        if committed.artifact_hash != pointer.artifact_hash
-            || committed.project_id != record.project_id
-            || committed.session_id != record.session_id
-            || committed.action_id != record.action_id
-        {
-            return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-        }
-        if checkpoints.len() == record.revision as usize {
-            let pending = &checkpoints[record.revision as usize - 1];
-            if pending.revision != record.revision
-                || pending.artifact_hash != record.artifact_hash
-                || pending.previous_hash != record.previous_hash
-            {
-                return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-            }
-        }
-    } else {
-        let checkpoints = port.checkpoints(workflow_id)?;
-        if record.revision != 1
-            || record.previous_hash != "none"
-            || checkpoints.len() > 1
-            || checkpoints.first().is_some_and(|checkpoint| {
-                checkpoint.revision != record.revision
-                    || checkpoint.artifact_hash != record.artifact_hash
-                    || checkpoint.previous_hash != record.previous_hash
-            })
-        {
-            return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-        }
-        if record.project_id != port.current_identity()?.project_id {
-            return Err(port.corrupt(workflow_id, RecoveryArtifact::Transaction));
-        }
-    }
-
-    if !port.checkpoint_exists(workflow_id, record.revision, &record.artifact_hash)? {
-        return Err(AppError::blocked(
-            "legacy workflow transaction recovery 차단\n- 이유: exact prepared semantic event가 없습니다.\n- 동작: transaction 증거를 보존했습니다.",
-        ));
-    }
-    port.install_snapshot(record, transaction.body.as_bytes())?;
-    port.install_pointer(record, transaction.schema_version)?;
-    port.remove_transaction(workflow_id)
+    transaction::recover_workflow_transaction(port, workflow_id)
 }
 
 #[cfg(test)]
@@ -189,6 +29,10 @@ mod tests {
     use std::cell::RefCell;
 
     use super::*;
+    use crate::runtime_core::workflow::storage_compat::ledger::{
+        RuntimeIdentity, WorkflowCheckpoint,
+    };
+    use crate::runtime_core::workflow::storage_compat::record::{WorkflowPointer, WorkflowRecord};
 
     struct FakePort {
         transaction: Option<PendingWorkflowTransaction>,
