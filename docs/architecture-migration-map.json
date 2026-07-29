@@ -2227,14 +2227,82 @@
       "path": "src/adapters/terminal/native/platform.rs",
       "slices": [
         {
-          "responsibility": "POSIX and Windows terminal dimensions, secret input, and echo restoration",
+          "responsibility": "native terminal platform selection facade and stable API reexports",
           "target": "src/adapters/terminal/native/platform.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/terminal/native.rs",
             "src/adapters/terminal/native/platform.rs",
-            "tests/architecture_contract.rs"
+            "src/adapters/terminal/native/platform/capability.rs",
+            "src/adapters/terminal/native/platform/unix.rs",
+            "src/adapters/terminal/native/platform/windows.rs",
+            "src/adapters/terminal/native/platform/unsupported.rs",
+            "tests/architecture_contract/foundation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/capability.rs",
+      "slices": [
+        {
+          "responsibility": "OS-gated native live-input capability",
+          "target": "src/adapters/terminal/native/platform/capability.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/platform.rs",
+            "src/adapters/terminal/native/platform/capability.rs",
+            "tests/architecture_contract/foundation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/unix.rs",
+      "slices": [
+        {
+          "responsibility": "Linux and macOS termios, ioctl, signal restoration, and interactive input",
+          "target": "src/adapters/terminal/native/platform/unix.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/platform.rs",
+            "src/adapters/terminal/native/platform/unix.rs",
+            "tests/architecture_contract/foundation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/windows.rs",
+      "slices": [
+        {
+          "responsibility": "Windows console mode, dimensions, control-handler restoration, and input",
+          "target": "src/adapters/terminal/native/platform/windows.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/platform.rs",
+            "src/adapters/terminal/native/platform/windows.rs",
+            "tests/architecture_contract/foundation.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/unsupported.rs",
+      "slices": [
+        {
+          "responsibility": "unsupported-platform deterministic terminal faults and fallback input",
+          "target": "src/adapters/terminal/native/platform/unsupported.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/platform.rs",
+            "src/adapters/terminal/native/platform/unsupported.rs",
+            "tests/architecture_contract/foundation.rs"
           ]
         }
       ]
@@ -13604,7 +13672,31 @@
     {
       "path": "src/adapters/terminal/native/platform.rs",
       "responsibilities": [
-        "POSIX and Windows terminal dimensions, secret input, and echo restoration"
+        "native terminal platform selection facade and stable API reexports"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/capability.rs",
+      "responsibilities": [
+        "OS-gated native live-input capability"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/unix.rs",
+      "responsibilities": [
+        "Linux and macOS termios, ioctl, signal restoration, and interactive input"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/windows.rs",
+      "responsibilities": [
+        "Windows console mode, dimensions, control-handler restoration, and input"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform/unsupported.rs",
+      "responsibilities": [
+        "unsupported-platform deterministic terminal faults and fallback input"
       ]
     },
     {

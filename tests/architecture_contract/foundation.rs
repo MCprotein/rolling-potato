@@ -182,6 +182,10 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
         "src/adapters/terminal/native.rs",
         "src/adapters/terminal/native/live_input.rs",
         "src/adapters/terminal/native/platform.rs",
+        "src/adapters/terminal/native/platform/capability.rs",
+        "src/adapters/terminal/native/platform/unix.rs",
+        "src/adapters/terminal/native/platform/windows.rs",
+        "src/adapters/terminal/native/platform/unsupported.rs",
         "src/surfaces/tui/command_palette.rs",
         "tests/surfaces.rs",
         "tests/surfaces/interactive_tui.rs",
@@ -220,6 +224,14 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
 
     let native = fs::read_to_string("src/adapters/terminal/native.rs").unwrap();
     let platform = fs::read_to_string("src/adapters/terminal/native/platform.rs").unwrap();
+    let platform_capability =
+        fs::read_to_string("src/adapters/terminal/native/platform/capability.rs").unwrap();
+    let unix_platform =
+        fs::read_to_string("src/adapters/terminal/native/platform/unix.rs").unwrap();
+    let windows_platform =
+        fs::read_to_string("src/adapters/terminal/native/platform/windows.rs").unwrap();
+    let unsupported_platform =
+        fs::read_to_string("src/adapters/terminal/native/platform/unsupported.rs").unwrap();
     let live_input_editor =
         fs::read_to_string("src/adapters/terminal/native/live_input/editor.rs").unwrap();
     assert!(
@@ -230,25 +242,31 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
         native.lines().any(|line| line == "mod live_input;"),
         "native terminal adapter does not register its live input owner"
     );
-    for responsibility in [
-        "unsafe extern \"C\"",
-        "unsafe extern \"system\"",
-        "fn restore_echo_before_signal_exit(",
-        "fn restore_echo_before_console_exit(",
-        "pub fn dimensions(",
-        "pub fn read_secret(",
-    ] {
-        assert!(
-            platform.contains(responsibility),
-            "native terminal platform owner is missing: {responsibility}"
-        );
-        assert!(
-            !native.contains(responsibility),
-            "native terminal facade still owns platform behavior: {responsibility}"
-        );
+    assert!(platform.lines().any(|line| line == "mod capability;"));
+    for owner in ["unix.rs", "windows.rs", "unsupported.rs"] {
+        assert!(platform.contains(&format!("#[path = \"platform/{owner}\"]")));
     }
+    for owner in [&unix_platform, &windows_platform, &unsupported_platform] {
+        for responsibility in ["pub fn dimensions(", "pub fn read_secret("] {
+            assert!(owner.contains(responsibility));
+            assert!(!platform.contains(responsibility));
+        }
+    }
+    assert!(unix_platform.contains("unsafe extern \"C\""));
+    assert!(unix_platform.contains("fn restore_echo_before_signal_exit("));
+    assert!(windows_platform.contains("unsafe extern \"system\""));
+    assert!(windows_platform.contains("fn restore_echo_before_console_exit("));
+    assert!(platform_capability.contains("const LIVE_INPUT: bool"));
     assert!(native.lines().count() < 325);
-    assert!(platform.lines().count() < 550);
+    for owner in [
+        &platform,
+        &platform_capability,
+        &unix_platform,
+        &windows_platform,
+        &unsupported_platform,
+    ] {
+        assert!(owner.lines().count() < 500);
+    }
     let live_input = fs::read_to_string("src/adapters/terminal/native/live_input.rs").unwrap();
     for responsibility in [
         "pub(super) fn read(",
