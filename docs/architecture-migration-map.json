@@ -6713,18 +6713,16 @@
       "path": "src/surfaces/tui/render.rs",
       "slices": [
         {
-          "responsibility": "interactive frame rendering and conversation layout",
+          "responsibility": "interactive frame routing and shared render styling",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/render.rs",
-            "src/surfaces/tui/render/report_layout.rs",
-            "src/surfaces/tui/render/text.rs",
-            "src/surfaces/tui/report_render.rs",
-            "src/app/tui_adapter.rs",
-            "src/app/tui_adapter/report_composition.rs",
-            "tests/architecture_contract.rs"
+            "src/surfaces/tui/render/chrome.rs",
+            "src/surfaces/tui/render/conversation.rs",
+            "src/surfaces/tui/render/notice.rs",
+            "tests/architecture_contract/tui_extension.rs"
           ]
         }
       ]
@@ -9647,6 +9645,57 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/surfaces/tui/render/chrome.rs",
+      "slices": [
+        {
+          "responsibility": "conversation chrome, attachments, composer, and cursor placement",
+          "target": "src/surfaces/tui/render/chrome.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/chrome.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/conversation.rs",
+      "slices": [
+        {
+          "responsibility": "conversation transcript rendering and viewport pagination",
+          "target": "src/surfaces/tui/render/conversation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/conversation.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/notice.rs",
+      "slices": [
+        {
+          "responsibility": "paginated diagnostic and conversation notice rendering",
+          "target": "src/surfaces/tui/render/notice.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/notice.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -12128,7 +12177,7 @@
     {
       "path": "src/surfaces/tui/render.rs",
       "responsibilities": [
-        "interactive frame rendering and conversation layout"
+        "interactive frame routing and shared render styling"
       ]
     },
     {
@@ -13208,6 +13257,24 @@
       "path": "src/adapters/terminal/native/live_input/keymap.rs",
       "responsibilities": [
         "raw terminal escape decoding into semantic editor, paste, and scroll actions"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/chrome.rs",
+      "responsibilities": [
+        "conversation chrome, attachments, composer, and cursor placement"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/conversation.rs",
+      "responsibilities": [
+        "conversation transcript rendering and viewport pagination"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/notice.rs",
+      "responsibilities": [
+        "paginated diagnostic and conversation notice rendering"
       ]
     }
   ]

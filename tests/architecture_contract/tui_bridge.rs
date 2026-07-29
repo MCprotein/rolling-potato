@@ -343,16 +343,11 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!native_terminal.contains("pub trait TerminalIo"));
 
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
-    for definition in ["fn render_interactive_frame", "fn render_notice_lines"] {
-        assert!(
-            render.contains(definition),
-            "TUI interactive render owner is missing {definition}"
-        );
-        assert!(
-            !tui_composition.contains(definition),
-            "TUI adapter still owns {definition}"
-        );
-    }
+    assert!(render.contains("fn render_interactive_frame"));
+    assert!(!tui_composition.contains("fn render_interactive_frame"));
+    let render_notice = fs::read_to_string("src/surfaces/tui/render/notice.rs").unwrap();
+    assert!(render_notice.contains("fn render_lines"));
+    assert!(!tui_composition.contains("fn render_notice_lines"));
     let render_text = fs::read_to_string("src/surfaces/tui/render/text.rs").unwrap();
     for definition in [
         "fn sanitize_terminal_text",

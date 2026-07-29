@@ -136,18 +136,38 @@ fn terminal_live_input_has_a_semantic_keymap_owner() {
 }
 
 #[test]
-fn v0471_tui_render_text_and_report_layout_are_split() {
+fn tui_render_responsibilities_have_bounded_owners() {
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
-    for (module, owner, marker) in [
+    for (module, owner, marker, line_budget) in [
+        (
+            "chrome",
+            "src/surfaces/tui/render/chrome.rs",
+            "fn render_composer",
+            200,
+        ),
+        (
+            "conversation",
+            "src/surfaces/tui/render/conversation.rs",
+            "fn render_frame",
+            225,
+        ),
+        (
+            "notice",
+            "src/surfaces/tui/render/notice.rs",
+            "fn render_lines",
+            75,
+        ),
         (
             "report_layout",
             "src/surfaces/tui/render/report_layout.rs",
             "fn push_wrapped",
+            175,
         ),
         (
             "text",
             "src/surfaces/tui/render/text.rs",
             "fn sanitize_terminal_text",
+            175,
         ),
     ] {
         assert!(
@@ -159,10 +179,14 @@ fn v0471_tui_render_text_and_report_layout_are_split() {
             source.contains(marker),
             "TUI render responsibility owner is missing: {owner} -> {marker}"
         );
+        assert!(
+            source.lines().count() < line_budget,
+            "TUI render responsibility owner exceeded its {line_budget}-line budget: {owner}"
+        );
     }
     assert!(
-        render.lines().count() < 575,
-        "TUI render regrew beyond interactive-frame ownership"
+        render.lines().count() < 150,
+        "TUI render facade regrew beyond frame routing ownership"
     );
 }
 
