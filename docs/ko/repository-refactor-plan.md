@@ -83,16 +83,26 @@
 - context assembly의 declared files, ontology, durable resume
 - patch application facade의 approval dispatch, proposal API, verification evidence,
   shared value helper
+- policy decision의 command, project path, schema, value object·port
+- collaboration team의 admission, dispatch, ownership, policy, governor, event,
+  value object
+- TUI conversation 회귀의 decision, local facts, presentation, context assembly
+- first-run setup의 orchestration과 model list·confirmation presentation
 
-다음 파일은 줄 수만으로 자동 분리하지 않고, 서로 독립적으로 변경되는 이유가
-실제로 둘 이상인지 확인하는 잔여 production hotspot이다.
+명시적 hotspot 감사 결과는 다음과 같다. `유지`는 분리를 생략했다는 뜻이 아니라,
+현재 파일이 하나의 변경 이유와 불변식을 가지며 더 나누면 오히려 계약이
+분산된다는 판단이다.
 
-| 우선순위 | 경계 | 확인할 책임 |
-| ---: | --- | --- |
-| 1 | `src/surfaces/tui/setup.rs`, `src/app/tui_adapter/conversation.rs`, `src/composition/tui_action.rs` | setup, 대화 orchestration, action composition의 의존 방향 |
-| 2 | `src/app/workflow_adapter/transition/bundle_preparation.rs`, `source_install.rs`, `src/app/workflow_adapter/transcript.rs` | transaction 준비, source 설치, transcript 저장·projection |
-| 3 | `src/app/patch_adapter/terminal.rs`, `src/adapters/sqlite/observability_projection/analytics.rs` | terminal mutation과 보고, query와 projection 경계 |
-| 4 | `src/runtime_core/knowledge/recall.rs`, `src/runtime_core/collaboration/subagent.rs`, `team.rs`, `src/runtime_core/policy/decision.rs` | domain policy, value object, lifecycle 전이의 응집도 |
+| 경계 | 결과 | 근거 |
+| --- | --- | --- |
+| `src/surfaces/tui/setup.rs` | 분리 완료 | setup pipeline·port와 model list·confirmation presentation을 별도 owner로 이동 |
+| `src/app/tui_adapter/conversation.rs` | 분리 완료 | production facade를 유지하고 decision, local facts, presentation, context assembly 회귀를 독립 test owner로 이동 |
+| `src/composition/tui_action.rs` | 유지 | 의미 기반 action module 등록과 intent dispatch만 소유하는 bounded facade |
+| workflow transition·source install·transcript | 분리 완료 | bundle construction, codec, path, validation, projection, storage owner와 짧은 facade 확인 |
+| patch terminal·observability analytics | 분리 완료 | terminal mutation use case와 analytics query 종류를 독립 owner로 이동 |
+| `src/runtime_core/knowledge/recall.rs` | 유지 | pair 보존, token budget, lexical recall이 하나의 query-driven recall 전략 불변식을 구성 |
+| collaboration subagent·team | 분리 완료 | durable record와 team admission·dispatch·ownership·governor 책임을 독립 owner로 이동 |
+| `src/runtime_core/policy/decision.rs` | 분리 완료 | exact argv, project path, schema, value object·port를 독립 owner로 이동 |
 
 최종 중단 조건은 잔여 목록의 줄 수가 아니라 다음 네 조건이다.
 
