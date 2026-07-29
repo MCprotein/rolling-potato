@@ -19,18 +19,19 @@ pub(super) fn render(user_request: &str, grounding: &[WebGroundingEvidence]) -> 
                 .map(move |passage| (evidence, passage))
         })
         .max_by_key(|(_, passage)| super::routing::overlap_score(user_request, passage));
-    let title = bounded_chars(&decode_display_entities(primary.title.trim()));
     let Some((passage_source, passage)) = passage else {
+        let title = bounded_chars(&decode_display_entities(primary.title.trim()));
         return Some(format!(
             "검색 근거에서 “{title}” 문서를 확인했지만 답변으로 요약할 원문 구간은 찾지 못했습니다. [{}]",
             primary.source_id
         ));
     };
+    let title = bounded_chars(&decode_display_entities(passage_source.title.trim()));
     let passage = bounded_chars(passage.trim());
     if passage.is_empty() || passage == title {
         return Some(format!(
             "검색 근거에는 “{title}”라고 표기되어 있습니다. [{}]",
-            primary.source_id
+            passage_source.source_id
         ));
     }
     Some(format!(
@@ -142,5 +143,35 @@ mod tests {
         assert!(answer.contains("Alpha runtime release"), "{answer}");
         assert!(answer.contains("version 2.0"), "{answer}");
         assert!(answer.contains("[source-primary]"), "{answer}");
+    }
+
+    #[test]
+    fn fallback_keeps_title_passage_and_source_id_from_the_same_evidence() {
+        let evidence = vec![
+            WebGroundingEvidence {
+                source_id: "source-title".to_string(),
+                title: "Alpha runtime release performance".to_string(),
+                url: "https://example.com/release".to_string(),
+                excerpt: "이 문서는 일반적인 출시 안내를 제공합니다.".to_string(),
+            },
+            WebGroundingEvidence {
+                source_id: "source-passage".to_string(),
+                title: "Independent benchmark notes".to_string(),
+                url: "https://example.com/benchmark".to_string(),
+                excerpt: "Alpha runtime performance improved by 30 percent in the benchmark."
+                    .to_string(),
+            },
+        ];
+
+        let answer = render("Alpha runtime release performance", &evidence).unwrap();
+
+        assert!(answer.contains("Independent benchmark notes"), "{answer}");
+        assert!(answer.contains("improved by 30 percent"), "{answer}");
+        assert!(answer.contains("[source-passage]"), "{answer}");
+        assert!(
+            !answer.contains("Alpha runtime release performance”"),
+            "{answer}"
+        );
+        assert!(!answer.contains("[source-title]"), "{answer}");
     }
 }
