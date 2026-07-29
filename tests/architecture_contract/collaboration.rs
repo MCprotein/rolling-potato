@@ -4,6 +4,13 @@ use super::*;
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
     let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
     let subagent_execution = "src/app/collaboration_adapter/subagent/execution.rs";
+    let subagent_execution_completion =
+        "src/app/collaboration_adapter/subagent/execution/completion.rs";
+    let subagent_execution_dispatch =
+        "src/app/collaboration_adapter/subagent/execution/dispatch.rs";
+    let subagent_execution_member = "src/app/collaboration_adapter/subagent/execution/member.rs";
+    let subagent_execution_parent_merge =
+        "src/app/collaboration_adapter/subagent/execution/parent_merge.rs";
     let subagent_persistence = "src/app/collaboration_adapter/subagent/persistence.rs";
     let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
     let subagent_launch = "src/runtime_core/collaboration/subagent/launch.rs";
@@ -127,6 +134,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     assert!(Path::new(subagent_execution).is_file());
+    assert!(Path::new(subagent_execution_completion).is_file());
+    assert!(Path::new(subagent_execution_dispatch).is_file());
+    assert!(Path::new(subagent_execution_member).is_file());
+    assert!(Path::new(subagent_execution_parent_merge).is_file());
     assert!(Path::new(subagent_persistence).is_file());
     assert!(Path::new(subagent_tests).is_file());
     assert!(Path::new(subagent_launch).is_file());
@@ -153,6 +164,13 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         fs::read_to_string("src/runtime_core/collaboration/subagent_result.rs").unwrap();
     let subagent_result_evidence_source = fs::read_to_string(subagent_result_evidence).unwrap();
     let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
+    let subagent_execution_completion_source =
+        fs::read_to_string(subagent_execution_completion).unwrap();
+    let subagent_execution_dispatch_source =
+        fs::read_to_string(subagent_execution_dispatch).unwrap();
+    let subagent_execution_member_source = fs::read_to_string(subagent_execution_member).unwrap();
+    let subagent_execution_parent_merge_source =
+        fs::read_to_string(subagent_execution_parent_merge).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
     let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
     let team_source = fs::read_to_string(team_adapter).unwrap();
@@ -377,26 +395,80 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "team facade still owns report behavior: {responsibility}"
         );
     }
+    for module in [
+        "mod completion;",
+        "mod dispatch;",
+        "mod member;",
+        "mod parent_merge;",
+    ] {
+        assert!(
+            subagent_execution_source.lines().any(|line| line == module),
+            "subagent execution facade does not register owner: {module}"
+        );
+    }
     for responsibility in [
         "pub(crate) struct WorkerGeneration",
         "pub(crate) struct PreparedTeamMember",
         "pub(crate) struct CompletedTeamMember",
-        "pub(crate) fn terminalize_interrupted_team_members(",
-        "pub(crate) fn execute_admitted_team_member_with(",
-        "pub(crate) fn prepare_team_members(",
-        "pub(crate) fn execute_prepared_team_member_with(",
-        "fn execute_prepared_launch(",
-        "fn complete_generation(",
-        "fn merge_completed_result(",
-        "fn recover_completed_parent_merges(",
     ] {
         assert!(
             subagent_execution_source.contains(responsibility),
-            "subagent execution owner is missing: {responsibility}"
+            "subagent execution value type owner is missing: {responsibility}"
         );
         assert!(
             !subagent_source.contains(responsibility),
-            "subagent adapter still owns execution: {responsibility}"
+            "subagent adapter still owns execution value type: {responsibility}"
+        );
+    }
+    for (source, responsibility) in [
+        (
+            subagent_execution_member_source.as_str(),
+            "pub(crate) fn terminalize_interrupted_team_members(",
+        ),
+        (
+            subagent_execution_member_source.as_str(),
+            "pub(crate) fn execute_admitted_team_member_with(",
+        ),
+        (
+            subagent_execution_member_source.as_str(),
+            "pub(crate) fn prepare_team_members(",
+        ),
+        (
+            subagent_execution_member_source.as_str(),
+            "pub(crate) fn execute_prepared_team_member_with(",
+        ),
+        (
+            subagent_execution_dispatch_source.as_str(),
+            "fn execute_prepared_launch(",
+        ),
+        (
+            subagent_execution_dispatch_source.as_str(),
+            "fn prepare_running(",
+        ),
+        (
+            subagent_execution_completion_source.as_str(),
+            "fn complete_generation(",
+        ),
+        (
+            subagent_execution_completion_source.as_str(),
+            "fn terminalize_locked(",
+        ),
+        (
+            subagent_execution_parent_merge_source.as_str(),
+            "fn merge_completed_result(",
+        ),
+        (
+            subagent_execution_parent_merge_source.as_str(),
+            "fn recover_completed_parent_merges(",
+        ),
+    ] {
+        assert!(
+            source.contains(responsibility),
+            "subagent execution responsibility owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_execution_source.contains(responsibility),
+            "subagent execution facade still owns behavior: {responsibility}"
         );
     }
     for responsibility in [
@@ -586,10 +658,34 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "collaboration facade regrew beyond the v0.37.12 boundary: {facade}"
         );
     }
-    assert!(
-        subagent_execution_source.lines().count() < 600,
-        "subagent execution module regrew beyond its ownership boundary"
-    );
+    for (source, maximum_lines, owner) in [
+        (subagent_execution_source.as_str(), 100, subagent_execution),
+        (
+            subagent_execution_completion_source.as_str(),
+            225,
+            subagent_execution_completion,
+        ),
+        (
+            subagent_execution_dispatch_source.as_str(),
+            175,
+            subagent_execution_dispatch,
+        ),
+        (
+            subagent_execution_member_source.as_str(),
+            175,
+            subagent_execution_member,
+        ),
+        (
+            subagent_execution_parent_merge_source.as_str(),
+            125,
+            subagent_execution_parent_merge,
+        ),
+    ] {
+        assert!(
+            source.lines().count() < maximum_lines,
+            "subagent execution module regrew beyond its ownership boundary: {owner}"
+        );
+    }
     assert!(
         subagent_domain.lines().count() < 450,
         "subagent domain regrew beyond its ownership boundary"

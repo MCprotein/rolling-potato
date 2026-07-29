@@ -6513,7 +6513,7 @@
       "path": "src/app/collaboration_adapter/subagent/execution.rs",
       "slices": [
         {
-          "responsibility": "subagent worker execution, terminalization, result verification, and parent merge coordination",
+          "responsibility": "subagent execution facade and shared lifecycle value types",
           "target": "src/app/collaboration_adapter/subagent/execution.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -6521,8 +6521,81 @@
             "src/runtime_core/collaboration/subagent.rs",
             "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/execution/completion.rs",
+            "src/app/collaboration_adapter/subagent/execution/dispatch.rs",
+            "src/app/collaboration_adapter/subagent/execution/member.rs",
+            "src/app/collaboration_adapter/subagent/execution/parent_merge.rs",
             "src/app/collaboration_adapter/subagent/tests.rs",
             "src/app/collaboration_adapter/team_execution.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/completion.rs",
+      "slices": [
+        {
+          "responsibility": "subagent generation completion, result validation, and terminal failure transitions",
+          "target": "src/app/collaboration_adapter/subagent/execution/completion.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/execution/completion.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "subagent dispatch preparation, exact binding validation, and bounded worker prompt composition",
+          "target": "src/app/collaboration_adapter/subagent/execution/dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/execution/dispatch.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/member.rs",
+      "slices": [
+        {
+          "responsibility": "team member preparation, execution, rollback, and interrupted recovery",
+          "target": "src/app/collaboration_adapter/subagent/execution/member.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/execution/member.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/parent_merge.rs",
+      "slices": [
+        {
+          "responsibility": "idempotent subagent evidence installation and interrupted parent merge recovery",
+          "target": "src/app/collaboration_adapter/subagent/execution/parent_merge.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/execution/parent_merge.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -12774,7 +12847,31 @@
     {
       "path": "src/app/collaboration_adapter/subagent/execution.rs",
       "responsibilities": [
-        "subagent worker execution, terminalization, result verification, and parent merge coordination"
+        "subagent execution facade and shared lifecycle value types"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/completion.rs",
+      "responsibilities": [
+        "subagent generation completion, result validation, and terminal failure transitions"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/dispatch.rs",
+      "responsibilities": [
+        "subagent dispatch preparation, exact binding validation, and bounded worker prompt composition"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/member.rs",
+      "responsibilities": [
+        "team member preparation, execution, rollback, and interrupted recovery"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution/parent_merge.rs",
+      "responsibilities": [
+        "idempotent subagent evidence installation and interrupted parent merge recovery"
       ]
     },
     {
