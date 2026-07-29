@@ -6,6 +6,7 @@ const WEB_ANSWER_FALLBACK: &str =
     "웹 검색은 완료했지만 로컬 모델이 요약을 완성하지 못했습니다. 아래 검증 가능한 출처를 확인하세요.";
 
 pub(super) fn render_grounded_answer(
+    user_request: &str,
     generated: Option<String>,
     fallback: Option<String>,
     sources: &[WebSourceEvidence],
@@ -15,10 +16,114 @@ pub(super) fn render_grounded_answer(
         .map(|source| (source.source_id.as_str(), source))
         .collect::<BTreeMap<_, _>>();
     let sanitized = generated
+        .filter(|answer| candidate_answers_request(user_request, answer))
         .and_then(|answer| sanitize_grounded_candidate(&answer, &source_map))
-        .or_else(|| fallback.and_then(|answer| sanitize_grounded_candidate(&answer, &source_map)))
+        .or_else(|| {
+            fallback
+                .filter(|answer| candidate_answers_request(user_request, answer))
+                .and_then(|answer| sanitize_grounded_candidate(&answer, &source_map))
+        })
         .unwrap_or_else(|| WEB_ANSWER_FALLBACK.to_string());
     attach_verified_sources(&sanitized, sources)
+}
+
+pub(super) fn asks_for_winner(request: &str) -> bool {
+    let lower = request.to_lowercase();
+    [
+        "우승국",
+        "우승 국가",
+        "우승팀",
+        "우승자",
+        "winner",
+        "who won",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal))
+}
+
+pub(super) fn contains_concrete_winner_claim(answer: &str) -> bool {
+    let lower = answer.to_lowercase();
+    [
+        "우승국은",
+        "우승 국가는",
+        "우승팀은",
+        "우승자는",
+        "우승했",
+        "우승을 차지",
+        "winner is",
+        "champion is",
+        "champions",
+        "won the",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal))
+}
+
+fn candidate_answers_request(request: &str, answer: &str) -> bool {
+    let answer_lower = answer.to_lowercase();
+    if asks_for_winner(request) {
+        return contains_concrete_winner_claim(answer) || contains_uncertainty(&answer_lower);
+    }
+    if super::routing::is_empirical_comparison_request(request) {
+        let request_lower = request.to_lowercase();
+        let adds_unrequested_license = !["라이선스", "license"]
+            .iter()
+            .any(|signal| request_lower.contains(signal))
+            && ["라이선스", "license"]
+                .iter()
+                .any(|signal| answer_lower.contains(signal));
+        let answer_without_citation = answer_without_trailing_source_citation(answer);
+        let unfinished = ["다음과 같습니다:", "아래와 같습니다:", "as follows:"]
+            .iter()
+            .any(|suffix| answer_without_citation.to_lowercase().ends_with(suffix));
+        return !adds_unrequested_license
+            && !unfinished
+            && (contains_uncertainty(&answer_lower)
+                || [
+                    "벤치마크",
+                    "점수",
+                    "파라미터",
+                    "모델 크기",
+                    "양자화",
+                    "속도",
+                    "지연",
+                    "정확도",
+                    "평가 작업",
+                    "benchmark",
+                    "parameter",
+                    "quantization",
+                    "latency",
+                    "accuracy",
+                ]
+                .iter()
+                .any(|signal| answer_lower.contains(signal)));
+    }
+    true
+}
+
+fn answer_without_trailing_source_citation(answer: &str) -> &str {
+    let answer = answer.trim_end();
+    answer
+        .rfind("[source-")
+        .filter(|start| answer[*start..].ends_with(']'))
+        .map(|start| answer[..start].trim_end())
+        .unwrap_or(answer)
+}
+
+fn contains_uncertainty(answer_lower: &str) -> bool {
+    [
+        "확인할 수 없",
+        "확인되지 않",
+        "확인하지 못",
+        "근거가 없",
+        "알 수 없",
+        "단정할 수 없",
+        "unable to verify",
+        "not verified",
+        "cannot verify",
+    ]
+    .iter()
+    .any(|signal| answer_lower.contains(signal))
 }
 
 fn sanitize_with_sources(answer: &str, sources: &BTreeMap<&str, &WebSourceEvidence>) -> String {

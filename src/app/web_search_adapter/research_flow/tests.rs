@@ -139,12 +139,40 @@ fn final_web_prompt_keeps_prior_runtime_failure_context() {
 }
 
 #[test]
+fn final_web_prompt_forbids_turning_predictions_into_completed_results() {
+    let input = WebAnswerInput::new(
+        "2026 FIFA 월드컵 우승 공식 결과",
+        "2026년 월드컵 우승국가 어디냐",
+        "2026년 월드컵 우승국가 어디냐",
+    );
+
+    let prompt = research_prompt(
+        &input,
+        "Source ID: source-blog\nDescription: 예상 우승국 전망",
+        &[],
+    );
+
+    assert!(prompt.contains("예상·전망·예측"));
+    assert!(prompt.contains("실제 결과 근거로 사용하지"));
+    assert!(prompt.contains("후보 결과를 나열하거나 반복하지 말고"));
+    assert!(prompt.contains("출처끼리 결과가 충돌"));
+    assert!(prompt.contains("첫 문장은 사용자가 요구한 값에 대한 직접 답"));
+    assert!(prompt.contains("검색 문서의 제목이나 범위를 답으로 대신하지"));
+    assert!(prompt.contains("사용자가 묻지 않은 라이선스"));
+    assert!(prompt.contains("완결된 문장"));
+}
+
+#[test]
 fn supporting_find_uses_a_bounded_query_term() {
     assert_eq!(
-        longest_query_term("Rust stable release 2026"),
+        supporting_query_term("Rust stable release 2026"),
         Some("release".to_string())
     );
-    assert_eq!(longest_query_term("a 1"), None);
+    assert_eq!(
+        supporting_query_term("2026년 월드컵 우승국가 FIFA World Cup 공식 official result"),
+        Some("우승".to_string())
+    );
+    assert_eq!(supporting_query_term("a 1"), None);
 }
 
 #[test]

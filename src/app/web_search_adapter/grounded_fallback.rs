@@ -1,3 +1,4 @@
+use super::answer_binding::{asks_for_winner, contains_concrete_winner_claim};
 use super::WebGroundingEvidence;
 
 const PASSAGE_CHARS: usize = 320;
@@ -10,6 +11,23 @@ pub(super) fn render(
     let title = grounding
         .iter()
         .max_by_key(|evidence| evidence_score(user_request, &evidence.title, true))?;
+    if asks_for_winner(user_request)
+        && !grounding.iter().any(|evidence| {
+            contains_concrete_winner_claim(&evidence.title)
+                || contains_concrete_winner_claim(&evidence.excerpt)
+        })
+    {
+        return Some(format!(
+            "열린 웹 원문에서 우승국을 확인할 수 없습니다. 공식 결과가 명시된 근거를 추가로 확인해야 합니다. [{}]",
+            title.source_id
+        ));
+    }
+    if super::routing::is_empirical_comparison_request(user_request) {
+        return Some(format!(
+            "검색된 근거만으로 두 모델군의 전반적인 성능 우열을 단정할 수 없습니다. 모델 버전·크기·양자화와 평가 작업을 같게 지정해 비교해야 합니다. [{}]",
+            title.source_id
+        ));
+    }
     let passage = grounding
         .iter()
         .flat_map(|evidence| {

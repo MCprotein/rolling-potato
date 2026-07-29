@@ -97,6 +97,7 @@ pub(crate) fn answer_observation(
             );
             WebAnswerResult {
                 response: render_grounded_answer(
+                    user_request,
                     generated,
                     observation.fallback,
                     &observation.sources,
