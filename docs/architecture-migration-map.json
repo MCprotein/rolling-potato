@@ -9407,6 +9407,70 @@
           ]
         }
       ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/adapter_matrix.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal full-adapter, failure, approval, normalization, and zero-delta journey matrix",
+          "target": "tests/surfaces/native_terminal/adapter_matrix.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/adapter_matrix.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/interaction.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal resume, command palette, scroll, clipboard, and update-picker journeys",
+          "target": "tests/surfaces/native_terminal/interaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/interaction.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal entry, project switch, signal restoration, and bounded-drop journeys",
+          "target": "tests/surfaces/native_terminal/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/lifecycle.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/web.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal structured web search, open, and find journeys",
+          "target": "tests/surfaces/native_terminal/web.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/web.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -12878,6 +12942,30 @@
       "path": "tests/support/platform/native_terminal/windows.rs",
       "responsibilities": [
         "Windows ConPTY process, input, readiness, output capture, and cleanup driver"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/adapter_matrix.rs",
+      "responsibilities": [
+        "native terminal full-adapter, failure, approval, normalization, and zero-delta journey matrix"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/interaction.rs",
+      "responsibilities": [
+        "native terminal resume, command palette, scroll, clipboard, and update-picker journeys"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/lifecycle.rs",
+      "responsibilities": [
+        "native terminal entry, project switch, signal restoration, and bounded-drop journeys"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/web.rs",
+      "responsibilities": [
+        "native terminal structured web search, open, and find journeys"
       ]
     }
   ]

@@ -239,6 +239,27 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
         );
     }
     assert!(native_terminal.lines().count() < 75);
+
+    let surface = fs::read_to_string("tests/surfaces/native_terminal.rs").unwrap();
+    let journey_owners = [
+        ("adapter_matrix", 850),
+        ("interaction", 200),
+        ("lifecycle", 150),
+        ("web", 150),
+    ];
+    for (owner, line_budget) in journey_owners {
+        let relative = format!("native_terminal/{owner}.rs");
+        assert!(
+            surface.contains(&relative),
+            "native terminal surface does not register {owner}"
+        );
+        let source = fs::read_to_string(format!("tests/surfaces/{relative}")).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "native terminal journey {owner} exceeded its {line_budget}-line budget"
+        );
+    }
+    assert!(surface.lines().count() < 150);
 }
 
 #[test]
