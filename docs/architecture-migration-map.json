@@ -6157,12 +6157,61 @@
       "path": "src/app/workflow_adapter/state/lifecycle.rs",
       "slices": [
         {
-          "responsibility": "state, session, and workflow lifecycle command adapter",
+          "responsibility": "state lifecycle command facade",
           "target": "src/app/workflow_adapter/state/lifecycle.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/workflow_adapter/state/lifecycle.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle/events.rs",
+      "slices": [
+        {
+          "responsibility": "runtime event and context-compaction boundary lifecycle commands",
+          "target": "src/app/workflow_adapter/state/lifecycle/events.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/lifecycle/events.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle/session.rs",
+      "slices": [
+        {
+          "responsibility": "session list, creation, selection, and resume lifecycle commands",
+          "target": "src/app/workflow_adapter/state/lifecycle/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/lifecycle/session.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle/state_commands.rs",
+      "slices": [
+        {
+          "responsibility": "state initialization, status, reconcile, resume, and cancel commands",
+          "target": "src/app/workflow_adapter/state/lifecycle/state_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/lifecycle/state_commands.rs",
             "src/app/workflow_adapter/state/tests/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -12503,7 +12552,25 @@
     {
       "path": "src/app/workflow_adapter/state/lifecycle.rs",
       "responsibilities": [
-        "state, session, and workflow lifecycle command adapter"
+        "state lifecycle command facade"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle/events.rs",
+      "responsibilities": [
+        "runtime event and context-compaction boundary lifecycle commands"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle/session.rs",
+      "responsibilities": [
+        "session list, creation, selection, and resume lifecycle commands"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle/state_commands.rs",
+      "responsibilities": [
+        "state initialization, status, reconcile, resume, and cancel commands"
       ]
     },
     {

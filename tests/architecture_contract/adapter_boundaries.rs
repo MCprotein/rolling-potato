@@ -277,6 +277,10 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let current_image_adapter =
         "src/app/workflow_adapter/state/current_transition/current_image.rs";
     let lifecycle_adapter = "src/app/workflow_adapter/state/lifecycle.rs";
+    let lifecycle_events_adapter = "src/app/workflow_adapter/state/lifecycle/events.rs";
+    let lifecycle_session_adapter = "src/app/workflow_adapter/state/lifecycle/session.rs";
+    let lifecycle_state_commands_adapter =
+        "src/app/workflow_adapter/state/lifecycle/state_commands.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
     let source_install_directory = "src/app/workflow_adapter/state/source_install/directory.rs";
     let source_install_fd_ops = "src/app/workflow_adapter/state/source_install/fd_ops.rs";
@@ -308,6 +312,9 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(current_transition_adapter).is_file());
     assert!(Path::new(current_image_adapter).is_file());
     assert!(Path::new(lifecycle_adapter).is_file());
+    assert!(Path::new(lifecycle_events_adapter).is_file());
+    assert!(Path::new(lifecycle_session_adapter).is_file());
+    assert!(Path::new(lifecycle_state_commands_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
     assert!(Path::new(source_install_directory).is_file());
     assert!(Path::new(source_install_fd_ops).is_file());
@@ -480,14 +487,43 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 
     let lifecycle = fs::read_to_string(lifecycle_adapter).unwrap();
+    for module in ["mod events;", "mod session;", "mod state_commands;"] {
+        assert!(
+            lifecycle.lines().any(|line| line == module),
+            "state lifecycle facade is missing responsibility owner: {module}"
+        );
+    }
+    let lifecycle_events = fs::read_to_string(lifecycle_events_adapter).unwrap();
     for owned_responsibility in [
-        "pub fn initialize(",
-        "pub fn reconcile_report(",
+        "pub fn record_event(",
+        "pub(crate) fn current_compaction_boundary(",
+        "pub(crate) fn record_compaction_boundary(",
+    ] {
+        assert!(
+            lifecycle_events.contains(owned_responsibility),
+            "state event lifecycle owner is missing responsibility: {owned_responsibility}"
+        );
+    }
+    let lifecycle_session = fs::read_to_string(lifecycle_session_adapter).unwrap();
+    for owned_responsibility in [
+        "pub fn session_list_report(",
+        "pub fn session_new_report(",
         "pub fn session_resume_report(",
     ] {
         assert!(
-            lifecycle.contains(owned_responsibility),
-            "state lifecycle adapter is missing responsibility: {owned_responsibility}"
+            lifecycle_session.contains(owned_responsibility),
+            "session lifecycle owner is missing responsibility: {owned_responsibility}"
+        );
+    }
+    let lifecycle_state_commands = fs::read_to_string(lifecycle_state_commands_adapter).unwrap();
+    for owned_responsibility in [
+        "pub fn initialize(",
+        "pub fn reconcile_report(",
+        "pub fn cancel_report(",
+    ] {
+        assert!(
+            lifecycle_state_commands.contains(owned_responsibility),
+            "state command lifecycle owner is missing responsibility: {owned_responsibility}"
         );
     }
 
@@ -666,7 +702,10 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(current_snapshot_status.lines().count() < 100);
     assert!(current_transition.lines().count() < 400);
     assert!(current_image.lines().count() < 325);
-    assert!(lifecycle.lines().count() < 700);
+    assert!(lifecycle.lines().count() < 30);
+    assert!(lifecycle_events.lines().count() < 125);
+    assert!(lifecycle_session.lines().count() < 375);
+    assert!(lifecycle_state_commands.lines().count() < 275);
     assert!(source_install.lines().count() < 375);
     assert!(source_install_directory.lines().count() < 375);
     assert!(source_install_fd_ops.lines().count() < 175);
