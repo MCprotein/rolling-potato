@@ -7221,6 +7221,58 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/governance.rs",
+      "slices": [
+        {
+          "responsibility": "evidence, skill, policy, and hook command parsing",
+          "target": "src/surfaces/cli/parser/governance.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/governance.rs",
+            "src/surfaces/cli/parser/tests/top_level.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "update, state, session, and TUI lifecycle command parsing",
+          "target": "src/surfaces/cli/parser/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/lifecycle.rs",
+            "src/surfaces/cli/parser/tests/operations.rs",
+            "src/surfaces/cli/parser/tests/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/model.rs",
+      "slices": [
+        {
+          "responsibility": "model command parsing and destructive option validation",
+          "target": "src/surfaces/cli/parser/model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/model.rs",
+            "src/surfaces/cli/parser/tests/model.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/install.rs",
       "slices": [
         {
@@ -14988,6 +15040,24 @@
       "path": "src/surfaces/cli/parser/collaboration.rs",
       "responsibilities": [
         "team and subagent command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/governance.rs",
+      "responsibilities": [
+        "evidence, skill, policy, and hook command parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/lifecycle.rs",
+      "responsibilities": [
+        "update, state, session, and TUI lifecycle command parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/model.rs",
+      "responsibilities": [
+        "model command parsing and destructive option validation"
       ]
     },
     {

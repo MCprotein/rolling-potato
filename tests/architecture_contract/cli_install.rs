@@ -19,6 +19,9 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let parser_path = "src/surfaces/cli/parser.rs";
     let backend_parser_path = "src/surfaces/cli/parser/backend.rs";
     let collaboration_parser_path = "src/surfaces/cli/parser/collaboration.rs";
+    let governance_parser_path = "src/surfaces/cli/parser/governance.rs";
+    let lifecycle_parser_path = "src/surfaces/cli/parser/lifecycle.rs";
+    let model_parser_path = "src/surfaces/cli/parser/model.rs";
     let observability_parser_path = "src/surfaces/cli/parser/observability.rs";
     let patch_parser_path = "src/surfaces/cli/parser/patch.rs";
     let plugin_parser_path = "src/surfaces/cli/parser/plugin.rs";
@@ -33,6 +36,9 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let uninstall_tests_path = "src/surfaces/cli/parser/tests/uninstall.rs";
     assert!(Path::new(backend_parser_path).is_file());
     assert!(Path::new(collaboration_parser_path).is_file());
+    assert!(Path::new(governance_parser_path).is_file());
+    assert!(Path::new(lifecycle_parser_path).is_file());
+    assert!(Path::new(model_parser_path).is_file());
     assert!(Path::new(observability_parser_path).is_file());
     assert!(Path::new(patch_parser_path).is_file());
     assert!(Path::new(plugin_parser_path).is_file());
@@ -48,6 +54,9 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let parser = fs::read_to_string(parser_path).unwrap();
     let backend_parser = fs::read_to_string(backend_parser_path).unwrap();
     let collaboration_parser = fs::read_to_string(collaboration_parser_path).unwrap();
+    let governance_parser = fs::read_to_string(governance_parser_path).unwrap();
+    let lifecycle_parser = fs::read_to_string(lifecycle_parser_path).unwrap();
+    let model_parser = fs::read_to_string(model_parser_path).unwrap();
     let observability_parser = fs::read_to_string(observability_parser_path).unwrap();
     let patch_parser = fs::read_to_string(patch_parser_path).unwrap();
     let plugin_parser = fs::read_to_string(plugin_parser_path).unwrap();
@@ -70,6 +79,12 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         parser.lines().any(|line| line == "mod collaboration;"),
         "CLI parser does not register the collaboration command-family owner"
     );
+    for owner in ["governance", "lifecycle", "model"] {
+        assert!(
+            parser.lines().any(|line| line == format!("mod {owner};")),
+            "CLI parser does not register the {owner} command-family owner"
+        );
+    }
     assert!(
         parser.lines().any(|line| line == "mod observability;"),
         "CLI parser does not register the observability command-family owner"
@@ -114,6 +129,40 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
             collaboration_parser.contains(responsibility),
             "collaboration parser is missing responsibility: {responsibility}"
         );
+    }
+    for (owner, responsibilities) in [
+        (
+            &governance_parser,
+            &[
+                "pub(super) fn parse_evidence(",
+                "pub(super) fn parse_skill(",
+                "pub(super) fn parse_policy(",
+                "pub(super) fn parse_hooks(",
+            ][..],
+        ),
+        (
+            &lifecycle_parser,
+            &[
+                "pub(super) fn parse_update(",
+                "pub(super) fn parse_state(",
+                "pub(super) fn parse_resume(",
+                "pub(super) fn parse_continue(",
+                "pub(super) fn parse_session(",
+                "pub(super) fn parse_tui(",
+            ][..],
+        ),
+        (&model_parser, &["pub(super) fn parse_model("][..]),
+    ] {
+        for responsibility in responsibilities {
+            assert!(
+                !parser.contains(responsibility),
+                "command-family parser responsibility escaped into CLI facade: {responsibility}"
+            );
+            assert!(
+                owner.contains(responsibility),
+                "command-family owner is missing responsibility: {responsibility}"
+            );
+        }
     }
     let plugin_parser_responsibility = "pub(super) fn parse_plugin_import(";
     assert!(
@@ -188,7 +237,7 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     assert!(uninstall_tests.contains("fn parses_uninstall_dry_run_purge_cache("));
     assert!(uninstall_tests.contains("fn parses_guarded_clean_uninstall("));
     assert!(
-        parser.lines().count() < 590,
+        parser.lines().count() < 400,
         "CLI parser production module regrew beyond its command-family extraction boundary"
     );
     assert!(
@@ -199,6 +248,16 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         collaboration_parser.lines().count() < 550,
         "collaboration parser regrew beyond its ownership boundary"
     );
+    for (path, contents, limit) in [
+        (governance_parser_path, &governance_parser, 120),
+        (lifecycle_parser_path, &lifecycle_parser, 130),
+        (model_parser_path, &model_parser, 110),
+    ] {
+        assert!(
+            contents.lines().count() < limit,
+            "{path} regrew beyond its command-family ownership boundary"
+        );
+    }
     assert!(
         observability_parser.lines().count() < 300,
         "observability parser regrew beyond its ownership boundary"
