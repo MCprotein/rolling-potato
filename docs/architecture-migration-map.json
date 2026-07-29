@@ -4285,14 +4285,77 @@
       "path": "src/adapters/github_release.rs",
       "slices": [
         {
-          "responsibility": "official release discovery, asset readiness, verified download, and archive extraction I/O",
+          "responsibility": "official GitHub release facade and public adapter exports",
           "target": "src/adapters/github_release.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/github_release.rs",
-            "src/runtime_core/update.rs",
+            "tests/architecture_contract/adapter_boundaries/github_release.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/archive.rs",
+      "slices": [
+        {
+          "responsibility": "safe archive path validation and bounded tar or zip binary extraction",
+          "target": "src/adapters/github_release/archive.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/github_release/archive.rs",
+            "src/adapters/github_release/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/github_release.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/discovery.rs",
+      "slices": [
+        {
+          "responsibility": "release discovery, verified asset readiness, and latest tag cache fallback",
+          "target": "src/adapters/github_release/discovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/github_release/discovery.rs",
+            "src/adapters/github_release/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/github_release.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/download.rs",
+      "slices": [
+        {
+          "responsibility": "bounded checksum and archive download, SHA verification, and atomic cache placement",
+          "target": "src/adapters/github_release/download.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/github_release/download.rs",
+            "src/adapters/github_release/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/github_release.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/tests.rs",
+      "slices": [
+        {
+          "responsibility": "GitHub release discovery, download, and archive security regression tests",
+          "target": "src/adapters/github_release/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/github_release/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/github_release.rs"
           ]
         }
       ]
@@ -10426,7 +10489,7 @@
       "path": "tests/architecture_contract/adapter_boundaries.rs",
       "slices": [
         {
-          "responsibility": "context, evidence, benchmark, workflow codec, platform fixture, and state adapter architecture contracts",
+          "responsibility": "application, GitHub release, workflow codec, platform fixture, and state adapter architecture contract facade",
           "target": "tests/architecture_contract/adapter_boundaries.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -10663,6 +10726,22 @@
           "state": "complete",
           "evidence": [
             "tests/architecture_contract/adapter_boundaries/application.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/github_release.rs",
+      "slices": [
+        {
+          "responsibility": "GitHub release discovery, download, extraction, and security ownership contracts",
+          "target": "tests/architecture_contract/adapter_boundaries/github_release.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/github_release.rs",
+            "tests/architecture_contract/adapter_boundaries/github_release.rs",
             "tests/architecture_contract/adapter_boundaries.rs"
           ]
         }
@@ -14000,7 +14079,31 @@
     {
       "path": "src/adapters/github_release.rs",
       "responsibilities": [
-        "official release discovery, asset readiness, verified download, and archive extraction I/O"
+        "official GitHub release facade and public adapter exports"
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/archive.rs",
+      "responsibilities": [
+        "safe archive path validation and bounded tar or zip binary extraction"
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/discovery.rs",
+      "responsibilities": [
+        "release discovery, verified asset readiness, and latest tag cache fallback"
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/download.rs",
+      "responsibilities": [
+        "bounded checksum and archive download, SHA verification, and atomic cache placement"
+      ]
+    },
+    {
+      "path": "src/adapters/github_release/tests.rs",
+      "responsibilities": [
+        "GitHub release discovery, download, and archive security regression tests"
       ]
     },
     {
@@ -16208,7 +16311,7 @@
     {
       "path": "tests/architecture_contract/adapter_boundaries.rs",
       "responsibilities": [
-        "context, evidence, benchmark, workflow codec, platform fixture, and state adapter architecture contracts"
+        "application, GitHub release, workflow codec, platform fixture, and state adapter architecture contract facade"
       ]
     },
     {
@@ -16299,6 +16402,12 @@
       "path": "tests/architecture_contract/adapter_boundaries/application.rs",
       "responsibilities": [
         "context, evidence, and benchmark adapter architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/github_release.rs",
+      "responsibilities": [
+        "GitHub release discovery, download, extraction, and security ownership contracts"
       ]
     },
     {

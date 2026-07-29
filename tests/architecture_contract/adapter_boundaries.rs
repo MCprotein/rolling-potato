@@ -1,6 +1,7 @@
 use super::*;
 
 include!("adapter_boundaries/application.rs");
+include!("adapter_boundaries/github_release.rs");
 include!("adapter_boundaries/platform_codec.rs");
 include!("adapter_boundaries/state.rs");
 
@@ -11,6 +12,10 @@ fn adapter_boundary_contracts_are_split_by_responsibility() {
         (
             "tests/architecture_contract/adapter_boundaries/application.rs",
             225,
+        ),
+        (
+            "tests/architecture_contract/adapter_boundaries/github_release.rs",
+            125,
         ),
         (
             "tests/architecture_contract/adapter_boundaries/platform_codec.rs",
