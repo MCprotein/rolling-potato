@@ -61,13 +61,46 @@
 
 | 단계 | 상태 | 확인된 결과 | 남은 종료 조건 |
 | --- | --- | --- | --- |
-| R1 하드코딩 제거 | 구조 변경 완료 | domain-specific grounding 분기를 generic query plan과 typed answer binding으로 교체하고 web·conversation owner를 분리 | 최종 candidate HEAD의 PR 검증 |
-| R2 아키텍처 테스트 | 구조 변경 완료 | `tests/architecture_contract.rs`를 400줄 미만 facade와 domain별 contract owner로 분리 | 최종 candidate HEAD의 전체 architecture contract |
-| R3 TUI | 구조 변경 완료 | conversation, attachment, keymap, render, native PTY process·capture·fixture 책임을 별도 module로 분리 | 최종 native-terminal candidate 검증 |
-| R4 session/context | 구조 변경 완료 | context usage 정본 계산, compaction domain, session memory·restoration 경계를 분리 | 기본 대화·누적 context·compaction·`/resume` candidate journey |
-| R5 backend/model/install | 구조 변경 완료 | llama protocol·process, model artifact·download, install plan·mutation 책임을 분리 | managed backend와 model cache hit를 포함한 candidate 검증 |
-| R6 workflow/patch/collaboration | 구조 변경 완료 | production owner와 대형 회귀 테스트를 state, transition, persistence, report·journey별로 분리하고 통합 targeted 검증을 통과 | 최종 candidate HEAD의 PR 검증 |
-| R7 문서 | 구조 변경 완료 | 영문·한국어 release notes와 실행 회고를 짧은 index와 800줄 미만 archive로 분리하고, architecture·product plan과 release·development runbook 경계를 index에서 구분 | 최종 candidate HEAD의 문서·링크 검증 |
+| R1 하드코딩 제거 | 1차 경계 완료 | domain-specific grounding 분기를 generic query plan과 typed answer binding으로 교체하고 web·conversation owner를 분리 | 최종 candidate HEAD의 PR 검증 |
+| R2 아키텍처 테스트 | 1차 경계 완료 | `tests/architecture_contract.rs`를 400줄 미만 facade와 domain별 contract owner로 분리 | 최종 candidate HEAD의 전체 architecture contract |
+| R3 TUI | 하드닝 중 | attachment, keymap, render, native PTY process·capture·fixture 책임을 별도 module로 분리 | 잔여 setup·conversation·action owner 점검과 최종 native-terminal candidate 검증 |
+| R4 session/context | 하드닝 중 | context usage 정본 계산, compaction domain, session memory·restoration·assembly 경계를 분리 | 기본 대화·누적 context·compaction·`/resume` candidate journey |
+| R5 backend/model/install | 하드닝 중 | llama protocol·process, model artifact·download, install plan·mutation 책임을 분리 | 잔여 production hotspot 점검과 managed backend·model cache hit candidate 검증 |
+| R6 workflow/patch/collaboration | 하드닝 중 | recovery, transaction, snapshot, patch use case, collaboration persistence·report 경계를 분리하고 관련 targeted 검증을 통과 | 잔여 transition·transcript·terminal·collaboration owner 점검과 최종 PR 검증 |
+| R7 문서 | 1차 경계 완료 | 영문·한국어 release notes와 실행 회고를 짧은 index와 800줄 미만 archive로 분리하고, architecture·product plan과 release·development runbook 경계를 index에서 구분 | 최종 candidate HEAD의 문서·링크 검증 |
+
+## 구조 하드닝 체크포인트
+
+1차 단계가 끝났다는 이유만으로 전체 리팩터링을 완료 처리하지 않는다.
+2026-07-29 추가 계측에서 다음 production 경계를 더 분리했다.
+
+- workflow recovery journal의 계약, projection, transaction, validation
+- workflow transaction coordinator의 approval, event sequence, state transition,
+  terminal action, verification
+- workflow snapshot의 lease, session, TUI read model
+- SQLite observability projection의 lifecycle, port, query, store
+- TUI adapter 회귀 테스트의 controller, outcome, render, report, view state
+- context assembly의 declared files, ontology, durable resume
+- patch application facade의 approval dispatch, proposal API, verification evidence,
+  shared value helper
+
+다음 파일은 줄 수만으로 자동 분리하지 않고, 서로 독립적으로 변경되는 이유가
+실제로 둘 이상인지 확인하는 잔여 production hotspot이다.
+
+| 우선순위 | 경계 | 확인할 책임 |
+| ---: | --- | --- |
+| 1 | `src/surfaces/tui/setup.rs`, `src/app/tui_adapter/conversation.rs`, `src/composition/tui_action.rs` | setup, 대화 orchestration, action composition의 의존 방향 |
+| 2 | `src/app/workflow_adapter/transition/bundle_preparation.rs`, `source_install.rs`, `src/app/workflow_adapter/transcript.rs` | transaction 준비, source 설치, transcript 저장·projection |
+| 3 | `src/app/patch_adapter/terminal.rs`, `src/adapters/sqlite/observability_projection/analytics.rs` | terminal mutation과 보고, query와 projection 경계 |
+| 4 | `src/runtime_core/knowledge/recall.rs`, `src/runtime_core/collaboration/subagent.rs`, `team.rs`, `src/runtime_core/policy/decision.rs` | domain policy, value object, lifecycle 전이의 응집도 |
+
+최종 중단 조건은 잔여 목록의 줄 수가 아니라 다음 네 조건이다.
+
+1. 각 파일이 하나의 변경 이유를 가지거나, 더 나누면 불변식이 분산된다는 근거가 있다.
+2. facade는 등록·재수출만 소유하고 use case, policy, I/O 구현이 되돌아오지 못하도록
+   architecture contract가 잠긴다.
+3. 변경 동작의 targeted 회귀와 정확한 ownership ledger 검증이 통과한다.
+4. 최종 candidate HEAD에서 preflight, 독립 리뷰 한 번, PR 전체 CI가 통과한다.
 
 ## Machine-readable ownership ledger 예외
 
