@@ -2,6 +2,10 @@
 fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hook = "src/runtime_core/extensions/hook.rs";
     let skill = "src/runtime_core/extensions/skill.rs";
+    let skill_builtin = "src/runtime_core/extensions/skill/builtin.rs";
+    let skill_lifecycle = "src/runtime_core/extensions/skill/lifecycle.rs";
+    let skill_manifest = "src/runtime_core/extensions/skill/manifest.rs";
+    let skill_policy = "src/runtime_core/extensions/skill/policy.rs";
     let plugin = "src/runtime_core/extensions/plugin.rs";
     let plugin_capabilities = "src/runtime_core/extensions/plugin/capabilities.rs";
     let plugin_json = "src/runtime_core/extensions/plugin/json.rs";
@@ -19,6 +23,10 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     for target in [
         hook,
         skill,
+        skill_builtin,
+        skill_lifecycle,
+        skill_manifest,
+        skill_policy,
         plugin,
         plugin_capabilities,
         plugin_json,
@@ -40,49 +48,27 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         );
     }
 
-    for (owner, rules, forbidden) in [
-        (
-            hook,
-            [
-                "enum HookStatus",
-                "struct HookRule",
-                "const HOOK_POINTS",
-                "fn dispatch",
-                "fn resolve_conflict",
-            ]
-            .as_slice(),
-            [
-                "crate::adapters",
-                "crate::ledger",
-                "crate::plugin",
-                "crate::skill",
-                "crate::state",
-                "std::fs",
-                "std::process",
-            ]
-            .as_slice(),
-        ),
-        (
-            skill,
-            [
-                "struct SkillManifest",
-                "enum ResolvedSkillManifest",
-                "struct SkillRuntimeState",
-                "fn validate_transition",
-                "fn enforce_resolved_tool",
-            ]
-            .as_slice(),
-            [
-                "crate::adapters",
-                "crate::hooks",
-                "crate::plugin",
-                "crate::state",
-                "std::fs",
-                "std::process",
-            ]
-            .as_slice(),
-        ),
-    ] {
+    for (owner, rules, forbidden) in [(
+        hook,
+        [
+            "enum HookStatus",
+            "struct HookRule",
+            "const HOOK_POINTS",
+            "fn dispatch",
+            "fn resolve_conflict",
+        ]
+        .as_slice(),
+        [
+            "crate::adapters",
+            "crate::ledger",
+            "crate::plugin",
+            "crate::skill",
+            "crate::state",
+            "std::fs",
+            "std::process",
+        ]
+        .as_slice(),
+    )] {
         let source = fs::read_to_string(owner).unwrap();
         for rule in rules {
             assert!(
@@ -96,6 +82,73 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
                 "extension owner has concrete reverse dependency: {owner} -> {dependency}"
             );
         }
+    }
+    let skill_facade = fs::read_to_string(skill).unwrap();
+    let skill_builtin_source = fs::read_to_string(skill_builtin).unwrap();
+    let skill_lifecycle_source = fs::read_to_string(skill_lifecycle).unwrap();
+    let skill_manifest_source = fs::read_to_string(skill_manifest).unwrap();
+    let skill_policy_source = fs::read_to_string(skill_policy).unwrap();
+    for owner in ["builtin", "lifecycle", "manifest", "policy"] {
+        assert!(
+            skill_facade
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "skill facade does not register {owner}"
+        );
+    }
+    for (owner, rules) in [
+        (
+            skill_manifest_source.as_str(),
+            &["struct SkillManifest", "enum ResolvedSkillManifest"][..],
+        ),
+        (
+            skill_lifecycle_source.as_str(),
+            &["struct SkillRuntimeState", "fn validate_transition"][..],
+        ),
+        (
+            skill_builtin_source.as_str(),
+            &["const BUILTIN_SKILLS", "fn find_skill"][..],
+        ),
+        (
+            skill_policy_source.as_str(),
+            &["fn enforce_resolved_context", "fn enforce_resolved_tool"][..],
+        ),
+    ] {
+        for rule in rules {
+            assert!(
+                owner.contains(rule),
+                "skill responsibility owner is missing: {rule}"
+            );
+            assert!(
+                !skill_facade.contains(rule),
+                "skill facade still owns behavior: {rule}"
+            );
+        }
+    }
+    for (source, maximum_lines, owner) in [
+        (skill_facade.as_str(), 30, skill),
+        (skill_builtin_source.as_str(), 175, skill_builtin),
+        (skill_lifecycle_source.as_str(), 200, skill_lifecycle),
+        (skill_manifest_source.as_str(), 175, skill_manifest),
+        (skill_policy_source.as_str(), 75, skill_policy),
+    ] {
+        for dependency in [
+            "crate::adapters",
+            "crate::hooks",
+            "crate::plugin",
+            "crate::state",
+            "std::fs",
+            "std::process",
+        ] {
+            assert!(
+                !source.contains(dependency),
+                "skill domain has concrete reverse dependency: {owner} -> {dependency}"
+            );
+        }
+        assert!(
+            source.lines().count() < maximum_lines,
+            "skill owner regrew beyond its responsibility boundary: {owner}"
+        );
     }
     let plugin_facade = fs::read_to_string(plugin).unwrap();
     let plugin_capabilities_source = fs::read_to_string(plugin_capabilities).unwrap();

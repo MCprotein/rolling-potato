@@ -6159,13 +6159,81 @@
       "path": "src/runtime_core/extensions/skill.rs",
       "slices": [
         {
-          "responsibility": "skill manifest lifecycle and policy",
+          "responsibility": "skill domain facade and stable registry, policy, or lifecycle exports",
           "target": "src/runtime_core/extensions/skill.rs",
           "release": "0.37.11",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/skill.rs",
-            "tests/architecture_contract.rs"
+            "src/runtime_core/extensions/skill/builtin.rs",
+            "src/runtime_core/extensions/skill/lifecycle.rs",
+            "src/runtime_core/extensions/skill/manifest.rs",
+            "src/runtime_core/extensions/skill/policy.rs",
+            "tests/architecture_contract/tui_extension/extensions.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/builtin.rs",
+      "slices": [
+        {
+          "responsibility": "built-in skill registry and identifier lookup",
+          "target": "src/runtime_core/extensions/skill/builtin.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/skill.rs",
+            "src/runtime_core/extensions/skill/builtin.rs",
+            "tests/architecture_contract/tui_extension/extensions.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "skill runtime state, lifecycle transitions, and completion evidence tracking",
+          "target": "src/runtime_core/extensions/skill/lifecycle.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/skill.rs",
+            "src/runtime_core/extensions/skill/lifecycle.rs",
+            "tests/architecture_contract/tui_extension/extensions.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/manifest.rs",
+      "slices": [
+        {
+          "responsibility": "built-in and imported skill manifest contracts with hook sets",
+          "target": "src/runtime_core/extensions/skill/manifest.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/skill.rs",
+            "src/runtime_core/extensions/skill/manifest.rs",
+            "tests/architecture_contract/tui_extension/extensions.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/policy.rs",
+      "slices": [
+        {
+          "responsibility": "skill context, tool, and required-completion admission policy",
+          "target": "src/runtime_core/extensions/skill/policy.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/skill.rs",
+            "src/runtime_core/extensions/skill/policy.rs",
+            "tests/architecture_contract/tui_extension/extensions.rs"
           ]
         }
       ]
@@ -15864,7 +15932,31 @@
     {
       "path": "src/runtime_core/extensions/skill.rs",
       "responsibilities": [
-        "skill manifest lifecycle and policy"
+        "skill domain facade and stable registry, policy, or lifecycle exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/builtin.rs",
+      "responsibilities": [
+        "built-in skill registry and identifier lookup"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/lifecycle.rs",
+      "responsibilities": [
+        "skill runtime state, lifecycle transitions, and completion evidence tracking"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/manifest.rs",
+      "responsibilities": [
+        "built-in and imported skill manifest contracts with hook sets"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill/policy.rs",
+      "responsibilities": [
+        "skill context, tool, and required-completion admission policy"
       ]
     },
     {
