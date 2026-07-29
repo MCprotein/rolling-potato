@@ -1,7 +1,7 @@
 use super::*;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-mod unix {
+mod posix_pty {
     use super::*;
     use std::ffi::{c_char, c_int, c_void, CStr, CString};
 
@@ -509,4 +509,4 @@ mod unix {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-pub use unix::NativePty;
+pub use posix_pty::NativePty;
