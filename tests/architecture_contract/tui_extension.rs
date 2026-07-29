@@ -226,6 +226,10 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hook = "src/runtime_core/extensions/hook.rs";
     let skill = "src/runtime_core/extensions/skill.rs";
     let plugin = "src/runtime_core/extensions/plugin.rs";
+    let plugin_capabilities = "src/runtime_core/extensions/plugin/capabilities.rs";
+    let plugin_json = "src/runtime_core/extensions/plugin/json.rs";
+    let plugin_parsing = "src/runtime_core/extensions/plugin/parsing.rs";
+    let plugin_security = "src/runtime_core/extensions/plugin/security.rs";
     let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
     let plugin_adapter = "src/app/extensions_adapter/plugin.rs";
     let plugin_claude = "src/app/extensions_adapter/plugin/claude.rs";
@@ -235,7 +239,15 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let plugin_source_import = "src/app/extensions_adapter/plugin/source_import.rs";
     let plugin_tests = "src/app/extensions_adapter/plugin/tests.rs";
     let skill_adapter = "src/app/extensions_adapter/skill.rs";
-    for target in [hook, skill, plugin] {
+    for target in [
+        hook,
+        skill,
+        plugin,
+        plugin_capabilities,
+        plugin_json,
+        plugin_parsing,
+        plugin_security,
+    ] {
         assert!(
             Path::new(target).is_file(),
             "missing v0.37.11 extension owner: {target}"
@@ -293,26 +305,6 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
             ]
             .as_slice(),
         ),
-        (
-            plugin,
-            [
-                "struct PluginCapability",
-                "struct ParsedCodexSkill",
-                "fn parse_codex_skill",
-                "fn apply_manifest_risk_markers",
-                "fn blocked_permissions",
-            ]
-            .as_slice(),
-            [
-                "crate::adapters",
-                "crate::cli",
-                "crate::ledger",
-                "crate::state",
-                "std::fs",
-                "std::process",
-            ]
-            .as_slice(),
-        ),
     ] {
         let source = fs::read_to_string(owner).unwrap();
         for rule in rules {
@@ -327,6 +319,89 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
                 "extension owner has concrete reverse dependency: {owner} -> {dependency}"
             );
         }
+    }
+    let plugin_facade = fs::read_to_string(plugin).unwrap();
+    let plugin_capabilities_source = fs::read_to_string(plugin_capabilities).unwrap();
+    let plugin_json_source = fs::read_to_string(plugin_json).unwrap();
+    let plugin_parsing_source = fs::read_to_string(plugin_parsing).unwrap();
+    let plugin_security_source = fs::read_to_string(plugin_security).unwrap();
+    for module in [
+        "mod capabilities;",
+        "mod json;",
+        "mod parsing;",
+        "mod security;",
+    ] {
+        assert!(
+            plugin_facade.lines().any(|line| line == module),
+            "plugin facade does not register owner: {module}"
+        );
+    }
+    for (owner, responsibility) in [
+        (
+            plugin_capabilities_source.as_str(),
+            "struct PluginCapability",
+        ),
+        (
+            plugin_capabilities_source.as_str(),
+            "fn apply_manifest_risk_markers",
+        ),
+        (
+            plugin_capabilities_source.as_str(),
+            "fn blocked_permissions",
+        ),
+        (plugin_json_source.as_str(), "fn required_field"),
+        (plugin_parsing_source.as_str(), "struct ParsedCodexSkill"),
+        (plugin_parsing_source.as_str(), "fn parse_codex_skill"),
+        (
+            plugin_security_source.as_str(),
+            "fn reject_remote_or_marketplace",
+        ),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "plugin responsibility owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_facade.contains(responsibility),
+            "plugin facade still owns behavior: {responsibility}"
+        );
+    }
+    for source in [
+        plugin_facade.as_str(),
+        plugin_capabilities_source.as_str(),
+        plugin_json_source.as_str(),
+        plugin_parsing_source.as_str(),
+        plugin_security_source.as_str(),
+    ] {
+        for dependency in [
+            "crate::adapters",
+            "crate::cli",
+            "crate::ledger",
+            "crate::state",
+            "std::fs",
+            "std::process",
+        ] {
+            assert!(
+                !source.contains(dependency),
+                "plugin domain has concrete reverse dependency: {dependency}"
+            );
+        }
+    }
+    for (source, maximum_lines, owner) in [
+        (plugin_facade.as_str(), 50, plugin),
+        (
+            plugin_capabilities_source.as_str(),
+            275,
+            plugin_capabilities,
+        ),
+        (plugin_json_source.as_str(), 125, plugin_json),
+        (plugin_parsing_source.as_str(), 275, plugin_parsing),
+        (plugin_security_source.as_str(), 125, plugin_security),
+    ] {
+        assert!(
+            source.lines().count() < maximum_lines,
+            "plugin owner regrew beyond its responsibility boundary: {owner}"
+        );
     }
 
     for target in [

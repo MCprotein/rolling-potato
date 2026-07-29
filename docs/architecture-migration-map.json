@@ -5333,13 +5333,81 @@
       "path": "src/runtime_core/extensions/plugin.rs",
       "slices": [
         {
-          "responsibility": "plugin manifest and default-deny capability policy",
+          "responsibility": "plugin domain facade and responsibility registration",
           "target": "src/runtime_core/extensions/plugin.rs",
           "release": "0.37.11",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/plugin.rs",
+            "src/runtime_core/extensions/plugin/capabilities.rs",
+            "src/runtime_core/extensions/plugin/json.rs",
+            "src/runtime_core/extensions/plugin/parsing.rs",
+            "src/runtime_core/extensions/plugin/security.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/capabilities.rs",
+      "slices": [
+        {
+          "responsibility": "plugin capability value, permission, unsupported-feature, and risk aggregation policy",
+          "target": "src/runtime_core/extensions/plugin/capabilities.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/runtime_core/extensions/plugin/capabilities.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/json.rs",
+      "slices": [
+        {
+          "responsibility": "normalized plugin manifest JSON field extraction and required-field validation",
+          "target": "src/runtime_core/extensions/plugin/json.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/runtime_core/extensions/plugin/json.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/parsing.rs",
+      "slices": [
+        {
+          "responsibility": "Codex and Claude instruction parsing and unsupported semantic detection",
+          "target": "src/runtime_core/extensions/plugin/parsing.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/runtime_core/extensions/plugin/parsing.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/security.rs",
+      "slices": [
+        {
+          "responsibility": "plugin identifiers, local path admission, traversal rejection, and slug normalization",
+          "target": "src/runtime_core/extensions/plugin/security.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/runtime_core/extensions/plugin/security.rs",
+            "tests/architecture_contract/tui_extension.rs"
           ]
         }
       ]
@@ -12732,7 +12800,31 @@
     {
       "path": "src/runtime_core/extensions/plugin.rs",
       "responsibilities": [
-        "plugin manifest and default-deny capability policy"
+        "plugin domain facade and responsibility registration"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/capabilities.rs",
+      "responsibilities": [
+        "plugin capability value, permission, unsupported-feature, and risk aggregation policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/json.rs",
+      "responsibilities": [
+        "normalized plugin manifest JSON field extraction and required-field validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/parsing.rs",
+      "responsibilities": [
+        "Codex and Claude instruction parsing and unsupported semantic detection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin/security.rs",
+      "responsibilities": [
+        "plugin identifiers, local path admission, traversal rejection, and slug normalization"
       ]
     },
     {
