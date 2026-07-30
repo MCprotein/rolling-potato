@@ -21,8 +21,6 @@ use artifact_store::{
     install_artifact, load_current_artifact_from_records, relative_artifact_path,
 };
 
-const COMPACTION_TIMEOUT_MS: u32 = 30_000;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CompactionOutcome {
     pub compacted: bool,
@@ -313,9 +311,15 @@ fn semantic_rationale(
     if prompt.is_empty() {
         return Err(AppError::blocked("compaction semantic prompt budget 부족"));
     }
-    let max_tokens = u32::try_from(policy.summary_output_budget_tokens)
-        .map_err(|_| AppError::blocked("compaction output token budget overflow"))?;
-    let run = backend::chat_once_bounded(&prompt, max_tokens, COMPACTION_TIMEOUT_MS)?;
+    let run = backend::chat_once_for_intent(
+        &prompt,
+        crate::runtime_core::inference::generation_policy::GenerationIntent::CompactionSummary,
+    )?;
+    if !run.generation_status.is_complete() {
+        return Err(AppError::blocked(
+            "compaction summary 응답이 완결되지 않아 checkpoint에 반영하지 않았습니다.",
+        ));
+    }
     Ok((run.response, run.model_id))
 }
 

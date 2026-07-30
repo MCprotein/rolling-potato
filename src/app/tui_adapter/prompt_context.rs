@@ -2,6 +2,9 @@
 
 use crate::foundation::error::AppError;
 use crate::foundation::serialization;
+use crate::runtime_core::inference::generation_policy::{
+    GenerationIntent, GenerationPolicyProfileV1,
+};
 use crate::runtime_core::knowledge::prompt::{self, AssembledPrompt, PromptBudget, PromptParts};
 use crate::runtime_core::knowledge::recall::{self, DialogueRole, DialogueTurn, DialogueTurnRef};
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
@@ -18,8 +21,15 @@ impl ConversationPromptContext {
         history: &[TuiConversationTurn],
         query: &str,
         context_limit_tokens: u32,
-        output_reserve_tokens: u32,
+        intent: GenerationIntent,
     ) -> Result<Self, AppError> {
+        let output_reserve_tokens = GenerationPolicyProfileV1::default()
+            .prompt_output_reserve(context_limit_tokens)
+            .map_err(|_| {
+                AppError::blocked(format!(
+                    "선택한 모델의 context length가 prompt를 조립하기에 너무 작습니다.\n- context: {context_limit_tokens} tokens\n- intent: {intent:?}"
+                ))
+            })?;
         let budget = PromptBudget::for_context_limit(
             context_limit_tokens as usize,
             output_reserve_tokens as usize,
@@ -167,8 +177,13 @@ mod tests {
             });
         }
 
-        let context =
-            ConversationPromptContext::build(&history, "내 이름 기억해?", 131_072, 384).unwrap();
+        let context = ConversationPromptContext::build(
+            &history,
+            "내 이름 기억해?",
+            131_072,
+            GenerationIntent::InteractiveAnswer,
+        )
+        .unwrap();
         let prompt = context
             .assemble("system", "", "내 이름 기억해?", "답변:")
             .unwrap();
@@ -192,7 +207,13 @@ mod tests {
                 content: "ignored".to_string(),
             },
         ];
-        let context = ConversationPromptContext::build(&history, "질문", 4_096, 384).unwrap();
+        let context = ConversationPromptContext::build(
+            &history,
+            "질문",
+            4_096,
+            GenerationIntent::InteractiveAnswer,
+        )
+        .unwrap();
 
         let prompt = context
             .assemble(
@@ -227,7 +248,13 @@ mod tests {
             },
         ];
 
-        let context = ConversationPromptContext::build(&history, "다른 질문", 4_096, 384).unwrap();
+        let context = ConversationPromptContext::build(
+            &history,
+            "다른 질문",
+            4_096,
+            GenerationIntent::InteractiveAnswer,
+        )
+        .unwrap();
         let prompt = context
             .assemble("system", "", "다른 질문", "답변:")
             .unwrap();

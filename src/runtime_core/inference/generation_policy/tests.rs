@@ -409,7 +409,7 @@ fn arithmetic_saturates_at_u32_boundaries() {
     let profile = GenerationPolicyProfileV1::default();
     let budget = profile
         .provisional_budget(&ProvisionalBudgetInput {
-            intent: GenerationIntent::Benchmark,
+            intent: GenerationIntent::InteractiveAnswer,
             prompt: BootstrapPromptEstimate {
                 system_prompt_tokens: u32::MAX,
                 current_user_input_tokens: u32::MAX,
@@ -433,11 +433,26 @@ fn arithmetic_saturates_at_u32_boundaries() {
 fn profile_defaults_are_explicit_and_versioned() {
     let profile = GenerationPolicyProfileV1::default();
     assert_eq!(profile.policy_profile_version, "generation-policy-v1");
+    assert_eq!(profile.prompt_output_reserve_bps, 2_500);
     assert_eq!(profile.bootstrap_unseen_framing_tokens, 128);
     assert_eq!(profile.fallback_estimator_error_bps, 2_500);
     assert_eq!(profile.minimum_estimator_uncertainty_tokens, 128);
     assert_eq!(profile.uncalibrated_throughput_tokens_per_second, 8);
     assert_eq!(profile.deadline_terminal_reserve_ms, 2_000);
+}
+
+#[test]
+fn prompt_reserve_scales_with_the_active_model_window() {
+    let profile = GenerationPolicyProfileV1::default();
+
+    assert_eq!(profile.prompt_output_reserve(4_096).unwrap(), 1_024);
+    assert_eq!(profile.prompt_output_reserve(131_072).unwrap(), 32_768);
+    assert_eq!(
+        profile.prompt_output_reserve(0),
+        Err(GenerationPolicyError::InsufficientCapacity {
+            factor: GenerationLimitingFactor::ContextCapacity,
+        })
+    );
 }
 
 #[test]
@@ -451,9 +466,6 @@ fn every_intent_uses_the_same_capability_driven_calculator() {
         GenerationIntent::Repair,
         GenerationIntent::AgentAction,
         GenerationIntent::CompactionSummary,
-        GenerationIntent::Benchmark,
-        GenerationIntent::Collaboration,
-        GenerationIntent::ExplicitUserOverride,
     ];
     for intent in intents {
         let budget = profile

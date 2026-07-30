@@ -39,14 +39,6 @@ pub(crate) fn chat_once_for_intent(
     )
 }
 
-pub(crate) fn chat_once_with_input(
-    input: &BackendChatInput,
-    max_tokens: Option<u32>,
-) -> Result<BackendChatRun, AppError> {
-    let request = GenerationTokenRequest::interactive_or_explicit(max_tokens);
-    chat_input_with_options(input, request, false, None, || Ok(false), |_| Ok(()))
-}
-
 pub(crate) fn chat_once_with_input_for_intent(
     input: &BackendChatInput,
     intent: GenerationIntent,

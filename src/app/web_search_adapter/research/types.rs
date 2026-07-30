@@ -34,7 +34,6 @@ pub(crate) struct WebResearchBudget {
     pub(super) max_network_requests: u8,
     pub(super) max_evidence_bytes: usize,
     pub(super) max_elapsed: Duration,
-    pub(super) final_answer_tokens: u32,
 }
 
 impl Default for WebResearchBudget {
@@ -48,14 +47,7 @@ impl Default for WebResearchBudget {
             max_network_requests: 6,
             max_evidence_bytes: 8 * 1024,
             max_elapsed: Duration::from_secs(45),
-            final_answer_tokens: 768,
         }
-    }
-}
-
-impl WebResearchBudget {
-    pub(crate) fn final_answer_tokens(self) -> u32 {
-        self.final_answer_tokens
     }
 }
 

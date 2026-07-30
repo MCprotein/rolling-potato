@@ -5,8 +5,6 @@ use super::super::{
     web_answer_language_policy, WebEvidenceObservation, WebGroundingEvidence, WebToolObservation,
 };
 
-const WEB_FIND_ANSWER_MAX_TOKENS: u32 = 512;
-
 pub(crate) fn observe_find_in_page(
     page: Option<&web_search::WebPageEvidence>,
     query: &str,
@@ -53,7 +51,6 @@ pub(crate) fn observe_find_in_page(
         fallback: Some(report),
         sources: vec![source],
         grounding: vec![grounding],
-        max_tokens: WEB_FIND_ANSWER_MAX_TOKENS,
     }))
 }
 

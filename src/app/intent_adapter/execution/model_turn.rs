@@ -7,9 +7,8 @@ use crate::app::inference_adapter::backend;
 use crate::app::workflow_adapter::{state, transcript};
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::BackendChatRun;
+use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::runtime_core::patch::intent::{parse_model_action, ActionCandidate, ParsedModelAction};
-
-const RUN_MAX_TOKENS: u32 = 256;
 
 pub(super) struct ModelTurn {
     pub(super) run: BackendChatRun,
@@ -37,9 +36,18 @@ pub(super) fn request_and_record(
     skill_runtime.transition(skill::SkillState::ModelRequested)?;
     checkpoint_runtime(workflow, skill_runtime)?;
 
-    let run = backend::chat_once(prompt, Some(RUN_MAX_TOKENS)).map_err(|error| {
-        fail_skill_workflow(workflow, skill_runtime, "backend-call-failed", error)
-    })?;
+    let run =
+        backend::chat_once_for_intent(prompt, GenerationIntent::AgentAction).map_err(|error| {
+            fail_skill_workflow(workflow, skill_runtime, "backend-call-failed", error)
+        })?;
+    if !run.generation_status.is_complete() {
+        return Err(fail_skill_workflow(
+            workflow,
+            skill_runtime,
+            "backend-generation-incomplete",
+            AppError::blocked("agent action 응답이 완결되지 않아 실행 후보로 사용하지 않았습니다."),
+        ));
+    }
     dispatch_model_response_hooks(manifest, workflow, skill_runtime)?;
     let action = parse_model_action(&run.response, action_candidate, context_pack);
     dispatch_skill_hook(

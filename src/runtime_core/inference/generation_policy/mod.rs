@@ -12,9 +12,6 @@ pub(crate) enum GenerationIntent {
     Repair,
     AgentAction,
     CompactionSummary,
-    Benchmark,
-    Collaboration,
-    ExplicitUserOverride,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,14 +32,15 @@ pub(crate) enum GenerationLimitingFactor {
 pub(crate) enum PolicyValueSourceKind {
     PolicyProfile,
     RuntimeSnapshot,
+    #[allow(dead_code)]
     SourceBackedCapability,
+    #[allow(dead_code)]
     ProtocolContract,
+    #[allow(dead_code)]
     SinkContract,
     IntentContract,
-    GovernanceContract,
     ResourceGovernor,
     ManagedObservation,
-    UserOverride,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,6 +206,7 @@ pub(crate) enum GenerationPolicyError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GenerationPolicyProfileV1 {
     pub policy_profile_version: &'static str,
+    pub prompt_output_reserve_bps: u32,
     pub bootstrap_unseen_framing_tokens: u32,
     pub fallback_estimator_error_bps: u32,
     pub minimum_estimator_uncertainty_tokens: u32,
@@ -219,6 +218,7 @@ impl Default for GenerationPolicyProfileV1 {
     fn default() -> Self {
         Self {
             policy_profile_version: "generation-policy-v1",
+            prompt_output_reserve_bps: 2_500,
             bootstrap_unseen_framing_tokens: 128,
             fallback_estimator_error_bps: 2_500,
             minimum_estimator_uncertainty_tokens: 128,
@@ -229,6 +229,19 @@ impl Default for GenerationPolicyProfileV1 {
 }
 
 impl GenerationPolicyProfileV1 {
+    pub(crate) fn prompt_output_reserve(
+        &self,
+        context_window_tokens: u32,
+    ) -> Result<u32, GenerationPolicyError> {
+        let tokens = ceil_basis_points(context_window_tokens, self.prompt_output_reserve_bps);
+        if tokens == 0 {
+            return Err(GenerationPolicyError::InsufficientCapacity {
+                factor: GenerationLimitingFactor::ContextCapacity,
+            });
+        }
+        Ok(tokens)
+    }
+
     pub(crate) fn provisional_budget(
         &self,
         input: &ProvisionalBudgetInput,

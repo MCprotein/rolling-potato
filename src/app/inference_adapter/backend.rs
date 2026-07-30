@@ -48,9 +48,7 @@ pub use chat::{
     cancel_generation_report, chat_once, chat_once_bounded, chat_once_bounded_with_cancel,
     chat_report, chat_stream_report, preflight_chat_ready,
 };
-pub(crate) use chat::{
-    chat_once_for_intent, chat_once_with_input, chat_once_with_input_for_intent,
-};
+pub(crate) use chat::{chat_once_for_intent, chat_once_with_input_for_intent};
 #[cfg(test)]
 use generation_state::{
     begin_active_generation, generation_cancel_requested, write_generation_terminal_record,

@@ -1,10 +1,8 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage};
+use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::runtime_core::knowledge::prompt::AssembledPrompt;
 use crate::surfaces::tui::runtime_bridge::TuiConversationTurn;
-
-const CONVERSATION_MAX_TOKENS: u32 = 512;
-const WEB_ANSWER_MAX_TOKENS: u32 = 768;
 
 pub(in crate::app::tui_adapter) fn render_web_conversation_context(
     history: &[TuiConversationTurn],
@@ -15,7 +13,7 @@ pub(in crate::app::tui_adapter) fn render_web_conversation_context(
         history,
         user_request,
         context_limit_tokens,
-        WEB_ANSWER_MAX_TOKENS,
+        GenerationIntent::GroundedWebAnswer,
     )
     .map(|context| context.render_memory())
 }
@@ -31,7 +29,7 @@ pub(in crate::app::tui_adapter) fn reply_with_context(
     crate::app::inference_adapter::answer::generate_for_user(
         &prompt,
         user_request,
-        CONVERSATION_MAX_TOKENS,
+        GenerationIntent::InteractiveAnswer,
     )
 }
 
@@ -42,7 +40,7 @@ pub(in crate::app::tui_adapter) fn reply_with_images(
 ) -> Result<String, AppError> {
     let mut input = input.clone();
     input.text = assemble_vision_prompt(&input, history, context_limit_tokens)?.text;
-    crate::app::inference_adapter::answer::generate_input(&input, CONVERSATION_MAX_TOKENS)
+    crate::app::inference_adapter::answer::generate_input(&input, GenerationIntent::VisionAnswer)
 }
 
 pub(in crate::app::tui_adapter) fn estimate_context_tokens(
@@ -80,7 +78,7 @@ fn assemble_plain_prompt(
         history,
         user_request,
         context_limit_tokens,
-        CONVERSATION_MAX_TOKENS,
+        GenerationIntent::InteractiveAnswer,
     )?
     .assemble(&instructions, attachment_context, user_request, "답변:")
 }
@@ -98,7 +96,7 @@ fn assemble_vision_prompt(
         history,
         &input.text,
         context_limit_tokens,
-        CONVERSATION_MAX_TOKENS,
+        GenerationIntent::VisionAnswer,
     )?
     .assemble(&instructions, "", &input.text, "답변:")
 }

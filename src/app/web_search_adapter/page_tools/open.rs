@@ -6,7 +6,6 @@ use super::super::{
     WebEvidenceObservation, WebGroundingEvidence, WebToolObservation,
 };
 
-const WEB_OPEN_ANSWER_MAX_TOKENS: u32 = 768;
 const WEB_OPEN_FALLBACK_CHARS: usize = 1_200;
 
 pub(crate) struct WebOpenObservation {
@@ -61,7 +60,6 @@ pub(crate) fn observe_open_page(
                     fallback: Some(fallback),
                     sources: vec![source],
                     grounding: vec![grounding],
-                    max_tokens: WEB_OPEN_ANSWER_MAX_TOKENS,
                 }),
             })
         }
