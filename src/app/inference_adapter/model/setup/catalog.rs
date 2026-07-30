@@ -1,7 +1,7 @@
 //! Source-backed model choices rendered for interactive setup.
 
 use crate::runtime_core::inference::model::manifest::{
-    source_backed_artifact, source_backed_vision_projector, CANDIDATES,
+    source_backed_artifact, source_backed_vision_projector, ModelManifestEntry, CANDIDATES,
 };
 use crate::surfaces::tui::runtime_bridge::TuiModelOption;
 
@@ -54,16 +54,18 @@ pub(super) fn setup_options() -> Vec<TuiModelOption> {
                 } else {
                     candidate.license.status.to_string()
                 },
-                note: model_note(candidate.id, projector, projector_cached),
+                note: model_note(candidate, projector, projector_cached),
                 current: current.as_deref() == Some(candidate.id),
-                recommended: candidate.id == "gemma-4-e4b",
+                recommended: candidate
+                    .setup_profile
+                    .is_some_and(|profile| profile.recommended),
             }
         })
         .collect()
 }
 
 fn model_note(
-    model_id: &str,
+    candidate: &ModelManifestEntry,
     projector: Option<crate::runtime_core::inference::model::manifest::ModelArtifactDescriptor>,
     projector_cached: bool,
 ) -> String {
@@ -73,18 +75,18 @@ fn model_note(
             return format!(
                 "vision 지원(첫 이미지에서 projector {:.1} GiB 자동 준비); {}",
                 projector.size_bytes as f64 / (1024.0 * 1024.0 * 1024.0),
-                adoption_note(model_id)
+                adoption_note(candidate)
             );
         }
         None => "vision 미지원",
     };
-    format!("{vision}; {}", adoption_note(model_id))
+    format!("{vision}; {}", adoption_note(candidate))
 }
 
-fn adoption_note(model_id: &str) -> &'static str {
-    if model_id == "gemma-4-e4b" {
-        "로컬 adoption smoke 통과; 16 GB 적합성은 미확정"
-    } else {
-        "실험적 선택; exact-response adoption gate 미통과"
-    }
+fn adoption_note(candidate: &ModelManifestEntry) -> &'static str {
+    candidate
+        .setup_profile
+        .map_or("local adoption evidence 미확정", |profile| {
+            profile.adoption.claim
+        })
 }

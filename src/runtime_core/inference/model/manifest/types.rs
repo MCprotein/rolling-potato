@@ -71,6 +71,12 @@ pub(crate) struct ModelGenerationProfile {
     pub(crate) thinking_source: SourceClaim,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ModelSetupProfile {
+    pub(crate) recommended: bool,
+    pub(crate) adoption: SourceClaim,
+}
+
 #[derive(Debug)]
 pub(crate) struct ModelManifestEntry {
     pub(crate) id: &'static str,
@@ -94,6 +100,7 @@ pub(crate) struct ModelManifestEntry {
     pub(crate) recommended_ram_gb: Option<u32>,
     pub(crate) backend_compatibility: Option<SourceClaim>,
     pub(crate) generation_profile: Option<ModelGenerationProfile>,
+    pub(crate) setup_profile: Option<ModelSetupProfile>,
     pub(crate) benchmark: BenchmarkClaim,
     pub(crate) install_blockers: &'static [&'static str],
 }

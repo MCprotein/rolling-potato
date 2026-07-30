@@ -138,6 +138,8 @@ fn model_request_behavior_is_not_guessed_from_names_or_global_sampling() {
     let chat = fs::read_to_string("src/app/inference_adapter/backend/chat.rs").unwrap();
     let startup =
         fs::read_to_string("src/app/inference_adapter/backend/sidecar/startup.rs").unwrap();
+    let policy =
+        fs::read_to_string("src/runtime_core/inference/generation_policy/mod.rs").unwrap();
 
     for (path, source) in [
         ("runtime_profile.rs", runtime_profile.as_str()),
@@ -160,6 +162,41 @@ fn model_request_behavior_is_not_guessed_from_names_or_global_sampling() {
         !startup.contains("sampling=temperature-"),
         "sidecar startup cannot claim a generation profile before a chat request"
     );
+    assert!(
+        !policy.contains("uncalibrated_throughput_tokens_per_second")
+            && !policy.contains("ThroughputInput"),
+        "deadline capacity must require managed artifact/backend throughput evidence"
+    );
+}
+
+#[test]
+fn setup_recommendations_are_manifest_driven_not_model_id_branches() {
+    let catalog =
+        fs::read_to_string("src/app/inference_adapter/model/setup/catalog.rs").unwrap();
+
+    assert!(
+        !catalog.contains("candidate.id ==")
+            && !catalog.contains("model_id ==")
+            && !catalog.contains("model_id: &str"),
+        "setup recommendation and adoption notes must come from exact manifest metadata"
+    );
+}
+
+#[test]
+fn visible_answer_contracts_do_not_own_fixed_product_length_caps() {
+    for path in [
+        "src/runtime_core/agent.rs",
+        "src/app/inference_adapter/answer.rs",
+        "src/app/web_search_adapter/answer_contract.rs",
+    ] {
+        let source =
+            fs::read_to_string(path).unwrap_or_else(|error| panic!("failed to read {path}: {error}"));
+        assert!(
+            !source.contains("MAX_ANSWER_CHARS")
+                && !source.contains("MAX_REPAIR_INPUT_CHARS"),
+            "{path} must use backend protocol limits or the active model-window policy"
+        );
+    }
 }
 
 fn declares_numeric_generation_constant(code: &str) -> bool {

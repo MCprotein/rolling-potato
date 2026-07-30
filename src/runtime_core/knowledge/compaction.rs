@@ -15,7 +15,8 @@ pub(crate) use checkpoint::CompactionCheckpoint;
 pub(crate) use policy::CompactionPlan;
 pub(crate) use policy::{CompactionMode, CompactionPolicy, CompactionRecord};
 pub(crate) use token_budget::{
-    estimate_tokens, truncate_head_to_tokens, truncate_tail_to_estimated_tokens,
+    estimate_tokens, truncate_head_and_tail_to_tokens, truncate_head_to_tokens,
+    truncate_tail_to_estimated_tokens,
 };
 
 #[cfg(test)]

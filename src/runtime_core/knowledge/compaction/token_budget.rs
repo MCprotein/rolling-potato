@@ -9,7 +9,7 @@ pub(crate) fn estimate_tokens(text: &str) -> usize {
     chars.max(bytes).max(1)
 }
 
-pub(super) fn truncate_head_and_tail_to_tokens(text: &str, max_tokens: usize) -> String {
+pub(crate) fn truncate_head_and_tail_to_tokens(text: &str, max_tokens: usize) -> String {
     truncate_by_chars(text, max_tokens.saturating_mul(3))
 }
 

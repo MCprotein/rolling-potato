@@ -59,14 +59,12 @@ fn incident_fixture_uses_runtime_capacity_instead_of_512() {
     active.deadline = Some(DeadlineCapacityInput {
         timeout_ms: 30_000,
         timeout_source: source(PolicyValueSourceKind::IntentContract, "chat-timeout-v1"),
-        throughput: ThroughputInput {
-            managed_conservative_observation: Some(ManagedThroughputEvidence {
-                tokens_per_second: 24,
-                source: source(
-                    PolicyValueSourceKind::ManagedObservation,
-                    "model-hash/backend-p10-v1",
-                ),
-            }),
+        throughput: ManagedThroughputEvidence {
+            tokens_per_second: 24,
+            source: source(
+                PolicyValueSourceKind::ManagedObservation,
+                "model-hash/backend-p10-v1",
+            ),
         },
     });
 
@@ -193,7 +191,13 @@ fn zero_context_and_zero_deadline_block() {
         active.deadline = Some(DeadlineCapacityInput {
             timeout_ms,
             timeout_source: source(PolicyValueSourceKind::IntentContract, "timeout-v1"),
-            throughput: ThroughputInput::default(),
+            throughput: ManagedThroughputEvidence {
+                tokens_per_second: 8,
+                source: source(
+                    PolicyValueSourceKind::ManagedObservation,
+                    "model-hash/backend-p10-v1",
+                ),
+            },
         });
         assert_eq!(
             profile.provisional_budget(&ProvisionalBudgetInput {
@@ -352,27 +356,36 @@ fn uncertainty_and_deadline_sources_are_versioned() {
     active.deadline = Some(DeadlineCapacityInput {
         timeout_ms: 30_000,
         timeout_source: source(PolicyValueSourceKind::IntentContract, "chat-timeout-v7"),
-        throughput: ThroughputInput::default(),
+        throughput: ManagedThroughputEvidence {
+            tokens_per_second: 8,
+            source: source(
+                PolicyValueSourceKind::ManagedObservation,
+                "model-hash/backend-p10-v1",
+            ),
+        },
     });
-    let fallback = profile
+    let observed_deadline = profile
         .provisional_budget(&ProvisionalBudgetInput {
             intent: GenerationIntent::InteractiveAnswer,
             prompt: bootstrap(1_024),
             capacities: active.clone(),
         })
         .unwrap();
-    assert_eq!(fallback.provisional_max_tokens, 224);
+    assert_eq!(observed_deadline.provisional_max_tokens, 224);
     assert_eq!(
-        fallback
+        observed_deadline
             .diagnostics
             .selected_throughput
             .as_ref()
             .unwrap()
             .source,
-        source(PolicyValueSourceKind::PolicyProfile, "generation-policy-v1")
+        source(
+            PolicyValueSourceKind::ManagedObservation,
+            "model-hash/backend-p10-v1"
+        )
     );
     assert_eq!(
-        fallback.diagnostics.deadline_source,
+        observed_deadline.diagnostics.deadline_source,
         Some(source(
             PolicyValueSourceKind::IntentContract,
             "chat-timeout-v7"
@@ -437,7 +450,6 @@ fn profile_defaults_are_explicit_and_versioned() {
     assert_eq!(profile.bootstrap_unseen_framing_tokens, 128);
     assert_eq!(profile.fallback_estimator_error_bps, 2_500);
     assert_eq!(profile.minimum_estimator_uncertainty_tokens, 128);
-    assert_eq!(profile.uncalibrated_throughput_tokens_per_second, 8);
     assert_eq!(profile.deadline_terminal_reserve_ms, 2_000);
 }
 

@@ -89,16 +89,11 @@ pub(crate) struct ManagedThroughputEvidence {
     pub source: VersionedValueSource,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub(crate) struct ThroughputInput {
-    pub managed_conservative_observation: Option<ManagedThroughputEvidence>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DeadlineCapacityInput {
     pub timeout_ms: u32,
     pub timeout_source: VersionedValueSource,
-    pub throughput: ThroughputInput,
+    pub throughput: ManagedThroughputEvidence,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -210,7 +205,6 @@ pub(crate) struct GenerationPolicyProfileV1 {
     pub bootstrap_unseen_framing_tokens: u32,
     pub fallback_estimator_error_bps: u32,
     pub minimum_estimator_uncertainty_tokens: u32,
-    pub uncalibrated_throughput_tokens_per_second: u32,
     pub deadline_terminal_reserve_ms: u32,
 }
 
@@ -222,7 +216,6 @@ impl Default for GenerationPolicyProfileV1 {
             bootstrap_unseen_framing_tokens: 128,
             fallback_estimator_error_bps: 2_500,
             minimum_estimator_uncertainty_tokens: 128,
-            uncalibrated_throughput_tokens_per_second: 8,
             deadline_terminal_reserve_ms: 2_000,
         }
     }
@@ -316,7 +309,10 @@ impl GenerationPolicyProfileV1 {
             .deadline
             .as_ref()
             .map(|deadline| {
-                let throughput = self.select_throughput(&deadline.throughput);
+                let throughput = SelectedThroughput {
+                    tokens_per_second: deadline.throughput.tokens_per_second,
+                    source: deadline.throughput.source.clone(),
+                };
                 let available_ms = deadline
                     .timeout_ms
                     .saturating_sub(self.deadline_terminal_reserve_ms);
@@ -438,22 +434,6 @@ impl GenerationPolicyProfileV1 {
             estimator_identity: input.estimator_identity.clone(),
             estimator_version: input.estimator_version.clone(),
         }
-    }
-
-    fn select_throughput(&self, input: &ThroughputInput) -> SelectedThroughput {
-        input.managed_conservative_observation.as_ref().map_or_else(
-            || SelectedThroughput {
-                tokens_per_second: self.uncalibrated_throughput_tokens_per_second,
-                source: VersionedValueSource::new(
-                    PolicyValueSourceKind::PolicyProfile,
-                    self.policy_profile_version,
-                ),
-            },
-            |evidence| SelectedThroughput {
-                tokens_per_second: evidence.tokens_per_second,
-                source: evidence.source.clone(),
-            },
-        )
     }
 }
 

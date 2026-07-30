@@ -9,7 +9,6 @@ use crate::foundation::serialization::{self, Value};
 
 pub(super) const GROUNDED_ANSWER_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"status":{"type":"string","enum":["supported","insufficient"]},"answer":{"type":"string"},"source_ids":{"type":"array","items":{"type":"string"},"maxItems":8}},"required":["status","answer","source_ids"],"additionalProperties":false}"#;
 
-const MAX_ANSWER_CHARS: usize = 8 * 1024;
 const MAX_SOURCE_IDS: usize = 8;
 
 pub(super) fn finish(
@@ -34,14 +33,12 @@ fn parse(candidate: &str, sources: &[WebSourceEvidence]) -> Result<String, AppEr
         return Err(invalid("status must be supported or insufficient"));
     }
     let answer = serialization::string(&object, "answer", "grounded web answer")?;
-    let answer_length = answer.chars().count();
     if answer.trim().is_empty()
-        || answer_length > MAX_ANSWER_CHARS
         || answer
             .chars()
             .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
     {
-        return Err(invalid("answer is empty, oversized, or contains controls"));
+        return Err(invalid("answer is empty or contains controls"));
     }
     let Some(Value::Array(values)) = object.get("source_ids") else {
         return Err(invalid("source_ids must be an array"));
@@ -139,5 +136,19 @@ mod tests {
                 "{visible}"
             );
         }
+    }
+
+    #[test]
+    fn grounded_answer_length_is_owned_by_generation_and_protocol_capacity() {
+        let answer = format!("{} [source-primary]", "근거가 있는 긴 답변 ".repeat(2_000));
+        let visible = format!(
+            r#"{{"status":"supported","answer":"{}","source_ids":["source-primary"]}}"#,
+            answer
+        );
+
+        assert_eq!(
+            parse(&visible, &[source("source-primary")]).unwrap(),
+            answer
+        );
     }
 }

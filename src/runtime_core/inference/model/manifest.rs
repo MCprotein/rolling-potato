@@ -82,6 +82,15 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
                 status: "confirmed",
             },
         }),
+        setup_profile: Some(ModelSetupProfile {
+            recommended: false,
+            adoption: SourceClaim {
+                claim: "실험적 선택; local v0.30.0 adoption smoke exact-response equality 실패",
+                source: "docs/model-eval.md#current-local-execution-evidence",
+                checked_at: "2026-07-11",
+                status: "measured-locally",
+            },
+        }),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/Qwen/Qwen3.5-4B#benchmark-results",
             checked_at: "2026-06-29",
@@ -147,6 +156,15 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
                 status: "confirmed",
             },
         }),
+        setup_profile: Some(ModelSetupProfile {
+            recommended: true,
+            adoption: SourceClaim {
+                claim: "로컬 adoption smoke 통과; 16 GB 적합성은 미확정",
+                source: "docs/model-eval.md#current-local-execution-evidence",
+                checked_at: "2026-07-11",
+                status: "measured-locally",
+            },
+        }),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/google/gemma-4-E4B#benchmark-results",
             checked_at: "2026-06-29",
@@ -187,6 +205,7 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
         recommended_ram_gb: None,
         backend_compatibility: None,
         generation_profile: None,
+        setup_profile: None,
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/Qwen/Qwen3.5-9B#benchmark-results",
             checked_at: "2026-06-29",

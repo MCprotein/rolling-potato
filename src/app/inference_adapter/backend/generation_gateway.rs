@@ -8,8 +8,7 @@ use crate::runtime_core::inference::generation_policy::{
     ActiveTokenCapacity, AssembledPromptEstimate, BootstrapPromptEstimate, DeadlineCapacityInput,
     EstimatorUncertaintyInput, FinalBudgetInput, GenerationCapacityInputs, GenerationIntent,
     GenerationLimitingFactor, GenerationPolicyError, GenerationPolicyProfileV1,
-    ManagedThroughputEvidence, PolicyValueSourceKind, ProvisionalBudgetInput, ThroughputInput,
-    VersionedValueSource,
+    ManagedThroughputEvidence, PolicyValueSourceKind, ProvisionalBudgetInput, VersionedValueSource,
 };
 use crate::runtime_core::inference::resource::{ResourcePressure, DEGRADED_CHAT_MAX_TOKENS};
 use crate::runtime_core::knowledge::compaction::estimate_tokens;
@@ -190,9 +189,7 @@ fn capacities(
                 PolicyValueSourceKind::IntentContract,
                 CHAT_TIMEOUT_CONTRACT_VERSION,
             ),
-            throughput: ThroughputInput {
-                managed_conservative_observation: Some(managed_conservative_observation),
-            },
+            throughput: managed_conservative_observation,
         }),
         semantic_capacity: None,
         governance_capacity: None,
