@@ -120,6 +120,40 @@ fn answer_and_web_research_apis_do_not_export_raw_token_budgets() {
     );
 }
 
+#[test]
+fn model_request_behavior_is_not_guessed_from_names_or_global_sampling() {
+    let runtime_profile =
+        fs::read_to_string("src/app/inference_adapter/backend/chat/runtime_profile.rs").unwrap();
+    let request = fs::read_to_string("src/adapters/llama_cpp/backend/request.rs").unwrap();
+    let report =
+        fs::read_to_string("src/app/inference_adapter/backend/chat/report.rs").unwrap();
+    let chat = fs::read_to_string("src/app/inference_adapter/backend/chat.rs").unwrap();
+    let startup =
+        fs::read_to_string("src/app/inference_adapter/backend/sidecar/startup.rs").unwrap();
+
+    for (path, source) in [
+        ("runtime_profile.rs", runtime_profile.as_str()),
+        ("request.rs", request.as_str()),
+        ("report.rs", report.as_str()),
+    ] {
+        assert!(
+            !source.contains("starts_with(\"qwen")
+                && !source.contains("starts_with(\"gemma")
+                && !source.contains("contains(\"qwen")
+                && !source.contains("contains(\"gemma"),
+            "{path} must resolve model behavior by exact artifact metadata, not names"
+        );
+    }
+    assert!(
+        !chat.contains("CHAT_SAMPLING"),
+        "chat adapter must not own a global sampling profile"
+    );
+    assert!(
+        !startup.contains("sampling=temperature-"),
+        "sidecar startup cannot claim a generation profile before a chat request"
+    );
+}
+
 fn declares_numeric_generation_constant(code: &str) -> bool {
     let declares_const = code.starts_with("const ") || code.contains(" const ");
     if !declares_const || !code.contains("MAX_TOKENS") {

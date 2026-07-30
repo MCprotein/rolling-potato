@@ -151,7 +151,7 @@ pub(crate) trait BackendAdapter {
     fn default_port(&self) -> u16;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct BackendChatSampling {
     pub(crate) temperature: f64,
     pub(crate) top_p: f64,
@@ -161,6 +161,15 @@ impl BackendChatSampling {
     pub(crate) fn ledger_label(&self) -> String {
         format!("temperature-{}_top-p-{}", self.temperature, self.top_p)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct BackendChatRuntimeProfile {
+    pub(crate) sampling_profile_version: String,
+    pub(crate) sampling: Option<BackendChatSampling>,
+    pub(crate) disable_thinking_via_template: bool,
+    pub(crate) thinking_mode: String,
+    pub(crate) thinking_source: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -176,7 +185,10 @@ pub(crate) struct BackendChatRun {
     pub(crate) response_chars: usize,
     pub(crate) requested_max_tokens: u32,
     pub(crate) effective_max_tokens: u32,
-    pub(crate) sampling: BackendChatSampling,
+    pub(crate) sampling: Option<BackendChatSampling>,
+    pub(crate) sampling_profile_version: String,
+    pub(crate) thinking_mode: String,
+    pub(crate) thinking_source: String,
     pub(crate) generation_status: BackendGenerationStatus,
     pub(crate) finish_reason: String,
     pub(crate) guard_status: &'static str,
@@ -253,10 +265,13 @@ impl BackendChatRun {
             response_chars: 5,
             requested_max_tokens: 32,
             effective_max_tokens: 16,
-            sampling: BackendChatSampling {
+            sampling: Some(BackendChatSampling {
                 temperature: 0.1,
                 top_p: 0.8,
-            },
+            }),
+            sampling_profile_version: "test-sampling-v1".to_string(),
+            thinking_mode: "test-mode".to_string(),
+            thinking_source: "test-source".to_string(),
             generation_status: BackendGenerationStatus::Complete,
             finish_reason: "stop".to_string(),
             guard_status: "pass",

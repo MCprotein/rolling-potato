@@ -18,10 +18,11 @@ use super::super::generation_state::{
 };
 use super::super::resource_sampling::record_backend_resource_sample;
 use super::super::sidecar::trace_backend_start;
-use super::super::{display_optional_u128, display_optional_u32, model_id_from_path, now_ms};
+use super::super::{display_optional_u128, display_optional_u32, now_ms};
 use super::interruption::{finish_interrupted_generation, GenerationTerminalContext};
 use super::readiness::ready_sidecar_record;
-use super::{CHAT_SAMPLING, CHAT_TIMEOUT_MS};
+use super::runtime_profile;
+use super::CHAT_TIMEOUT_MS;
 
 pub(super) fn chat_input_with_options(
     input: &BackendChatInput,
@@ -39,6 +40,7 @@ pub(super) fn chat_input_with_options(
         )));
     }
     let record = ready_sidecar_record()?;
+    let runtime_profile = runtime_profile::resolve(&record);
     if !input.images.is_empty() && record.mmproj_path.is_none() {
         return Err(AppError::blocked(
             "이미지 입력을 사용할 수 없습니다.\n- 이유: 현재 backend는 text-ready이지만 vision-ready가 아닙니다.\n- 다음: /model에서 vision(mmproj) 준비 상태를 확인한 뒤 모델을 다시 준비하세요.",
@@ -46,7 +48,7 @@ pub(super) fn chat_input_with_options(
     }
 
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
-    let model_id = model_id_from_path(&record.model_path);
+    let model_id = runtime_profile.model_id.clone();
     let budget = bind_default_backend_budget(
         token_request,
         &input.text,
@@ -90,12 +92,10 @@ pub(super) fn chat_input_with_options(
         .effective_max_tokens
         .unwrap_or(requested_max_tokens);
     let policy_limiting_factors = budget.limiting_factor_label();
-    let sampling = CHAT_SAMPLING;
     let body = llama_backend::chat_request_body_for_input(
-        &record.model_path,
         input,
         effective_max_tokens,
-        &sampling,
+        &runtime_profile.request,
         true,
     )?;
     let generation = begin_active_generation(&record, timeout_ms, streaming_display)?;
@@ -112,7 +112,7 @@ pub(super) fn chat_input_with_options(
             generation.client_pid,
             generation.sidecar_pid,
             record.backend_id,
-            model_id_from_path(&record.model_path),
+            model_id,
             input.text.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
@@ -172,7 +172,7 @@ pub(super) fn chat_input_with_options(
                 model_run_id: format!("model-run-{event_id}"),
                 session_id: identity.session_id,
                 workflow_id: None,
-                model_id: model_id_from_path(&record.model_path),
+                model_id: model_id.clone(),
                 model_artifact_hash: Some(record.model_sha256.clone()),
                 backend_id: Some(record.backend_id.clone()),
                 backend_version: Some(record.backend_release.clone()),
@@ -253,12 +253,16 @@ pub(super) fn chat_input_with_options(
             record.backend_id,
             record.backend_release,
             record.binary_sha256,
-            model_id_from_path(&record.model_path),
+            model_id,
             record.model_sha256,
             record.model_size_bytes,
             display_optional_u32(record.ctx_size),
             record.mmproj,
-            sampling.ledger_label(),
+            runtime_profile
+                .request
+                .sampling
+                .map(|sampling| sampling.ledger_label())
+                .unwrap_or_else(|| "model-default".to_string()),
             std::env::consts::OS,
             std::env::consts::ARCH,
             input.text.chars().count(),
@@ -337,7 +341,8 @@ pub(super) fn chat_input_with_options(
     if display_content.is_empty() {
         generation_guard.finish()?;
         return Err(AppError::blocked(format!(
-            "backend chat 차단\n- 이유: reasoning trace 제거 후 표시 가능한 응답이 없습니다.\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- guard: {}\n- finish reason: {}\n- resource sample event: {}\n- lifecycle event: {}",
+            "backend chat 차단\n- 이유: reasoning trace 제거 후 표시 가능한 응답이 없습니다.\n- endpoint: /v1/chat/completions\n- thinking mode: {}\n- guard: {}\n- finish reason: {}\n- resource sample event: {}\n- lifecycle event: {}",
+            runtime_profile.request.thinking_mode,
             guard_status,
             completion.finish_reason,
             resource_sample.ledger_event,
@@ -357,7 +362,10 @@ pub(super) fn chat_input_with_options(
         response_chars: display_content.chars().count(),
         requested_max_tokens,
         effective_max_tokens,
-        sampling,
+        sampling: runtime_profile.request.sampling,
+        sampling_profile_version: runtime_profile.request.sampling_profile_version,
+        thinking_mode: runtime_profile.request.thinking_mode,
+        thinking_source: runtime_profile.request.thinking_source,
         generation_status,
         finish_reason: completion.finish_reason,
         guard_status,

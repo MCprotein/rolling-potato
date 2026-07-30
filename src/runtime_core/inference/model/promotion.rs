@@ -104,11 +104,16 @@ pub(crate) fn validate_promotion_evidence(
                     "backend smoke mmproj 결과가 evidence와 다릅니다.",
                 );
             }
-            if smoke.sampling != "temperature-0.1_top-p-0.8" {
-                push_unique(
+            match candidate.generation_profile {
+                Some(profile) if smoke.sampling == profile.sampling.ledger_label() => {}
+                Some(_) => push_unique(
                     &mut blockers,
-                    "backend smoke sampling 조건이 고정값과 다릅니다.",
-                );
+                    "backend smoke sampling 조건이 source-backed runtime profile과 다릅니다.",
+                ),
+                None => push_unique(
+                    &mut blockers,
+                    "후보 manifest에 generation runtime profile이 없습니다.",
+                ),
             }
             if smoke.host_os.trim().is_empty() || smoke.host_arch.trim().is_empty() {
                 push_unique(

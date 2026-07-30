@@ -71,12 +71,22 @@ pub(crate) fn executable_reproducibility_manifest_json(
     model_run_id: &str,
     recorded_at_ms: u128,
 ) -> String {
-    let sampling_options = format!(
-        "temperature={},top_p={},requested_max_tokens={},effective_max_tokens={}",
-        run.sampling.temperature,
-        run.sampling.top_p,
-        run.requested_max_tokens,
-        run.effective_max_tokens
+    let sampling_options = run.sampling.map_or_else(
+        || {
+            format!(
+                "model-default,requested_max_tokens={},effective_max_tokens={}",
+                run.requested_max_tokens, run.effective_max_tokens
+            )
+        },
+        |sampling| {
+            format!(
+                "temperature={},top_p={},requested_max_tokens={},effective_max_tokens={}",
+                sampling.temperature,
+                sampling.top_p,
+                run.requested_max_tokens,
+                run.effective_max_tokens
+            )
+        },
     );
     let quantization =
         quantization_for_artifact_hash(&run.model_artifact_hash).unwrap_or("unresolved");

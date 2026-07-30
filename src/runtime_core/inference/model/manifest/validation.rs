@@ -2,7 +2,8 @@ use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 
 use super::{
-    CandidateStatus, InstallValidation, ModelArtifactDescriptor, ModelManifestEntry, CANDIDATES,
+    CandidateStatus, InstallValidation, ModelArtifactDescriptor, ModelGenerationProfile,
+    ModelManifestEntry, CANDIDATES,
 };
 
 pub(crate) fn find_candidate(id: &str) -> Result<&'static ModelManifestEntry, AppError> {
@@ -21,6 +22,19 @@ pub(crate) fn quantization_for_artifact_hash(hash: &str) -> Option<&'static str>
         .iter()
         .find(|candidate| candidate.sha256 == Some(hash))
         .and_then(|candidate| candidate.quantization)
+}
+
+pub(crate) fn generation_profile_for_artifact_hash(
+    hash: &str,
+) -> Option<(&'static ModelManifestEntry, ModelGenerationProfile)> {
+    CANDIDATES
+        .iter()
+        .find(|candidate| candidate.sha256 == Some(hash))
+        .and_then(|candidate| {
+            candidate
+                .generation_profile
+                .map(|profile| (candidate, profile))
+        })
 }
 
 pub(crate) fn validate_install_ready(candidate: &ModelManifestEntry) -> InstallValidation {

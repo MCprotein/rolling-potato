@@ -149,7 +149,7 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
                 "backend.sidecar.start.completed",
                 "backend sidecar 시작 완료",
                 &format!(
-                    "pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} port={} ctx_size={} mmproj={} sampling=temperature-0.1_top-p-0.8 host_os={} host_arch={} startup_ms={}",
+                    "pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} port={} ctx_size={} mmproj={} host_os={} host_arch={} startup_ms={}",
                     record.pid,
                     record.backend_id,
                     record.backend_release,

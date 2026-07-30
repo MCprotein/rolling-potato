@@ -1,13 +1,12 @@
 use crate::foundation::error::AppError;
-use crate::runtime_core::inference::backend::{
-    BackendChatInput, BackendChatRun, BackendChatSampling,
-};
+use crate::runtime_core::inference::backend::{BackendChatInput, BackendChatRun};
 use crate::runtime_core::inference::generation_policy::GenerationIntent;
 
 mod execution;
 mod interruption;
 mod readiness;
 mod report;
+mod runtime_profile;
 
 use super::generation_gateway::GenerationTokenRequest;
 use execution::chat_input_with_options;
@@ -15,10 +14,6 @@ pub use interruption::cancel_generation_report;
 pub use report::{chat_report, chat_stream_report};
 
 pub(super) const CHAT_TIMEOUT_MS: u64 = 30_000;
-pub(super) const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
-    temperature: 0.1,
-    top_p: 0.8,
-};
 
 pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun, AppError> {
     let request = GenerationTokenRequest::interactive_or_explicit(max_tokens);

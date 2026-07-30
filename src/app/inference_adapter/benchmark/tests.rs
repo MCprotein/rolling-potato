@@ -291,10 +291,13 @@ fn fake_chat_run(response: &str) -> BackendChatRun {
         response_chars: response.chars().count(),
         requested_max_tokens: 16,
         effective_max_tokens: 16,
-        sampling: BackendChatSampling {
+        sampling: Some(BackendChatSampling {
             temperature: 0.1,
             top_p: 0.8,
-        },
+        }),
+        sampling_profile_version: "test-sampling-v1".to_string(),
+        thinking_mode: "test-mode".to_string(),
+        thinking_source: "test-source".to_string(),
         generation_status:
             crate::runtime_core::inference::backend::BackendGenerationStatus::Complete,
         finish_reason: "stop".to_string(),

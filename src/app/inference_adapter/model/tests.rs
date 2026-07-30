@@ -486,6 +486,14 @@ fn qwen_backend_smoke(
     artifact: ModelArtifactDescriptor,
     evidence: &PromotionEvidence,
 ) -> BackendSmokeEvidence {
+    let sampling =
+        crate::runtime_core::inference::model::manifest::generation_profile_for_artifact_hash(
+            artifact.sha256,
+        )
+        .expect("Qwen fixture must have an exact generation profile")
+        .1
+        .sampling
+        .ledger_label();
     BackendSmokeEvidence {
         event_id: evidence.backend_smoke_event_id.clone(),
         backend_id: "llama.cpp".to_string(),
@@ -497,7 +505,7 @@ fn qwen_backend_smoke(
         model_size_bytes: artifact.size_bytes,
         ctx_size: "4096".to_string(),
         mmproj: evidence.mmproj.clone(),
-        sampling: "temperature-0.1_top-p-0.8".to_string(),
+        sampling,
         host_os: "macos".to_string(),
         host_arch: "aarch64".to_string(),
     }

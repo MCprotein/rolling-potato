@@ -1,8 +1,22 @@
 use super::*;
 use crate::runtime_core::inference::backend::{
-    BackendChatImage, BackendChatInput, BackendChatSampling, BackendResponseFormat,
+    BackendChatImage, BackendChatInput, BackendChatRuntimeProfile, BackendChatSampling,
+    BackendResponseFormat,
 };
 use std::path::Path;
+
+fn runtime_profile(disable_thinking_via_template: bool) -> BackendChatRuntimeProfile {
+    BackendChatRuntimeProfile {
+        sampling_profile_version: "request-test-v1".to_string(),
+        sampling: Some(BackendChatSampling {
+            temperature: 0.1,
+            top_p: 0.8,
+        }),
+        disable_thinking_via_template,
+        thinking_mode: "test-mode".to_string(),
+        thinking_source: "test-source".to_string(),
+    }
+}
 
 #[test]
 fn health_status_line_does_not_require_connection_eof() {
@@ -18,13 +32,13 @@ fn health_status_line_does_not_require_connection_eof() {
 #[test]
 fn chat_request_disables_qwen_thinking_and_enables_usage_stream() {
     let body = chat_request_body(
-        Path::new("Qwen3.5-4B-Q4_K_M.gguf"),
         "감자는 무엇인가?",
         64,
         &BackendChatSampling {
             temperature: 0.1,
             top_p: 0.8,
         },
+        true,
         true,
     );
 
@@ -39,13 +53,13 @@ fn chat_request_disables_qwen_thinking_and_enables_usage_stream() {
 #[test]
 fn chat_request_disables_gemma_4_thinking() {
     let body = chat_request_body(
-        Path::new("gemma-4-E4B_q4_0-it.gguf"),
         "감자",
         64,
         &BackendChatSampling {
             temperature: 0.1,
             top_p: 0.8,
         },
+        true,
         true,
     );
 
@@ -56,13 +70,13 @@ fn chat_request_disables_gemma_4_thinking() {
 #[test]
 fn chat_request_omits_thinking_option_for_unrecognized_models() {
     let body = chat_request_body(
-        Path::new("custom-model.gguf"),
         "감자",
         64,
         &BackendChatSampling {
             temperature: 0.1,
             top_p: 0.8,
         },
+        false,
         true,
     );
 
@@ -83,17 +97,7 @@ fn multimodal_request_uses_openai_image_content_parts() {
         response_format: BackendResponseFormat::Text,
     };
 
-    let body = chat_request_body_for_input(
-        Path::new("gemma-4-E4B_q4_0-it.gguf"),
-        &input,
-        64,
-        &BackendChatSampling {
-            temperature: 0.1,
-            top_p: 0.8,
-        },
-        true,
-    )
-    .unwrap();
+    let body = chat_request_body_for_input(&input, 64, &runtime_profile(true), true).unwrap();
 
     assert!(body.contains("\"type\":\"text\""));
     assert!(body.contains("\"type\":\"image_url\""));
@@ -108,17 +112,7 @@ fn structured_chat_request_constrains_the_model_to_the_runtime_schema() {
             r#"{"type":"object","properties":{"decision":{"type":"string"}},"required":["decision"],"additionalProperties":false}"#,
         );
 
-    let body = chat_request_body_for_input(
-        Path::new("qwen3.5-4b.gguf"),
-        &input,
-        64,
-        &BackendChatSampling {
-            temperature: 0.1,
-            top_p: 0.8,
-        },
-        true,
-    )
-    .unwrap();
+    let body = chat_request_body_for_input(&input, 64, &runtime_profile(true), true).unwrap();
 
     assert!(body.contains("\"response_format\":{\"type\":\"json_object\",\"schema\":{"));
     assert!(body.contains("\"required\":[\"decision\"]"));
@@ -129,17 +123,7 @@ fn structured_chat_request_constrains_the_model_to_the_runtime_schema() {
 fn production_turn_schema_stays_within_managed_grammar_limit() {
     let input = BackendChatInput::text("도구를 선택해")
         .with_json_schema(crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA);
-    let body = chat_request_body_for_input(
-        Path::new("qwen3.5-4b.gguf"),
-        &input,
-        512,
-        &BackendChatSampling {
-            temperature: 0.1,
-            top_p: 0.8,
-        },
-        true,
-    )
-    .unwrap();
+    let body = chat_request_body_for_input(&input, 512, &runtime_profile(true), true).unwrap();
 
     assert!(body.contains(r#""answer":{"type":"string"}"#));
     assert!(!body.contains(r#""answer":{"type":"string","maxLength":"#));
@@ -151,32 +135,13 @@ fn rejects_schema_repetitions_that_managed_llama_cannot_compile() {
         let accepted = BackendChatInput::text("도구를 선택해").with_json_schema(format!(
             r#"{{"type":"object","properties":{{"value":{{"type":"string","{key}":1999}}}}}}"#
         ));
-        chat_request_body_for_input(
-            Path::new("qwen3.5-4b.gguf"),
-            &accepted,
-            64,
-            &BackendChatSampling {
-                temperature: 0.1,
-                top_p: 0.8,
-            },
-            true,
-        )
-        .unwrap();
+        chat_request_body_for_input(&accepted, 64, &runtime_profile(true), true).unwrap();
 
         let rejected = BackendChatInput::text("도구를 선택해").with_json_schema(format!(
             r#"{{"type":"object","properties":{{"value":{{"type":"string","{key}":2000}}}}}}"#
         ));
-        let error = chat_request_body_for_input(
-            Path::new("qwen3.5-4b.gguf"),
-            &rejected,
-            64,
-            &BackendChatSampling {
-                temperature: 0.1,
-                top_p: 0.8,
-            },
-            true,
-        )
-        .unwrap_err();
+        let error =
+            chat_request_body_for_input(&rejected, 64, &runtime_profile(true), true).unwrap_err();
 
         assert!(error.message.contains(key), "{key}: {}", error.message);
         assert!(error.message.contains("1999"), "{key}: {}", error.message);
@@ -190,17 +155,7 @@ fn allows_schema_property_names_that_match_repetition_keywords() {
             r#"{"type":"object","properties":{"maxLength":{"type":"string"},"nested":{"type":"object","properties":{"minItems":{"type":"integer"}}}}}"#,
         );
 
-    let body = chat_request_body_for_input(
-        Path::new("qwen3.5-4b.gguf"),
-        &input,
-        64,
-        &BackendChatSampling {
-            temperature: 0.1,
-            top_p: 0.8,
-        },
-        true,
-    )
-    .unwrap();
+    let body = chat_request_body_for_input(&input, 64, &runtime_profile(true), true).unwrap();
 
     assert!(body.contains(r#""maxLength":{"type":"string"}"#));
     assert!(body.contains(r#""minItems":{"type":"integer"}"#));
@@ -218,13 +173,13 @@ fn base64_encoder_matches_rfc_4648_padding_vectors() {
 #[test]
 fn request_system_policy_respects_an_explicit_output_language() {
     let body = chat_request_body(
-        Path::new("model.gguf"),
         "이 문장을 영어로 번역해줘",
         32,
         &BackendChatSampling {
             temperature: 0.1,
             top_p: 0.8,
         },
+        false,
         false,
     );
 
