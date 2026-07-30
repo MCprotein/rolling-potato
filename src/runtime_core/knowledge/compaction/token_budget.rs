@@ -10,24 +10,28 @@ pub(crate) fn estimate_tokens(text: &str) -> usize {
 }
 
 pub(crate) fn truncate_head_and_tail_to_tokens(text: &str, max_tokens: usize) -> String {
-    truncate_by_chars(text, max_tokens.saturating_mul(3))
-}
-
-fn truncate_by_chars(text: &str, max_chars: usize) -> String {
-    let count = text.chars().count();
-    if count <= max_chars {
+    if max_tokens == 0 {
+        return String::new();
+    }
+    if estimate_tokens(text) <= max_tokens {
         return text.to_string();
     }
     const MARKER: &str = "\n[compacted]\n";
-    let marker_chars = MARKER.chars().count();
-    if max_chars <= marker_chars {
-        return MARKER.chars().take(max_chars).collect();
+    if estimate_tokens(MARKER) >= max_tokens {
+        return bounded_chars_and_bytes(MARKER, max_tokens, TokenTruncation::Head);
     }
-    let available = max_chars - marker_chars;
-    let head_chars = available.div_ceil(2);
-    let tail_chars = available - head_chars;
-    let head = text.chars().take(head_chars).collect::<String>();
-    let tail = text.chars().skip(count - tail_chars).collect::<String>();
+    let count = text.chars().count();
+    let marker_chars = MARKER.chars().count();
+    let marker_bytes = MARKER.len();
+    let available_chars = max_tokens.saturating_mul(3).saturating_sub(marker_chars);
+    let available_bytes = max_tokens.saturating_mul(4).saturating_sub(marker_bytes);
+    let head_chars = available_chars.div_ceil(2);
+    let tail_chars = available_chars - head_chars;
+    let head_bytes = available_bytes.div_ceil(2);
+    let tail_bytes = available_bytes - head_bytes;
+    let head = bounded_chars_and_bytes_raw(text, head_chars, head_bytes, TokenTruncation::Head);
+    let tail = bounded_chars_and_bytes_raw(text, tail_chars, tail_bytes, TokenTruncation::Tail);
+    debug_assert!(head.chars().count() + tail.chars().count() < count);
     format!("{head}{MARKER}{tail}")
 }
 

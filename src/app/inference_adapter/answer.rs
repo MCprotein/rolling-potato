@@ -1,6 +1,7 @@
 //! Guarded visible-answer generation for local models.
 
 use crate::app::inference_adapter::{backend, context_window};
+use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{
     BackendChatInput, BackendChatRun, BackendGenerationIncompleteReason, BackendGenerationStatus,
@@ -98,13 +99,38 @@ pub(crate) fn repair_existing(response: &str) -> Result<String, AppError> {
     if visible.is_empty() {
         return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
     }
-    let repaired = context_window::effective_context_window()
-        .and_then(|window| repair_prompt_for_context(&visible, window.limit_tokens))
-        .ok()
-        .and_then(|prompt| backend::chat_once_for_intent(&prompt, GenerationIntent::Repair).ok())
-        .filter(|run| run.generation_status.is_complete())
-        .map(|run| visible_text(&run.response));
+    let repaired = match repair_attempt(&visible) {
+        Ok(repaired) => repaired,
+        Err((stage, error)) => {
+            record_repair_failure(stage, &error);
+            None
+        }
+    };
     Ok(best_effort_visible(&visible, repaired.as_deref()))
+}
+
+fn repair_attempt(response: &str) -> Result<Option<String>, (&'static str, AppError)> {
+    let window =
+        context_window::effective_context_window().map_err(|error| ("context-window", error))?;
+    let prompt = repair_prompt_for_context(response, window.limit_tokens)
+        .map_err(|error| ("prompt-budget", error))?;
+    let run = backend::chat_once_for_intent(&prompt, GenerationIntent::Repair)
+        .map_err(|error| ("backend-generation", error))?;
+    if !run.generation_status.is_complete() {
+        return Err((
+            "generation-finish",
+            AppError::blocked("한국어 repair generation이 완결되지 않았습니다."),
+        ));
+    }
+    Ok(Some(visible_text(&run.response)))
+}
+
+fn record_repair_failure(stage: &str, error: &AppError) {
+    let _ = state::record_event(
+        "inference.answer.repair.failed",
+        "한국어 답변 repair 실패",
+        &format!("stage={stage} reason={}", error.message.replace('\n', " ")),
+    );
 }
 
 fn ensure_complete(run: &BackendChatRun) -> Result<(), AppError> {
@@ -205,7 +231,13 @@ fn repair_prompt_for_context(
         .filter(|tokens| *tokens > 0)
         .ok_or_else(|| AppError::blocked("한국어 repair prompt capacity 부족"))?;
     let bounded = truncate_head_and_tail_to_tokens(response, input_tokens);
-    Ok(format!("{PREFIX}{bounded}{SUFFIX}"))
+    let prompt = format!("{PREFIX}{bounded}{SUFFIX}");
+    if estimate_tokens(&prompt) > budget.input_limit_tokens {
+        return Err(AppError::blocked(
+            "한국어 repair prompt가 active model input budget을 초과했습니다.",
+        ));
+    }
+    Ok(prompt)
 }
 
 #[cfg(test)]
@@ -254,6 +286,10 @@ mod tests {
         assert!(large.contains("고정된-끝-marker"));
         assert!(large.len() > 16 * 1024);
         assert!(small.len() < large.len());
+        let profile = GenerationPolicyProfileV1::default();
+        let output_reserve = profile.prompt_output_reserve(4_096).unwrap();
+        let budget = PromptBudget::for_context_limit(4_096, output_reserve as usize).unwrap();
+        assert!(estimate_tokens(&small) <= budget.input_limit_tokens);
     }
 
     #[test]
