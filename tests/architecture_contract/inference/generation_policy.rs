@@ -1,6 +1,8 @@
 const PRODUCT_GENERATION_CALLERS: &[&str] = &[
     "src/app/tui_adapter/conversation/reply.rs",
     "src/app/tui_adapter/conversation/decision.rs",
+    "src/app/tui_adapter/attachment.rs",
+    "src/app/tui_adapter/attachment/compose.rs",
     "src/app/inference_adapter/answer.rs",
     "src/app/web_search_adapter/page_tools/find.rs",
     "src/app/web_search_adapter/page_tools/open.rs",
@@ -108,6 +110,7 @@ fn answer_and_web_research_apis_do_not_export_raw_token_budgets() {
     let research_types =
         fs::read_to_string("src/app/web_search_adapter/research/types.rs").unwrap();
     let research_flow = fs::read_to_string("src/app/web_search_adapter/research_flow.rs").unwrap();
+    let attachment = fs::read_to_string("src/app/tui_adapter/attachment.rs").unwrap();
 
     assert!(
         !answer.contains("max_tokens: u32"),
@@ -117,6 +120,11 @@ fn answer_and_web_research_apis_do_not_export_raw_token_budgets() {
         !research_types.contains("final_answer_tokens")
             && !research_flow.contains("final_answer_tokens"),
         "web research answer length belongs to the central generation policy, not its search budget"
+    );
+    assert!(
+        !attachment.contains("RESPONSE_RESERVE_TOKENS")
+            && !attachment.contains("RUNTIME_PROMPT_RESERVE_TOKENS"),
+        "attachment prompt space must use the same model-window policy as conversation prompts"
     );
 }
 

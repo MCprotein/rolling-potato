@@ -92,10 +92,18 @@ fn text_attachment_uses_the_selected_models_context_budget() {
     let too_small =
         compose_request("요약해줘", std::slice::from_ref(&attachment), Some(1_100)).unwrap_err();
     let accepted = compose_request("요약해줘", &[attachment], Some(131_072)).unwrap();
+    let output_reserve = GenerationPolicyProfileV1::default()
+        .prompt_output_reserve(1_100)
+        .unwrap();
+    let expected_input_budget = PromptBudget::for_context_limit(1_100, output_reserve as usize)
+        .unwrap()
+        .input_limit_tokens;
 
     std::env::remove_var("RPOTATO_DATA_HOME");
     assert!(too_small.message.contains("large.txt"));
-    assert!(too_small.message.contains("입력 예산: 76 tokens"));
+    assert!(too_small
+        .message
+        .contains(&format!("입력 예산: {expected_input_budget} tokens")));
     assert!(accepted.text.contains("context context"));
     let _ = fs::remove_dir_all(root);
 }

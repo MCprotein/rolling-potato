@@ -13,13 +13,13 @@ use crate::foundation::integrity;
 use crate::runtime_core::inference::backend::{
     BackendChatImage, BackendChatInput, ResponseLanguage,
 };
+use crate::runtime_core::inference::generation_policy::GenerationPolicyProfileV1;
+use crate::runtime_core::knowledge::prompt::PromptBudget;
 use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiAttachmentKind};
 
 const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_TEXT_BYTES: u64 = 256 * 1024;
 const MAX_ATTACHMENTS: usize = 8;
-const RESPONSE_RESERVE_TOKENS: usize = 512;
-const RUNTIME_PROMPT_RESERVE_TOKENS: usize = 512;
 
 mod capture;
 mod compose;
