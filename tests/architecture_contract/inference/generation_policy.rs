@@ -199,14 +199,69 @@ fn visible_answer_contracts_do_not_own_fixed_product_length_caps() {
     }
 }
 
+#[test]
+fn numeric_completion_constants_exist_only_in_explicit_governed_contracts() {
+    let allowed = BTreeSet::from([
+        (
+            "src/runtime_core/collaboration/subagent/types.rs",
+            "DEFAULT_MAX_TOKENS",
+        ),
+        (
+            "src/runtime_core/collaboration/subagent/types.rs",
+            "MAX_MAX_TOKENS",
+        ),
+        (
+            "src/runtime_core/inference/benchmark.rs",
+            "ADOPTION_MAX_TOKENS",
+        ),
+        (
+            "src/runtime_core/inference/resource.rs",
+            "DEGRADED_CHAT_MAX_TOKENS",
+        ),
+    ]);
+    let mut rust_files = BTreeSet::new();
+    collect_recursive(
+        Path::new("src"),
+        &BTreeSet::from(["rs".to_string()]),
+        &mut rust_files,
+    );
+    let mut violations = Vec::new();
+
+    for path in rust_files {
+        let source = fs::read_to_string(&path).unwrap();
+        for (index, line) in source.lines().enumerate() {
+            let code = line.split("//").next().unwrap_or_default().trim();
+            let Some(name) = numeric_generation_constant_name(code) else {
+                continue;
+            };
+            if !allowed.contains(&(path.as_str(), name)) {
+                violations.push(format!("{path}:{}: {code}", index + 1));
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "raw numeric completion constants require an explicit benchmark, governance, resource, or protocol owner:\n{}",
+        violations.join("\n")
+    );
+}
+
 fn declares_numeric_generation_constant(code: &str) -> bool {
-    let declares_const = code.starts_with("const ") || code.contains(" const ");
-    if !declares_const || !code.contains("MAX_TOKENS") {
-        return false;
+    numeric_generation_constant_name(code).is_some()
+}
+
+fn numeric_generation_constant_name(code: &str) -> Option<&str> {
+    let declaration = code
+        .strip_prefix("const ")
+        .or_else(|| code.split_once(" const ").map(|(_, suffix)| suffix))?;
+    let name = declaration.split([':', '=']).next()?.trim();
+    if !name.ends_with("MAX_TOKENS") {
+        return None;
     }
     code.split_once('=')
-        .map(|(_, value)| starts_with_numeric_literal(value))
-        .unwrap_or(false)
+        .filter(|(_, value)| starts_with_numeric_literal(value))
+        .map(|_| name)
 }
 
 fn assigns_numeric_max_tokens(code: &str) -> bool {
