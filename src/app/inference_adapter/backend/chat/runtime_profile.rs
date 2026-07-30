@@ -22,10 +22,14 @@ pub(super) fn resolve(record: &BackendSidecarRecord) -> ResolvedChatRuntimeProfi
         return ResolvedChatRuntimeProfile {
             model_id: candidate.id.to_string(),
             request: BackendChatRuntimeProfile {
-                sampling_profile_version: profile.sampling.profile_version.to_string(),
-                sampling: Some(BackendChatSampling {
-                    temperature: profile.sampling.temperature,
-                    top_p: profile.sampling.top_p,
+                sampling_profile_version: profile
+                    .sampling
+                    .map(|sampling| sampling.profile_version)
+                    .unwrap_or("model-default")
+                    .to_string(),
+                sampling: profile.sampling.map(|sampling| BackendChatSampling {
+                    temperature: sampling.temperature,
+                    top_p: sampling.top_p,
                 }),
                 disable_thinking_via_template,
                 thinking_mode: if disable_thinking_via_template {
@@ -39,7 +43,7 @@ pub(super) fn resolve(record: &BackendSidecarRecord) -> ResolvedChatRuntimeProfi
     }
 
     ResolvedChatRuntimeProfile {
-        model_id: super::super::model_id_from_path(&record.model_path),
+        model_id: super::super::model_identity(record),
         request: BackendChatRuntimeProfile {
             sampling_profile_version: "unregistered-model-default-v1".to_string(),
             sampling: None,
@@ -88,7 +92,8 @@ mod tests {
 
         assert_eq!(qwen.model_id, "qwen3.5-4b");
         assert!(qwen.request.disable_thinking_via_template);
-        assert!(qwen.request.sampling.is_some());
+        assert!(qwen.request.sampling.is_none());
+        assert_eq!(qwen.request.sampling_profile_version, "model-default");
         assert!(qwen.request.thinking_source.starts_with("https://"));
     }
 
@@ -96,7 +101,10 @@ mod tests {
     fn filename_cannot_activate_model_specific_behavior() {
         let unknown = resolve(&record(&"f".repeat(64), "/tmp/qwen3.5-4b.gguf"));
 
-        assert_eq!(unknown.model_id, "qwen3.5-4b");
+        assert_eq!(
+            unknown.model_id,
+            format!("unregistered-artifact:{}", "f".repeat(64))
+        );
         assert!(!unknown.request.disable_thinking_via_template);
         assert!(unknown.request.sampling.is_none());
         assert!(unknown

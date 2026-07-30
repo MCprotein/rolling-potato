@@ -15,7 +15,7 @@ impl CandidateStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SourceClaim {
     pub(crate) claim: &'static str,
     pub(crate) source: &'static str,
@@ -51,6 +51,7 @@ pub(crate) struct ModelSamplingProfile {
     pub(crate) profile_version: &'static str,
     pub(crate) temperature: f64,
     pub(crate) top_p: f64,
+    pub(crate) source: SourceClaim,
 }
 
 impl ModelSamplingProfile {
@@ -66,7 +67,7 @@ pub(crate) enum ModelThinkingControl {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ModelGenerationProfile {
-    pub(crate) sampling: ModelSamplingProfile,
+    pub(crate) sampling: Option<ModelSamplingProfile>,
     pub(crate) thinking_control: ModelThinkingControl,
     pub(crate) thinking_source: SourceClaim,
 }

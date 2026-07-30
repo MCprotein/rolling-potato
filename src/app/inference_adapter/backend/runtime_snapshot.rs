@@ -7,7 +7,7 @@ use crate::adapters::llama_cpp::backend as llama_backend;
 use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
 
-use super::{model_id_from_path, HEALTH_TIMEOUT_MS};
+use super::{model_identity, HEALTH_TIMEOUT_MS};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BackendRuntimeSnapshot {
@@ -39,7 +39,7 @@ pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
             == "healthy";
     Ok(BackendRuntimeSnapshot {
         status: if healthy { "ready" } else { "stale" },
-        model_id: Some(model_id_from_path(&record.model_path)),
+        model_id: Some(model_identity(&record)),
         model_path: Some(record.model_path),
         context_limit_tokens: record.ctx_size,
         vision_projector_path: record.mmproj_path,

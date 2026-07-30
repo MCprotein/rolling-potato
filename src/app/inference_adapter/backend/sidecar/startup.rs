@@ -154,7 +154,7 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
                     record.backend_id,
                     record.backend_release,
                     record.binary_sha256,
-                    model_id_from_path(&record.model_path),
+                    model_identity(&record),
                     record.model_sha256,
                     record.model_size_bytes,
                     record.port,

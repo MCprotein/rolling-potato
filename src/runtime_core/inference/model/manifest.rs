@@ -1,14 +1,17 @@
+#[path = "manifest/profiles.rs"]
+mod profiles;
 #[path = "manifest/types.rs"]
 mod types;
 #[path = "manifest/validation.rs"]
 mod validation;
 
+use profiles::{GEMMA_4B_GENERATION, GEMMA_4B_SETUP, QWEN_4B_GENERATION, QWEN_4B_SETUP};
 #[allow(unused_imports)]
 pub(crate) use types::*;
 pub(crate) use validation::{
-    find_candidate, generation_profile_for_artifact_hash, quantization_for_artifact_hash,
-    source_backed_artifact, source_backed_artifact_blockers, source_backed_vision_projector,
-    validate_install_ready,
+    find_candidate, generation_profile_for_artifact_hash, model_id_for_artifact_hash,
+    quantization_for_artifact_hash, source_backed_artifact, source_backed_artifact_blockers,
+    source_backed_vision_projector, validate_install_ready,
 };
 
 pub(crate) const STATUS_SCHEMA: &[CandidateStatus] = &[
@@ -68,29 +71,8 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
             checked_at: "2026-07-06",
             status: "source-listed-unverified",
         }),
-        generation_profile: Some(ModelGenerationProfile {
-            sampling: ModelSamplingProfile {
-                profile_version: "local-adoption-sampling-v1",
-                temperature: 0.1,
-                top_p: 0.8,
-            },
-            thinking_control: ModelThinkingControl::ChatTemplateEnableThinkingFalse,
-            thinking_source: SourceClaim {
-                claim: "Qwen3.5 documents instruct/non-thinking mode through enable_thinking=false.",
-                source: "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode",
-                checked_at: "2026-07-30",
-                status: "confirmed",
-            },
-        }),
-        setup_profile: Some(ModelSetupProfile {
-            recommended: false,
-            adoption: SourceClaim {
-                claim: "실험적 선택; local v0.30.0 adoption smoke exact-response equality 실패",
-                source: "docs/model-eval.md#current-local-execution-evidence",
-                checked_at: "2026-07-11",
-                status: "measured-locally",
-            },
-        }),
+        generation_profile: Some(QWEN_4B_GENERATION),
+        setup_profile: Some(QWEN_4B_SETUP),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/Qwen/Qwen3.5-4B#benchmark-results",
             checked_at: "2026-06-29",
@@ -142,29 +124,8 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
             checked_at: "2026-07-06",
             status: "source-listed-unverified",
         }),
-        generation_profile: Some(ModelGenerationProfile {
-            sampling: ModelSamplingProfile {
-                profile_version: "local-adoption-sampling-v1",
-                temperature: 0.1,
-                top_p: 0.8,
-            },
-            thinking_control: ModelThinkingControl::ChatTemplateEnableThinkingFalse,
-            thinking_source: SourceClaim {
-                claim: "Gemma documents thinking control for supported runtimes.",
-                source: "https://ai.google.dev/gemma/docs/capabilities/thinking",
-                checked_at: "2026-07-30",
-                status: "confirmed",
-            },
-        }),
-        setup_profile: Some(ModelSetupProfile {
-            recommended: true,
-            adoption: SourceClaim {
-                claim: "로컬 adoption smoke 통과; 16 GB 적합성은 미확정",
-                source: "docs/model-eval.md#current-local-execution-evidence",
-                checked_at: "2026-07-11",
-                status: "measured-locally",
-            },
-        }),
+        generation_profile: Some(GEMMA_4B_GENERATION),
+        setup_profile: Some(GEMMA_4B_SETUP),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/google/gemma-4-E4B#benchmark-results",
             checked_at: "2026-06-29",

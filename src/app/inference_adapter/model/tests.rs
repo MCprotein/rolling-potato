@@ -493,7 +493,8 @@ fn qwen_backend_smoke(
         .expect("Qwen fixture must have an exact generation profile")
         .1
         .sampling
-        .ledger_label();
+        .map(|sampling| sampling.ledger_label())
+        .unwrap_or_else(|| "model-default".to_string());
     BackendSmokeEvidence {
         event_id: evidence.backend_smoke_event_id.clone(),
         backend_id: "llama.cpp".to_string(),

@@ -17,7 +17,7 @@ use super::super::generation_state::{
     wait_for_generation_terminal, write_generation_cancel_marker, write_generation_terminal_record,
 };
 use super::super::resource_sampling::record_backend_resource_sample;
-use super::super::{display_optional_u128, display_optional_u32, model_id_from_path};
+use super::super::{display_optional_u128, display_optional_u32, model_identity};
 
 const CANCEL_WAIT_MS: u64 = 2_000;
 
@@ -83,7 +83,7 @@ pub(super) fn finish_interrupted_generation(
         model_run_id: format!("model-run-{event_id}"),
         session_id: identity.session_id,
         workflow_id: None,
-        model_id: model_id_from_path(&record.model_path),
+        model_id: model_identity(record),
         model_artifact_hash: Some(record.model_sha256.clone()),
         backend_id: Some(record.backend_id.clone()),
         backend_version: Some(record.backend_release.clone()),

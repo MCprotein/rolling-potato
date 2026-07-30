@@ -39,9 +39,13 @@ fn installable_artifacts_bind_generation_behavior_by_exact_hash() {
             .expect("source-backed artifact must own an exact generation profile");
 
         assert_eq!(resolved.id, candidate.id);
-        assert!(!profile.sampling.profile_version.trim().is_empty());
-        assert!(profile.sampling.temperature.is_finite());
-        assert!(profile.sampling.top_p.is_finite());
+        if let Some(sampling) = profile.sampling {
+            assert!(!sampling.profile_version.trim().is_empty());
+            assert!(sampling.temperature.is_finite());
+            assert!(sampling.top_p.is_finite());
+            assert!(sampling.source.source.starts_with("https://"));
+            assert_eq!(sampling.source.status, "confirmed");
+        }
         assert!(profile.thinking_source.source.starts_with("https://"));
         assert_eq!(profile.thinking_source.status, "confirmed");
     }

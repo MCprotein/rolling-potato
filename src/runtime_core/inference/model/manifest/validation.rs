@@ -24,6 +24,13 @@ pub(crate) fn quantization_for_artifact_hash(hash: &str) -> Option<&'static str>
         .and_then(|candidate| candidate.quantization)
 }
 
+pub(crate) fn model_id_for_artifact_hash(hash: &str) -> Option<&'static str> {
+    CANDIDATES
+        .iter()
+        .find(|candidate| candidate.sha256 == Some(hash))
+        .map(|candidate| candidate.id)
+}
+
 pub(crate) fn generation_profile_for_artifact_hash(
     hash: &str,
 ) -> Option<(&'static ModelManifestEntry, ModelGenerationProfile)> {

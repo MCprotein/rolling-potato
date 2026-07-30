@@ -132,6 +132,9 @@ fn answer_and_web_research_apis_do_not_export_raw_token_budgets() {
 fn model_request_behavior_is_not_guessed_from_names_or_global_sampling() {
     let runtime_profile =
         fs::read_to_string("src/app/inference_adapter/backend/chat/runtime_profile.rs").unwrap();
+    let backend = fs::read_to_string("src/app/inference_adapter/backend.rs").unwrap();
+    let profiles =
+        fs::read_to_string("src/runtime_core/inference/model/manifest/profiles.rs").unwrap();
     let request = fs::read_to_string("src/adapters/llama_cpp/backend/request.rs").unwrap();
     let report =
         fs::read_to_string("src/app/inference_adapter/backend/chat/report.rs").unwrap();
@@ -157,6 +160,15 @@ fn model_request_behavior_is_not_guessed_from_names_or_global_sampling() {
     assert!(
         !chat.contains("CHAT_SAMPLING"),
         "chat adapter must not own a global sampling profile"
+    );
+    assert!(
+        !profiles.contains("temperature:") && !profiles.contains("top_p:"),
+        "artifact sampling must remain model-default until a source-backed profile is registered"
+    );
+    assert!(
+        !runtime_profile.contains("model_id_from_path")
+            && !backend.contains("fn model_id_from_path"),
+        "runtime identity must come from exact artifact metadata, not file names"
     );
     assert!(
         !startup.contains("sampling=temperature-"),

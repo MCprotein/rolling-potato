@@ -105,7 +105,12 @@ pub(crate) fn validate_promotion_evidence(
                 );
             }
             match candidate.generation_profile {
-                Some(profile) if smoke.sampling == profile.sampling.ledger_label() => {}
+                Some(profile)
+                    if smoke.sampling
+                        == profile
+                            .sampling
+                            .map(|sampling| sampling.ledger_label())
+                            .unwrap_or_else(|| "model-default".to_string()) => {}
                 Some(_) => push_unique(
                     &mut blockers,
                     "backend smoke sampling 조건이 source-backed runtime profile과 다릅니다.",
