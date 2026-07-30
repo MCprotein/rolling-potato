@@ -295,6 +295,8 @@ fn fake_chat_run(response: &str) -> BackendChatRun {
             temperature: 0.1,
             top_p: 0.8,
         },
+        generation_status:
+            crate::runtime_core::inference::backend::BackendGenerationStatus::Complete,
         finish_reason: "stop".to_string(),
         guard_status: "pass",
         prompt_tokens: Some(8),

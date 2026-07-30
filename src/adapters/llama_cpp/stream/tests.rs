@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime_core::inference::stream::DecodedFinish;
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
@@ -72,6 +73,8 @@ fn decodes_sse_content_usage_and_done_across_boundaries() {
     assert!(decoder.done);
     assert_eq!(streamed, "감자");
     assert_eq!(completion.content, "감자");
+    assert_eq!(completion.decoded_finish, DecodedFinish::Stop);
+    assert_eq!(completion.raw_finish_reason.as_deref(), Some("stop"));
     assert_eq!(completion.finish_reason, "stop");
     assert_eq!(completion.prompt_tokens, Some(11));
     assert_eq!(completion.completion_tokens, Some(2));

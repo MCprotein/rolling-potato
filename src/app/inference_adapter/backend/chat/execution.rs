@@ -6,11 +6,12 @@ use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{
-    BackendChatInput, BackendChatRun, MAX_CHAT_TIMEOUT_MS,
+    BackendChatInput, BackendChatRun, BackendGenerationStatus, MAX_CHAT_TIMEOUT_MS,
 };
 use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
 use crate::runtime_core::inference::{resource, stream::StreamTermination};
 
+use super::super::generation_gateway::{bind_default_backend_budget, GenerationTokenRequest};
 use super::super::generation_state::{
     begin_active_generation, generation_cancel_requested, write_generation_terminal_record,
     ActiveGenerationGuard,
@@ -20,18 +21,23 @@ use super::super::sidecar::trace_backend_start;
 use super::super::{display_optional_u128, display_optional_u32, model_id_from_path, now_ms};
 use super::interruption::{finish_interrupted_generation, GenerationTerminalContext};
 use super::readiness::ready_sidecar_record;
-use super::{CHAT_SAMPLING, CHAT_TIMEOUT_MS, DEFAULT_CHAT_MAX_TOKENS};
+use super::{CHAT_SAMPLING, CHAT_TIMEOUT_MS};
 
 pub(super) fn chat_input_with_options(
     input: &BackendChatInput,
-    max_tokens: Option<u32>,
+    token_request: GenerationTokenRequest,
     streaming_display: bool,
     timeout_ms: Option<u32>,
     mut external_cancel_requested: impl FnMut() -> Result<bool, AppError>,
     mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
 ) -> Result<BackendChatRun, AppError> {
     input.validate()?;
-    let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
+    let timeout_ms = timeout_ms.unwrap_or(CHAT_TIMEOUT_MS as u32);
+    if timeout_ms == 0 || timeout_ms > MAX_CHAT_TIMEOUT_MS {
+        return Err(AppError::usage(format!(
+            "backend chat timeout은 1..={MAX_CHAT_TIMEOUT_MS} ms 범위여야 합니다."
+        )));
+    }
     let record = ready_sidecar_record()?;
     if !input.images.is_empty() && record.mmproj_path.is_none() {
         return Err(AppError::blocked(
@@ -40,6 +46,15 @@ pub(super) fn chat_input_with_options(
     }
 
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
+    let model_id = model_id_from_path(&record.model_path);
+    let budget = bind_default_backend_budget(
+        token_request,
+        &input.text,
+        record.ctx_size,
+        timeout_ms,
+        governor_sample.pressure,
+    )?;
+    let requested_max_tokens = budget.requested_max_tokens;
     let governor = resource::chat_governor_decision(governor_sample.pressure, requested_max_tokens);
     if governor.is_blocked() {
         let event_id = state::record_event(
@@ -74,13 +89,7 @@ pub(super) fn chat_input_with_options(
     let effective_max_tokens = governor
         .effective_max_tokens
         .unwrap_or(requested_max_tokens);
-
-    let timeout_ms = timeout_ms.unwrap_or(CHAT_TIMEOUT_MS as u32);
-    if timeout_ms == 0 || timeout_ms > MAX_CHAT_TIMEOUT_MS {
-        return Err(AppError::usage(format!(
-            "backend chat timeout은 1..={MAX_CHAT_TIMEOUT_MS} ms 범위여야 합니다."
-        )));
-    }
+    let policy_limiting_factors = budget.limiting_factor_label();
     let sampling = CHAT_SAMPLING;
     let body = llama_backend::chat_request_body_for_input(
         &record.model_path,
@@ -98,7 +107,7 @@ pub(super) fn chat_input_with_options(
         "backend.generation.started",
         "backend generation 시작",
         &format!(
-            "generation_id={} client_pid={} sidecar_pid={} backend={} model_id={} prompt_chars={} requested_max_tokens={} effective_max_tokens={} timeout_ms={} transport=sse streaming_display={} resource_governor_sample_event={}",
+            "generation_id={} client_pid={} sidecar_pid={} backend={} model_id={} prompt_chars={} requested_max_tokens={} effective_max_tokens={} policy_limiting_factors={} timeout_ms={} transport=sse streaming_display={} resource_governor_sample_event={}",
             generation.generation_id,
             generation.client_pid,
             generation.sidecar_pid,
@@ -107,6 +116,7 @@ pub(super) fn chat_input_with_options(
             input.text.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
+            policy_limiting_factors,
             timeout_ms,
             streaming_display,
             governor_sample.ledger_event
@@ -214,6 +224,7 @@ pub(super) fn chat_input_with_options(
     }
 
     let completion = outcome.completion;
+    let generation_status = BackendGenerationStatus::from_decoded_finish(completion.decoded_finish);
     let display_content = completion.content.trim().to_string();
     let guard_status = if completion.had_reasoning_trace {
         if display_content.is_empty() {
@@ -226,14 +237,16 @@ pub(super) fn chat_input_with_options(
     };
     let event_type = if display_content.is_empty() {
         "backend.chat.guard.blocked"
-    } else {
+    } else if generation_status.is_complete() {
         "backend.chat.completed"
+    } else {
+        "backend.chat.incomplete"
     };
     let event_id = state::record_event(
         event_type,
         "backend chat completion 실행",
         &format!(
-            "generation_id={} started_event={} pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} ctx_size={} mmproj={} sampling={} host_os={} host_arch={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} timeout_ms={} transport=sse streaming_display={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} first_token_latency_ms={} elapsed_ms={}",
+            "generation_id={} started_event={} pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} ctx_size={} mmproj={} sampling={} host_os={} host_arch={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} policy_limiting_factors={} timeout_ms={} transport=sse streaming_display={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} generation_status={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} first_token_latency_ms={} elapsed_ms={}",
             generation.generation_id,
             started_event,
             record.pid,
@@ -252,12 +265,14 @@ pub(super) fn chat_input_with_options(
             display_content.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
+            policy_limiting_factors,
             timeout_ms,
             streaming_display,
             governor.admission.as_str(),
             governor.token_action.as_str(),
             governor.reason,
             governor_sample.ledger_event,
+            generation_status.lifecycle_label(),
             completion.finish_reason,
             guard_status,
             display_optional_u32(completion.prompt_tokens),
@@ -268,7 +283,11 @@ pub(super) fn chat_input_with_options(
         ),
     )?;
 
-    write_generation_terminal_record(&generation.generation_id, "completed", &event_id)?;
+    write_generation_terminal_record(
+        &generation.generation_id,
+        generation_status.lifecycle_label(),
+        &event_id,
+    )?;
     let resource_sample = record_backend_resource_sample(
         &record,
         if streaming_display {
@@ -279,7 +298,6 @@ pub(super) fn chat_input_with_options(
     )?;
 
     let identity = ledger::validated_current_identity()?;
-    let model_id = model_id_from_path(&record.model_path);
     let model_run_id = format!("model-run-{event_id}");
     let completion_tokens = completion.completion_tokens.unwrap_or(0);
     let tokens_per_second = if completion_tokens > 0 && elapsed_ms > 0 {
@@ -340,6 +358,7 @@ pub(super) fn chat_input_with_options(
         requested_max_tokens,
         effective_max_tokens,
         sampling,
+        generation_status,
         finish_reason: completion.finish_reason,
         guard_status,
         prompt_tokens: completion.prompt_tokens,

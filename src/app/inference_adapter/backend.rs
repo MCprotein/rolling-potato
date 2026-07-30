@@ -37,17 +37,19 @@ use llama_install::{
 };
 #[cfg(test)]
 use llama_install::{release_artifact_for, BackendArchiveKind};
-
 mod chat;
+mod generation_gateway;
 mod generation_state;
 mod installation;
 mod resource_sampling;
 mod runtime_snapshot;
 mod sidecar;
-pub(crate) use chat::chat_once_with_input;
 pub use chat::{
     cancel_generation_report, chat_once, chat_once_bounded, chat_once_bounded_with_cancel,
     chat_report, chat_stream_report, preflight_chat_ready,
+};
+pub(crate) use chat::{
+    chat_once_for_intent, chat_once_with_input, chat_once_with_input_for_intent,
 };
 #[cfg(test)]
 use generation_state::{

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
-use crate::runtime_core::inference::stream::StreamCompletion;
+use crate::runtime_core::inference::stream::{DecodedFinish, StreamCompletion};
 use strict_json::{Object, Value};
 
 const MAX_HTTP_HEADERS_BYTES: usize = 64 * 1024;
@@ -133,7 +133,8 @@ impl HttpResponseDecoder {
 pub(super) struct ChatSseDecoder {
     pub(super) buffer: Vec<u8>,
     pub(super) content: String,
-    pub(super) finish_reason: Option<String>,
+    pub(super) decoded_finish: DecodedFinish,
+    pub(super) raw_finish_reason: Option<String>,
     pub(super) prompt_tokens: Option<u32>,
     pub(super) completion_tokens: Option<u32>,
     pub(super) total_tokens: Option<u32>,
@@ -209,7 +210,10 @@ impl ChatSseDecoder {
 
         if let Some(choice) = choice {
             match choice.get("finish_reason") {
-                Some(Value::String(reason)) => self.finish_reason = Some(reason.clone()),
+                Some(Value::String(reason)) => {
+                    self.decoded_finish = DecodedFinish::decode(Some(reason));
+                    self.raw_finish_reason = Some(reason.clone());
+                }
                 Some(Value::Null) | None => {}
                 Some(_) => return Err(malformed_sse_event()),
             }
@@ -261,12 +265,15 @@ impl ChatSseDecoder {
     }
 
     pub(super) fn completion(&self) -> StreamCompletion {
+        let finish_reason = self
+            .raw_finish_reason
+            .clone()
+            .unwrap_or_else(|| self.decoded_finish.report_label().to_string());
         StreamCompletion {
             content: self.content.clone(),
-            finish_reason: self
-                .finish_reason
-                .clone()
-                .unwrap_or_else(|| "unknown".to_string()),
+            decoded_finish: self.decoded_finish,
+            raw_finish_reason: self.raw_finish_reason.clone(),
+            finish_reason,
             prompt_tokens: self.prompt_tokens,
             completion_tokens: self.completion_tokens,
             total_tokens: self.total_tokens,

@@ -189,5 +189,8 @@ fn empty_outcome(termination: StreamTermination) -> StreamOutcome {
 }
 
 #[cfg(test)]
+#[path = "stream/finish_tests.rs"]
+mod finish_tests;
+#[cfg(test)]
 #[path = "stream/tests.rs"]
 mod tests;
