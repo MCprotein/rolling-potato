@@ -2855,6 +2855,22 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+      "slices": [
+        {
+          "responsibility": "exact artifact runtime generation profile resolution",
+          "target": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+            "src/runtime_core/inference/model/manifest/profiles.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend/chat/interruption.rs",
       "slices": [
         {
@@ -2918,6 +2934,22 @@
             "src/app/inference_adapter/backend/generation_state.rs",
             "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway.rs",
+      "slices": [
+        {
+          "responsibility": "model-aware generation intent, capacity, and completion gateway",
+          "target": "src/app/inference_adapter/backend/generation_gateway.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/generation_gateway.rs",
+            "src/runtime_core/inference/generation_policy/mod.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
       ]
@@ -3442,6 +3474,22 @@
             "src/adapters/llama_cpp/stream/protocol.rs",
             "src/adapters/llama_cpp/stream/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/finish_tests.rs",
+      "slices": [
+        {
+          "responsibility": "stream finish-reason completeness regression tests",
+          "target": "src/adapters/llama_cpp/stream/finish_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream/finish_tests.rs",
+            "src/adapters/llama_cpp/stream.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
       ]
@@ -5359,6 +5407,22 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/model/manifest/profiles.rs",
+      "slices": [
+        {
+          "responsibility": "source-backed artifact generation and setup profiles",
+          "target": "src/runtime_core/inference/model/manifest/profiles.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/manifest/profiles.rs",
+            "src/runtime_core/inference/model/manifest/tests.rs",
+            "tests/architecture_contract/inference/model_manifest.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/model/manifest/types.rs",
       "slices": [
         {
@@ -6780,6 +6844,38 @@
             "src/adapters/process/resource.rs",
             "src/app/inference_adapter/backend/resource_sampling.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/mod.rs",
+      "slices": [
+        {
+          "responsibility": "model-window-aware generation capacity policy",
+          "target": "src/runtime_core/inference/generation_policy/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/generation_policy/mod.rs",
+            "src/runtime_core/inference/generation_policy/tests.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/tests.rs",
+      "slices": [
+        {
+          "responsibility": "generation capacity monotonicity and incident regression tests",
+          "target": "src/runtime_core/inference/generation_policy/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/generation_policy/tests.rs",
+            "src/runtime_core/inference/generation_policy/mod.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
       ]
@@ -14532,6 +14628,21 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/inference/generation_policy.rs",
+      "slices": [
+        {
+          "responsibility": "model-aware generation ownership and hardcoded-cap architecture contracts",
+          "target": "tests/architecture_contract/inference/generation_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/generation_policy.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/observability_policy.rs",
       "slices": [
         {
@@ -17691,6 +17802,12 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+      "responsibilities": [
+        "exact artifact runtime generation profile resolution"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend/chat/interruption.rs",
       "responsibilities": [
         "backend chat timeout, cancellation, and interrupted-generation evidence"
@@ -17712,6 +17829,12 @@
       "path": "src/app/inference_adapter/backend/generation_state.rs",
       "responsibilities": [
         "backend generation admission, cancellation, and terminal state coordination"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway.rs",
+      "responsibilities": [
+        "model-aware generation intent, capacity, and completion gateway"
       ]
     },
     {
@@ -17910,6 +18033,12 @@
       "path": "src/adapters/llama_cpp/stream/tests.rs",
       "responsibilities": [
         "stream transport, bounded protocol, cancellation, timeout, and reasoning-filter regression tests"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/finish_tests.rs",
+      "responsibilities": [
+        "stream finish-reason completeness regression tests"
       ]
     },
     {
@@ -18599,6 +18728,12 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/model/manifest/profiles.rs",
+      "responsibilities": [
+        "source-backed artifact generation and setup profiles"
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/model/manifest/types.rs",
       "responsibilities": [
         "model manifest lifecycle, registry, artifact, and promotion data contracts"
@@ -19088,6 +19223,18 @@
       "path": "src/runtime_core/inference/resource.rs",
       "responsibilities": [
         "resource pressure classification and chat, context, model, optimization, and lane governor policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/mod.rs",
+      "responsibilities": [
+        "model-window-aware generation capacity policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/tests.rs",
+      "responsibilities": [
+        "generation capacity monotonicity and incident regression tests"
       ]
     },
     {
@@ -21921,6 +22068,12 @@
       "path": "tests/architecture_contract/inference.rs",
       "responsibilities": [
         "inference domain, runtime, adapter, protocol, and selection architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/generation_policy.rs",
+      "responsibilities": [
+        "model-aware generation ownership and hardcoded-cap architecture contracts"
       ]
     },
     {
