@@ -19,9 +19,13 @@ pub(in crate::adapters::sqlite::observability_projection) fn performance_baselin
     let mut total_tokens = 0;
     let mut context_clamp_count = 0;
     let mut context_tokens_dropped = 0;
+    let mut latest_context_limit_tokens = None;
     let mut groups = BTreeMap::<(String, String, String), GroupAccumulator>::new();
 
     for row in &model_rows {
+        if row.context_limit_tokens.is_some() {
+            latest_context_limit_tokens = row.context_limit_tokens;
+        }
         if let Some(value) = row.total_latency_ms {
             if value.is_finite() {
                 latencies.push(value);
@@ -114,6 +118,7 @@ pub(in crate::adapters::sqlite::observability_projection) fn performance_baselin
     Ok(PerformanceBaseline {
         store,
         model_runs: model_rows.len(),
+        latest_context_limit_tokens,
         token_records: count_scalar(&connection, "SELECT COUNT(*) FROM token_usage")?,
         resource_samples: resource_rows.len(),
         total_prompt_tokens,
@@ -135,6 +140,7 @@ struct BaselineModelRow {
     session_id: String,
     model_id: String,
     backend_id: String,
+    context_limit_tokens: Option<u32>,
     total_latency_ms: Option<f64>,
     tokens_per_second: Option<f64>,
     prompt_tokens: i64,
@@ -166,6 +172,7 @@ fn query_baseline_model_rows(connection: &Connection) -> Result<Vec<BaselineMode
                 model_runs.session_id,
                 model_runs.model_id,
                 COALESCE(model_runs.backend_id, 'unknown'),
+                model_runs.context_limit_tokens,
                 model_runs.total_latency_ms,
                 model_runs.tokens_per_second,
                 COALESCE(token_usage.prompt_tokens, 0),
@@ -196,12 +203,13 @@ fn query_baseline_model_rows(connection: &Connection) -> Result<Vec<BaselineMode
                 session_id: row.get(0)?,
                 model_id: row.get(1)?,
                 backend_id: row.get(2)?,
-                total_latency_ms: row.get(3)?,
-                tokens_per_second: row.get(4)?,
-                prompt_tokens: row.get(5)?,
-                completion_tokens: row.get(6)?,
-                total_tokens: row.get(7)?,
-                context_tokens_dropped: row.get(8)?,
+                context_limit_tokens: option_i64_to_u32(row.get(3)?),
+                total_latency_ms: row.get(4)?,
+                tokens_per_second: row.get(5)?,
+                prompt_tokens: row.get(6)?,
+                completion_tokens: row.get(7)?,
+                total_tokens: row.get(8)?,
+                context_tokens_dropped: row.get(9)?,
             })
         })
         .map_err(sql_error(

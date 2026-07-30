@@ -200,6 +200,31 @@ fn visible_answer_contracts_do_not_own_fixed_product_length_caps() {
 }
 
 #[test]
+fn normal_resource_policy_uses_the_active_model_context_limit() {
+    let resource = fs::read_to_string("src/runtime_core/inference/resource.rs").unwrap();
+    let context_model =
+        fs::read_to_string("src/runtime_core/inference/resource/context_model.rs").unwrap();
+    let optimization =
+        fs::read_to_string("src/runtime_core/inference/resource/optimization.rs").unwrap();
+
+    for forbidden in [
+        "NORMAL_CONTEXT_BUDGET_TOKENS",
+        "SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS",
+    ] {
+        assert!(
+            !resource.contains(forbidden)
+                && !context_model.contains(forbidden)
+                && !optimization.contains(forbidden),
+            "normal context policy must use the active model limit, not `{forbidden}`"
+        );
+    }
+    assert!(
+        optimization.contains("input.context_limit_tokens"),
+        "optimization recommendations must be derived from exact observed model context"
+    );
+}
+
+#[test]
 fn numeric_completion_constants_exist_only_in_explicit_governed_contracts() {
     let allowed = BTreeSet::from([
         (

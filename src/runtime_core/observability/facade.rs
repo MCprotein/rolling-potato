@@ -188,6 +188,7 @@ pub struct MonitorProjectionSnapshot {
 pub struct PerformanceBaseline {
     pub store: StoreStatus,
     pub model_runs: usize,
+    pub latest_context_limit_tokens: Option<u32>,
     pub token_records: i64,
     pub resource_samples: usize,
     pub total_prompt_tokens: i64,

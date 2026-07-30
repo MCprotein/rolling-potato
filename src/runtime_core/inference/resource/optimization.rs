@@ -1,11 +1,14 @@
 use super::{
     ModelRouteHint, OptimizationPolicyDecision, OptimizationPolicyInput, OptimizationPolicyStatus,
     ResourcePressure, DEFAULT_TEAM_REQUESTED_LANES, DEGRADED_CONTEXT_LIMIT_TOKENS,
-    NORMAL_CONTEXT_BUDGET_TOKENS, OPTIMIZATION_HIGH_P95_LATENCY_MS,
-    OPTIMIZATION_LOW_TOKENS_PER_SECOND, SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS,
+    OPTIMIZATION_HIGH_P95_LATENCY_MS, OPTIMIZATION_LOW_TOKENS_PER_SECOND,
 };
 
 pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> OptimizationPolicyDecision {
+    let supported_context_tokens = input.context_limit_tokens.filter(|tokens| *tokens > 0);
+    let degraded_context_tokens =
+        supported_context_tokens.map(|tokens| tokens.min(DEGRADED_CONTEXT_LIMIT_TOKENS));
+
     if input.pressure == ResourcePressure::Critical {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::Blocked,
@@ -23,7 +26,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
     if !has_local_metrics {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::InsufficientEvidence,
-            recommended_context_tokens: Some(DEGRADED_CONTEXT_LIMIT_TOKENS),
+            recommended_context_tokens: supported_context_tokens,
             recommended_lanes: 1,
             fallback: "sequential",
             model_hint: ModelRouteHint::Keep,
@@ -35,7 +38,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
     if input.pressure == ResourcePressure::Degraded {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::Constrained,
-            recommended_context_tokens: Some(DEGRADED_CONTEXT_LIMIT_TOKENS),
+            recommended_context_tokens: degraded_context_tokens,
             recommended_lanes: 1,
             fallback: "sequential",
             model_hint: ModelRouteHint::Downgrade,
@@ -52,7 +55,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
             } else {
                 OptimizationPolicyStatus::InsufficientEvidence
             },
-            recommended_context_tokens: Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
+            recommended_context_tokens: supported_context_tokens,
             recommended_lanes: 1,
             fallback: "sequential",
             model_hint: if input.failed_benchmark_runs > 0 {
@@ -68,7 +71,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
     if input.failed_benchmark_runs > 0 {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::Constrained,
-            recommended_context_tokens: Some(NORMAL_CONTEXT_BUDGET_TOKENS),
+            recommended_context_tokens: supported_context_tokens,
             recommended_lanes: 1,
             fallback: "review-before-parallel",
             model_hint: ModelRouteHint::Escalate,
@@ -80,7 +83,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
     if input.context_clamp_count > 0 {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::Constrained,
-            recommended_context_tokens: Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
+            recommended_context_tokens: supported_context_tokens,
             recommended_lanes: 1,
             fallback: "sequential",
             model_hint: ModelRouteHint::Keep,
@@ -98,7 +101,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
     if slow_latency || low_throughput {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::Constrained,
-            recommended_context_tokens: Some(DEGRADED_CONTEXT_LIMIT_TOKENS),
+            recommended_context_tokens: None,
             recommended_lanes: 1,
             fallback: "sequential",
             model_hint: ModelRouteHint::Downgrade,
@@ -110,7 +113,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
     if !has_benchmark_evidence {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::InsufficientEvidence,
-            recommended_context_tokens: Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
+            recommended_context_tokens: supported_context_tokens,
             recommended_lanes: 1,
             fallback: "sequential",
             model_hint: ModelRouteHint::Keep,
@@ -121,7 +124,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
 
     OptimizationPolicyDecision {
         status: OptimizationPolicyStatus::Recommend,
-        recommended_context_tokens: Some(NORMAL_CONTEXT_BUDGET_TOKENS),
+        recommended_context_tokens: supported_context_tokens,
         recommended_lanes: DEFAULT_TEAM_REQUESTED_LANES,
         fallback: "none",
         model_hint: ModelRouteHint::Keep,

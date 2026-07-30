@@ -95,6 +95,7 @@ pub struct ContextModelGovernorDecision {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OptimizationPolicyInput {
     pub pressure: ResourcePressure,
+    pub context_limit_tokens: Option<u32>,
     pub model_runs: usize,
     pub measured_benchmark_runs: usize,
     pub failed_benchmark_runs: usize,

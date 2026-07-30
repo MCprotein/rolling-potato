@@ -1,7 +1,6 @@
 use super::{
     ContextGovernorAction, ContextModelGovernorDecision, ModelRouteHint, ModelTier,
     ResourceGovernorAdmission, ResourcePressure, DEGRADED_CONTEXT_LIMIT_TOKENS,
-    SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS,
 };
 
 pub fn context_model_governor_decision(
@@ -33,11 +32,7 @@ pub fn context_model_governor_decision(
     } else {
         context_limit_tokens
     };
-    let tier_limit = match model_tier {
-        ModelTier::Small => pressure_limit.min(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
-        ModelTier::Standard | ModelTier::Large => pressure_limit,
-    };
-    let effective_context_tokens = requested_context_tokens.min(tier_limit);
+    let effective_context_tokens = requested_context_tokens.min(pressure_limit);
     let context_action = if effective_context_tokens < requested_context_tokens {
         ContextGovernorAction::Clamped
     } else {
@@ -45,7 +40,7 @@ pub fn context_model_governor_decision(
     };
     let model_hint = if pressure == ResourcePressure::Degraded && model_tier != ModelTier::Small {
         ModelRouteHint::Downgrade
-    } else if requested_context_tokens > tier_limit {
+    } else if requested_context_tokens > pressure_limit {
         ModelRouteHint::Escalate
     } else {
         ModelRouteHint::Keep
