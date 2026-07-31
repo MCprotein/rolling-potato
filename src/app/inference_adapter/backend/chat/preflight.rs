@@ -7,9 +7,38 @@ use crate::runtime_core::inference::backend::{
     BackendChatInput, BackendChatRuntimeProfile, MAX_CHAT_TIMEOUT_MS,
 };
 
-pub(super) struct InputTokenPreflight {
-    pub(super) exact_input_tokens: u32,
-    pub(super) remaining_timeout_ms: u32,
+#[derive(Clone, Copy)]
+pub(super) struct ChatDeadline {
+    started_at: Instant,
+    total_timeout: Duration,
+}
+
+impl ChatDeadline {
+    pub(super) fn new(total_timeout_ms: u32) -> Self {
+        Self {
+            started_at: Instant::now(),
+            total_timeout: Duration::from_millis(u64::from(total_timeout_ms)),
+        }
+    }
+
+    pub(super) fn remaining(&self, phase: &str) -> Result<Duration, AppError> {
+        self.total_timeout
+            .checked_sub(self.started_at.elapsed())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| {
+                AppError::blocked(format!(
+                    "backend chat total timeout이 {phase} 전에 만료되었습니다."
+                ))
+            })
+    }
+
+    pub(super) fn remaining_ms(&self, phase: &str) -> Result<u32, AppError> {
+        remaining_timeout_ms(self.total_timeout, self.started_at.elapsed(), phase)
+    }
+
+    pub(super) fn elapsed_ms(&self) -> u128 {
+        self.started_at.elapsed().as_millis()
+    }
 }
 
 pub(super) fn validate_timeout(timeout_ms: u32) -> Result<(), AppError> {
@@ -38,37 +67,41 @@ pub(super) fn count_input_tokens(
     runtime_profile: &BackendChatRuntimeProfile,
     host: &str,
     port: u16,
-    total_timeout_ms: u32,
-    request_started_at: Instant,
+    deadline: ChatDeadline,
     cancel_requested: &mut impl FnMut() -> Result<bool, AppError>,
-) -> Result<InputTokenPreflight, AppError> {
+) -> Result<u32, AppError> {
     let body = llama_backend::chat_input_tokens_request_body(input, runtime_profile)?;
     let response = backend_stream::post_bounded_json(
         host,
         port,
         "/v1/chat/completions/input_tokens",
         &body,
-        Duration::from_millis(u64::from(total_timeout_ms)),
+        deadline.remaining("input token preflight")?,
         cancel_requested,
     )?;
-    Ok(InputTokenPreflight {
-        exact_input_tokens: llama_backend::parse_chat_input_tokens_response(&response)?,
-        remaining_timeout_ms: remaining_timeout_ms(total_timeout_ms, request_started_at.elapsed())?,
-    })
+    llama_backend::parse_chat_input_tokens_response(&response)
 }
 
-fn remaining_timeout_ms(total_timeout_ms: u32, elapsed: Duration) -> Result<u32, AppError> {
-    let remaining = Duration::from_millis(u64::from(total_timeout_ms))
+fn remaining_timeout_ms(
+    total_timeout: Duration,
+    elapsed: Duration,
+    phase: &str,
+) -> Result<u32, AppError> {
+    let remaining = total_timeout
         .checked_sub(elapsed)
         .filter(|remaining| !remaining.is_zero())
         .ok_or_else(|| {
-            AppError::blocked("backend chat total timeout이 preflight 중 만료되었습니다.")
+            AppError::blocked(format!(
+                "backend chat total timeout이 {phase} 전에 만료되었습니다."
+            ))
         })?;
     u32::try_from(remaining.as_millis())
         .ok()
         .filter(|remaining_ms| *remaining_ms > 0)
         .ok_or_else(|| {
-            AppError::blocked("backend chat total timeout이 preflight 중 만료되었습니다.")
+            AppError::blocked(format!(
+                "backend chat total timeout이 {phase} 전에 만료되었습니다."
+            ))
         })
 }
 
@@ -80,10 +113,25 @@ mod tests {
     #[test]
     fn preflight_consumes_the_single_total_chat_timeout() {
         assert_eq!(
-            remaining_timeout_ms(30_000, Duration::from_millis(4_250)).unwrap(),
+            remaining_timeout_ms(
+                Duration::from_millis(30_000),
+                Duration::from_millis(4_250),
+                "stream",
+            )
+            .unwrap(),
             25_750
         );
-        assert!(remaining_timeout_ms(30_000, Duration::from_millis(30_000)).is_err());
-        assert!(remaining_timeout_ms(30_000, Duration::from_millis(30_001)).is_err());
+        assert!(remaining_timeout_ms(
+            Duration::from_millis(30_000),
+            Duration::from_millis(30_000),
+            "stream",
+        )
+        .is_err());
+        assert!(remaining_timeout_ms(
+            Duration::from_millis(30_000),
+            Duration::from_millis(30_001),
+            "stream",
+        )
+        .is_err());
     }
 }

@@ -350,3 +350,38 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
 - Release workflow contract가 action-scoped concurrency와
   `cancel-in-progress: true`를 함께 고정해, 빠른 재푸시 정리는 유지하면서 상태
   전환 간 교차 취소는 다시 들어오지 못하게 합니다.
+
+## 2026-07-31: 필수 backend endpoint 추가가 통합 fixture에 전파되지 않음
+
+### 증상
+
+- 정확한 입력 token 계산을 위해 `/v1/chat/completions/input_tokens` 호출을 필수
+  단계로 추가한 뒤 unit test는 통과했지만 PR의 `patch_loop` 29건이 함께 실패했습니다.
+- 통합 fake sidecar가 새 endpoint에도 기존 generation 응답을 반환해 strict parser가
+  `choices` 필드를 거부했습니다.
+- Preflight가 generation admission보다 먼저 실행되어 동시 요청이 중복 preflight를
+  수행할 수 있었고, stalled preflight는 기존 cancel lifecycle에서 보이지 않았습니다.
+
+### 원인
+
+- 새 transport phase를 adapter 내부 계산 변경으로만 취급하고, endpoint를 모사하는
+  모든 fake sidecar와 사용자 journey fixture를 변경 영향 범위로 관리하지 않았습니다.
+- 단위·mock 테스트가 요청 body와 parser를 각각 검증했지만
+  `endpoint → response contract → admission/cancel/timeout`의 결합 계약은 검증하지
+  않았습니다.
+- 필수 preflight와 generation을 하나의 operation lifecycle로 먼저 모델링하지 않고
+  호출 순서에 기능을 덧붙였습니다.
+
+### 재발 방지
+
+- 필수 backend endpoint나 transport phase를 추가·변경할 때는 `rg`로 production
+  caller, fake sidecar, request accounting, timeout·cancel·single-flight fixture를
+  함께 찾아 같은 논리 변경에서 갱신합니다.
+- Fake sidecar는 endpoint별 request와 response schema를 엄격히 분리하고, 잘못된
+  generation 응답이 token preflight에서 성공으로 해석되지 않게 합니다.
+- 필수 preflight는 별도 요청이 아니라 generation operation의 phase로 취급합니다.
+  Admission과 cancel visibility를 먼저 만들고, 하나의 absolute deadline에서 각
+  transport 직전 남은 시간을 계산합니다.
+- Endpoint 계약을 바꾼 candidate는 관련 unit test 뒤 해당 user-journey integration
+  suite를 로컬에서 한 번 실행하고, 같은 suite 실패를 CI 단순 재실행으로 넘기지
+  않습니다.

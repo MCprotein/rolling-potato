@@ -1,15 +1,17 @@
-use std::time::{Duration, Instant};
-
 use crate::adapters::llama_cpp::backend as llama_backend;
 use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::backend::lifecycle::BackendSidecarRecord;
 use crate::runtime_core::inference::backend::{
     BackendChatInput, BackendChatRun, BackendGenerationStatus,
 };
 use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
-use crate::runtime_core::inference::{resource, stream::StreamTermination};
+use crate::runtime_core::inference::{
+    resource::{self, ResourceGovernorDecision},
+    stream::StreamTermination,
+};
 
 use super::super::generation_gateway::{
     bind_default_backend_budget, GenerationPromptEstimate, GenerationTokenRequest,
@@ -18,10 +20,14 @@ use super::super::generation_state::{
     begin_active_generation, generation_cancel_requested, write_generation_terminal_record,
     ActiveGenerationGuard,
 };
-use super::super::resource_sampling::record_backend_resource_sample;
+use super::super::resource_sampling::{
+    record_backend_resource_sample, BackendResourceSampleReport,
+};
 use super::super::sidecar::trace_backend_start;
 use super::super::{display_optional_u128, display_optional_u32, now_ms};
-use super::interruption::{finish_interrupted_generation, GenerationTerminalContext};
+use super::interruption::{
+    finish_interrupted_generation, finish_preflight_failure, GenerationTerminalContext,
+};
 use super::preflight;
 use super::readiness::ready_sidecar_record;
 use super::runtime_profile;
@@ -36,62 +42,89 @@ pub(super) fn chat_input_with_options(
     mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
 ) -> Result<BackendChatRun, AppError> {
     input.validate()?;
-    let timeout_ms = timeout_ms.unwrap_or(CHAT_TIMEOUT_MS as u32);
-    preflight::validate_timeout(timeout_ms)?;
-    let request_started_at = Instant::now();
+    let total_timeout_ms = timeout_ms.unwrap_or(CHAT_TIMEOUT_MS as u32);
+    preflight::validate_timeout(total_timeout_ms)?;
+    let deadline = preflight::ChatDeadline::new(total_timeout_ms);
+    let started_at_ms = now_ms();
     let record = ready_sidecar_record()?;
     let runtime_profile = runtime_profile::resolve(&record);
     preflight::ensure_vision_ready(input, record.mmproj_path.is_some())?;
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
     let model_id = runtime_profile.model_id.clone();
-    let input_preflight = preflight::count_input_tokens(
+    let admission_probe = resource::chat_governor_decision(governor_sample.pressure, 1);
+    if admission_probe.is_blocked() {
+        return resource_governor_blocked(input, &record, &governor_sample, &admission_probe, None);
+    }
+    let generation = begin_active_generation(&record, total_timeout_ms, streaming_display)?;
+    let generation_guard = ActiveGenerationGuard {
+        generation_id: generation.generation_id.clone(),
+        finished: false,
+    };
+    let mut cancel_observed = false;
+    let exact_input_tokens = preflight::count_input_tokens(
         input,
         &runtime_profile.request,
         &record.host,
         record.port,
-        timeout_ms,
-        request_started_at,
-        &mut external_cancel_requested,
-    )?;
-    let timeout_ms = input_preflight.remaining_timeout_ms;
+        deadline,
+        &mut || {
+            let requested = generation_cancel_requested(&generation.generation_id)?
+                || external_cancel_requested()?;
+            cancel_observed |= requested;
+            Ok(requested)
+        },
+    );
+    let exact_input_tokens = match exact_input_tokens {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            let timed_out = deadline.remaining("input token preflight").is_err()
+                || err.message.contains("timeout");
+            let interrupted = finish_preflight_failure(
+                &generation,
+                err,
+                cancel_observed,
+                timed_out,
+                "input-tokens",
+                deadline.elapsed_ms(),
+            );
+            generation_guard.finish()?;
+            return interrupted;
+        }
+    };
+    let budget_timeout_ms = match deadline.remaining_ms("generation budget") {
+        Ok(remaining) => remaining,
+        Err(err) => {
+            let interrupted = finish_preflight_failure(
+                &generation,
+                err,
+                false,
+                true,
+                "generation-budget",
+                deadline.elapsed_ms(),
+            );
+            generation_guard.finish()?;
+            return interrupted;
+        }
+    };
     let budget = bind_default_backend_budget(
         token_request,
-        GenerationPromptEstimate::exact(input_preflight.exact_input_tokens),
+        GenerationPromptEstimate::exact(exact_input_tokens),
         record.ctx_size,
-        timeout_ms,
+        budget_timeout_ms,
         governor_sample.pressure,
     )?;
     let requested_max_tokens = budget.requested_max_tokens;
     let governor = resource::chat_governor_decision(governor_sample.pressure, requested_max_tokens);
     if governor.is_blocked() {
-        let event_id = state::record_event(
-            "backend.chat.governor.blocked",
-            "backend chat resource governor 차단",
-            &format!(
-                "pid={} backend={} prompt_chars={} requested_max_tokens={} pressure_status={} admission={} token_action={} reason={} sample_event={}",
-                record.pid,
-                record.backend_id,
-                input.text.chars().count(),
-                requested_max_tokens,
-                governor.pressure.as_str(),
-                governor.admission.as_str(),
-                governor.token_action.as_str(),
-                governor.reason,
-                governor_sample.ledger_event
-            ),
-        )?;
-        return Err(AppError::blocked(format!(
-            "backend chat 차단\n- 이유: resource governor가 critical pressure에서 요청을 차단했습니다.\n- pid: {}\n- resource pressure: {}\n- requested max tokens: {}\n- effective max tokens: blocked\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- ledger event: {}",
-            record.pid,
-            governor.pressure.as_str(),
-            requested_max_tokens,
-            governor.admission.as_str(),
-            governor.token_action.as_str(),
-            governor.reason,
-            governor.hint,
-            governor_sample.ledger_event,
-            event_id
-        )));
+        let blocked = resource_governor_blocked(
+            input,
+            &record,
+            &governor_sample,
+            &governor,
+            Some(requested_max_tokens),
+        );
+        generation_guard.finish()?;
+        return blocked;
     }
     let effective_max_tokens = governor
         .effective_max_tokens
@@ -103,10 +136,20 @@ pub(super) fn chat_input_with_options(
         &runtime_profile.request,
         true,
     )?;
-    let generation = begin_active_generation(&record, timeout_ms, streaming_display)?;
-    let generation_guard = ActiveGenerationGuard {
-        generation_id: generation.generation_id.clone(),
-        finished: false,
+    let stream_timeout = match deadline.remaining("stream transport") {
+        Ok(remaining) => remaining,
+        Err(err) => {
+            let interrupted = finish_preflight_failure(
+                &generation,
+                err,
+                false,
+                true,
+                "stream",
+                deadline.elapsed_ms(),
+            );
+            generation_guard.finish()?;
+            return interrupted;
+        }
     };
     let started_event = state::record_event(
         "backend.generation.started",
@@ -122,19 +165,17 @@ pub(super) fn chat_input_with_options(
             requested_max_tokens,
             effective_max_tokens,
             policy_limiting_factors,
-            timeout_ms,
+            total_timeout_ms,
             streaming_display,
             governor_sample.ledger_event
         ),
     )?;
-    let started_at_ms = now_ms();
-    let started_at = Instant::now();
     let stream_outcome = backend_stream::post_chat_stream(
         &record.host,
         record.port,
         "/v1/chat/completions",
         &body,
-        Duration::from_millis(u64::from(timeout_ms)),
+        stream_timeout,
         || {
             if generation_cancel_requested(&generation.generation_id)? {
                 return Ok(true);
@@ -149,7 +190,7 @@ pub(super) fn chat_input_with_options(
         }
         other => other,
     };
-    let elapsed_ms = started_at.elapsed().as_millis();
+    let elapsed_ms = deadline.elapsed_ms();
     let outcome = match stream_outcome {
         Ok(outcome) => outcome,
         Err(err) => {
@@ -166,7 +207,7 @@ pub(super) fn chat_input_with_options(
                     generation.generation_id,
                     record.pid,
                     started_event,
-                    timeout_ms,
+                    total_timeout_ms,
                     elapsed_ms, err.code
                 ),
             )?;
@@ -275,7 +316,7 @@ pub(super) fn chat_input_with_options(
             requested_max_tokens,
             effective_max_tokens,
             policy_limiting_factors,
-            timeout_ms,
+            total_timeout_ms,
             streaming_display,
             governor.admission.as_str(),
             governor.token_action.as_str(),
@@ -396,4 +437,44 @@ pub(super) fn chat_input_with_options(
     };
     generation_guard.finish()?;
     Ok(run)
+}
+
+fn resource_governor_blocked(
+    input: &BackendChatInput,
+    record: &BackendSidecarRecord,
+    governor_sample: &BackendResourceSampleReport,
+    governor: &ResourceGovernorDecision,
+    requested_max_tokens: Option<u32>,
+) -> Result<BackendChatRun, AppError> {
+    let requested_max_tokens = requested_max_tokens
+        .map(|tokens| tokens.to_string())
+        .unwrap_or_else(|| "pending-exact-preflight".to_string());
+    let event_id = state::record_event(
+        "backend.chat.governor.blocked",
+        "backend chat resource governor 차단",
+        &format!(
+            "pid={} backend={} prompt_chars={} requested_max_tokens={} pressure_status={} admission={} token_action={} reason={} sample_event={}",
+            record.pid,
+            record.backend_id,
+            input.text.chars().count(),
+            requested_max_tokens,
+            governor.pressure.as_str(),
+            governor.admission.as_str(),
+            governor.token_action.as_str(),
+            governor.reason,
+            governor_sample.ledger_event
+        ),
+    )?;
+    Err(AppError::blocked(format!(
+        "backend chat 차단\n- 이유: resource governor가 critical pressure에서 요청을 차단했습니다.\n- pid: {}\n- resource pressure: {}\n- requested max tokens: {}\n- effective max tokens: blocked\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- ledger event: {}",
+        record.pid,
+        governor.pressure.as_str(),
+        requested_max_tokens,
+        governor.admission.as_str(),
+        governor.token_action.as_str(),
+        governor.reason,
+        governor.hint,
+        governor_sample.ledger_event,
+        event_id
+    )))
 }
