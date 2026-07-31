@@ -24,11 +24,7 @@ fn conversation_agent_automatically_searches_and_returns_grounded_answer() {
     terminal.finish();
 
     let requests = backend.request_bodies();
-    assert_eq!(
-        requests.len(),
-        2,
-        "최신 정보 요청은 모델의 구조화된 도구 결정과 근거 답변 생성이 모두 실행되어야 합니다: {requests:#?}"
-    );
+    assert_eq!(requests.len(), 2, "structured web requests: {requests:#?}");
     assert!(requests[0].contains("\"response_format\""));
     assert!(requests[0].contains(r#""answer":{"type":"string"}"#));
     assert!(!requests[0].contains(r#""answer":{"type":"string","maxLength":"#));
@@ -97,11 +93,7 @@ fn conversation_agent_finds_within_the_current_page_before_answering() {
     terminal.finish();
 
     let requests = backend.request_bodies();
-    assert_eq!(
-        requests.len(),
-        1,
-        "열린 페이지를 명시한 찾기 요청은 새 검색이나 별도 도구 결정 없이 현재 페이지 근거 답변만 생성해야 합니다: {requests:#?}"
-    );
+    assert_eq!(requests.len(), 1, "web find requests: {requests:#?}");
     assert!(requests[0].contains("\"response_format\""));
     assert!(requests[0].contains("WEB_FIND_EVIDENCE"));
     assert!(requests[0].contains("Rust 설치"));

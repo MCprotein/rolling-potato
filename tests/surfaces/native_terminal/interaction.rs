@@ -153,3 +153,32 @@ fn update_uses_a_live_confirmation_picker_without_free_form_yes_input() {
     assert!(output.contains("status: updated"));
     assert!(!output.contains("yes를 입력"));
 }
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn ctrl_c_cancels_the_active_request_without_leaking_backend_details() {
+    let fixture = NativeTerminalFixture::new("active-request-cancel");
+    let backend = fixture
+        .start_conversation_backend_with_responses("__RPOTATO_STALL__", "사용되지 않는 응답");
+    let _live_terminal = LiveTerminalEnvironment::enable();
+
+    let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("local ready");
+    let request_mark = terminal.mark();
+    submit_visible_command(&mut terminal, "오래 걸리는 요청");
+    terminal.wait_for_after(request_mark, "Ctrl+C 취소");
+    terminal.send_signal(2);
+    let cancelled = terminal.wait_for_after(request_mark, "요청을 취소했습니다.");
+    assert!(!cancelled.contains("generation id"));
+    assert!(!cancelled.contains("sidecar pid"));
+    assert!(!cancelled.contains("runtime ledger"));
+
+    backend.set_structured_response(
+        r#"{"decision":"answer","input":"","answer":"취소 후에도 정상 응답합니다."}"#,
+    );
+    let recovery_mark = terminal.mark();
+    submit_visible_command(&mut terminal, "다시 답해줘");
+    terminal.wait_for_after(recovery_mark, "취소 후에도 정상 응답합니다.");
+    submit_visible_command(&mut terminal, "/quit");
+    terminal.finish();
+}

@@ -137,6 +137,10 @@ fn handle(mut stream: TcpStream) {
                 return;
             }
         };
+        if content.trim() == "__RPOTATO_STALL__" {
+            stall_stream(&mut stream);
+            return;
+        }
         let request_body = String::from_utf8_lossy(request_body);
         let content = expand_fixture_template(content, &request_body);
         let body = format!(
@@ -161,6 +165,23 @@ fn handle(mut stream: TcpStream) {
         return;
     }
 
+    if stream
+        .write_all(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+        )
+        .is_err()
+    {
+        return;
+    }
+    loop {
+        if stream.write_all(b": keepalive\n\n").is_err() || stream.flush().is_err() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+}
+
+fn stall_stream(stream: &mut TcpStream) {
     if stream
         .write_all(
             b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
