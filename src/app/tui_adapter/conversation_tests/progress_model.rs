@@ -95,7 +95,7 @@ fn model_confirmation_defaults_to_cancel_without_applying_the_selection() {
     let rendered = terminal.frames.join("\n");
     assert!(rendered.contains("모델 변경 확인"));
     assert!(rendered.contains("1. 취소"));
-    assert!(rendered.contains("2. 다운로드하고 적용"));
+    assert!(rendered.contains("2. 평가용으로 다운로드하고 적용"));
     assert!(rendered.contains("모델 변경을 취소했습니다."));
 }
 
