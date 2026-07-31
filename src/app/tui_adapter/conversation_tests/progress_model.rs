@@ -115,7 +115,7 @@ fn cached_model_switch_is_labeled_as_reuse_instead_of_a_new_download() {
     assert_eq!(runtime.setup_models, ["cached"]);
     let rendered = terminal.frames.join("\n");
     assert!(rendered.contains("local cache"));
-    assert!(rendered.contains("기존 모델로 전환"));
+    assert!(rendered.contains("기존 모델로 평가 전환"));
     assert!(rendered.contains("기존 모델 cache/SHA-256 검증"));
     assert!(!rendered.contains("Cached · download"));
 }
