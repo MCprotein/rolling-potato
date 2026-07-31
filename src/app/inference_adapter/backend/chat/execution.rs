@@ -3,15 +3,11 @@ use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
-use crate::runtime_core::inference::backend::lifecycle::BackendSidecarRecord;
 use crate::runtime_core::inference::backend::{
     BackendChatInput, BackendChatRun, BackendGenerationStatus,
 };
 use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
-use crate::runtime_core::inference::{
-    resource::{self, ResourceGovernorDecision},
-    stream::StreamTermination,
-};
+use crate::runtime_core::inference::{resource, stream::StreamTermination};
 
 use super::super::generation_gateway::{
     bind_default_backend_budget, GenerationPromptEstimate, GenerationTokenRequest,
@@ -20,14 +16,13 @@ use super::super::generation_state::{
     begin_active_generation, generation_cancel_requested, write_generation_terminal_record,
     ActiveGenerationGuard,
 };
-use super::super::resource_sampling::{
-    record_backend_resource_sample, BackendResourceSampleReport,
-};
-use super::super::sidecar::trace_backend_start;
+use super::super::resource_sampling::record_backend_resource_sample;
 use super::super::{display_optional_u128, display_optional_u32, now_ms};
-use super::interruption::{
-    finish_interrupted_generation, finish_preflight_failure, GenerationTerminalContext,
+use super::failure::{
+    finish_preflight_failure, finish_stream_failure, resource_governor_blocked,
+    StreamFailureContext,
 };
+use super::interruption::{finish_interrupted_generation, GenerationTerminalContext};
 use super::preflight;
 use super::readiness::ready_sidecar_record;
 use super::runtime_profile;
@@ -194,62 +189,21 @@ pub(super) fn chat_input_with_options(
     let outcome = match stream_outcome {
         Ok(outcome) => outcome,
         Err(err) => {
-            trace_backend_start(&format!(
-                "generation-failed code={} message={}",
-                err.code,
-                err.message.replace('\n', " | ")
-            ));
-            let event_id = state::record_event(
-                "backend.generation.failed",
-                "backend generation 실패",
-                &format!(
-                    "generation_id={} sidecar_pid={} started_event={} timeout_ms={} elapsed_ms={} error_code={} error_detail=redacted",
-                    generation.generation_id,
-                    record.pid,
-                    started_event,
+            let failure = finish_stream_failure(
+                err,
+                StreamFailureContext {
+                    record: &record,
+                    generation: &generation,
+                    started_event: &started_event,
                     total_timeout_ms,
-                    elapsed_ms, err.code
-                ),
-            )?;
-            write_generation_terminal_record(&generation.generation_id, "failed", &event_id)?;
-            let resource_sample = record_backend_resource_sample(&record, "chat-failed")?;
-            let identity = ledger::validated_current_identity()?;
-            observability::record_model_run(&observability::ModelRunMetric {
-                model_run_id: format!("model-run-{event_id}"),
-                session_id: identity.session_id,
-                workflow_id: None,
-                model_id: model_id.clone(),
-                model_artifact_hash: Some(record.model_sha256.clone()),
-                backend_id: Some(record.backend_id.clone()),
-                backend_version: Some(record.backend_release.clone()),
-                quantization: quantization_for_artifact_hash(&record.model_sha256)
-                    .map(str::to_string),
-                context_limit_tokens: record.ctx_size,
-                started_at_ms,
-                first_token_latency_ms: None,
-                total_latency_ms: Some(elapsed_ms as f64),
-                prompt_eval_ms: None,
-                generation_eval_ms: None,
-                tokens_per_second: None,
-                cancelled: false,
-                token_usage_complete: false,
-                prompt_tokens: 0,
-                completion_tokens: 0,
-                total_tokens: 0,
-                context_tokens_used: 0,
-                context_tokens_dropped: 0,
-                ontology_tokens: 0,
-                tool_summary_tokens: 0,
-                max_output_tokens: Some(effective_max_tokens),
-            })?;
+                    elapsed_ms,
+                    started_at_ms,
+                    model_id: &model_id,
+                    effective_max_tokens,
+                },
+            );
             generation_guard.finish()?;
-            return Err(AppError {
-                code: err.code,
-                message: format!(
-                    "{}\n- resource sample event: {}\n- lifecycle event: {event_id}",
-                    err.message, resource_sample.ledger_event
-                ),
-            });
+            return failure;
         }
     };
     if outcome.termination != StreamTermination::Completed {
@@ -437,44 +391,4 @@ pub(super) fn chat_input_with_options(
     };
     generation_guard.finish()?;
     Ok(run)
-}
-
-fn resource_governor_blocked(
-    input: &BackendChatInput,
-    record: &BackendSidecarRecord,
-    governor_sample: &BackendResourceSampleReport,
-    governor: &ResourceGovernorDecision,
-    requested_max_tokens: Option<u32>,
-) -> Result<BackendChatRun, AppError> {
-    let requested_max_tokens = requested_max_tokens
-        .map(|tokens| tokens.to_string())
-        .unwrap_or_else(|| "pending-exact-preflight".to_string());
-    let event_id = state::record_event(
-        "backend.chat.governor.blocked",
-        "backend chat resource governor 차단",
-        &format!(
-            "pid={} backend={} prompt_chars={} requested_max_tokens={} pressure_status={} admission={} token_action={} reason={} sample_event={}",
-            record.pid,
-            record.backend_id,
-            input.text.chars().count(),
-            requested_max_tokens,
-            governor.pressure.as_str(),
-            governor.admission.as_str(),
-            governor.token_action.as_str(),
-            governor.reason,
-            governor_sample.ledger_event
-        ),
-    )?;
-    Err(AppError::blocked(format!(
-        "backend chat 차단\n- 이유: resource governor가 critical pressure에서 요청을 차단했습니다.\n- pid: {}\n- resource pressure: {}\n- requested max tokens: {}\n- effective max tokens: blocked\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- ledger event: {}",
-        record.pid,
-        governor.pressure.as_str(),
-        requested_max_tokens,
-        governor.admission.as_str(),
-        governor.token_action.as_str(),
-        governor.reason,
-        governor.hint,
-        governor_sample.ledger_event,
-        event_id
-    )))
 }

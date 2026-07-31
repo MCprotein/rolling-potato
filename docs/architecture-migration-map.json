@@ -2232,6 +2232,22 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/tests/schema.rs",
+      "slices": [
+        {
+          "responsibility": "observability schema migration compatibility regressions",
+          "target": "src/adapters/sqlite/observability_projection/tests/schema.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/tests/schema.rs",
+            "src/adapters/sqlite/observability_projection/schema.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/observability_projection/tests/storage.rs",
       "slices": [
         {
@@ -2828,6 +2844,7 @@
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/chat.rs",
             "src/app/inference_adapter/backend/chat/execution.rs",
+            "src/app/inference_adapter/backend/chat/failure.rs",
             "src/app/inference_adapter/backend/chat/interruption.rs",
             "src/app/inference_adapter/backend/chat/readiness.rs",
             "src/app/inference_adapter/backend/chat/report.rs",
@@ -2850,6 +2867,22 @@
             "src/adapters/llama_cpp/stream/tests.rs",
             "tests/inference/backend_lifecycle.rs",
             "tests/architecture_contract/inference/application_backend.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/failure.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat preflight, transport, and resource-admission failure finalization",
+          "target": "src/app/inference_adapter/backend/chat/failure.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/failure.rs",
+            "tests/patch/backend_preflight.rs",
+            "tests/architecture_contract/inference/application_backend_chat.rs"
           ]
         }
       ]
@@ -5356,10 +5389,28 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/promotion_tests.rs",
+      "slices": [
+        {
+          "responsibility": "model promotion and benchmark evidence regression tests",
+          "target": "src/app/inference_adapter/model/promotion_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/evidence.rs",
+            "src/app/inference_adapter/model/promotion_tests.rs",
+            "src/runtime_core/inference/model/promotion.rs",
+            "tests/architecture_contract/inference/application_model.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/tests.rs",
       "slices": [
         {
-          "responsibility": "model manifest, evaluation, promotion, registry, and cleanup regression tests",
+          "responsibility": "model manifest, evaluation, registry, and cleanup regression tests",
           "target": "src/app/inference_adapter/model/tests.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -13050,6 +13101,22 @@
       ]
     },
     {
+      "path": "tests/patch/backend_preflight.rs",
+      "slices": [
+        {
+          "responsibility": "backend token-preflight cancellation, timeout, routing, and single-flight contracts",
+          "target": "tests/patch/backend_preflight.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/backend_preflight.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts/patch_regression_tests.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/patch/backend_runtime.rs",
       "slices": [
         {
@@ -17685,6 +17752,12 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/tests/schema.rs",
+      "responsibilities": [
+        "observability schema migration compatibility regressions"
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/observability_projection/tests/storage.rs",
       "responsibilities": [
         "model, resource, and benchmark observability storage regressions"
@@ -17898,6 +17971,12 @@
       "path": "src/app/inference_adapter/backend/chat/execution.rs",
       "responsibilities": [
         "backend chat request admission, SSE generation execution, and completion telemetry coordination"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/failure.rs",
+      "responsibilities": [
+        "backend chat preflight, transport, and resource-admission failure finalization"
       ]
     },
     {
@@ -18809,9 +18888,15 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/promotion_tests.rs",
+      "responsibilities": [
+        "model promotion and benchmark evidence regression tests"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/tests.rs",
       "responsibilities": [
-        "model manifest, evaluation, promotion, registry, and cleanup regression tests"
+        "model manifest, evaluation, registry, and cleanup regression tests"
       ]
     },
     {
@@ -21516,6 +21601,12 @@
       "path": "tests/surfaces/native_terminal.rs",
       "responsibilities": [
         "native terminal CLI behavior contract"
+      ]
+    },
+    {
+      "path": "tests/patch/backend_preflight.rs",
+      "responsibilities": [
+        "backend token-preflight cancellation, timeout, routing, and single-flight contracts"
       ]
     },
     {

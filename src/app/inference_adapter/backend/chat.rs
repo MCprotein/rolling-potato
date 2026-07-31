@@ -3,6 +3,7 @@ use crate::runtime_core::inference::backend::{BackendChatInput, BackendChatRun};
 use crate::runtime_core::inference::generation_policy::GenerationIntent;
 
 mod execution;
+mod failure;
 mod interruption;
 mod preflight;
 mod readiness;

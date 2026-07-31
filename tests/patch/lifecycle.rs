@@ -76,10 +76,8 @@ fn fixture(name: &str) -> Fixture {
             r#"#!/usr/bin/env python3
 import argparse, json, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-p=argparse.ArgumentParser(add_help=False)
-p.add_argument('--port', type=int, required=True)
-p.add_argument('--host', default='127.0.0.1')
-p.add_argument('--model')
+p=argparse.ArgumentParser(add_help=False); p.add_argument('--port', type=int, required=True)
+p.add_argument('--host', default='127.0.0.1'); p.add_argument('--model')
 p.add_argument('--ctx-size')
 a,_=p.parse_known_args()
 class H(BaseHTTPRequestHandler):
@@ -419,6 +417,7 @@ fn path_contains_bytes(path: &Path, needle: &[u8]) -> bool {
         .unwrap_or(false)
 }
 
+mod backend_preflight;
 mod backend_runtime;
 mod concurrency;
 mod patch_safety;

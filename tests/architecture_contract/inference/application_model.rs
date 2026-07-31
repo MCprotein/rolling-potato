@@ -17,6 +17,7 @@ fn assert_application_model_owners() {
     let model_setup_catalog_path = "src/app/inference_adapter/model/setup/catalog.rs";
     let model_runtime_spec_path = "src/app/inference_adapter/model/setup/runtime_spec.rs";
     let model_setup_tests_path = "src/app/inference_adapter/model/setup/tests.rs";
+    let model_promotion_tests_path = "src/app/inference_adapter/model/promotion_tests.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(model_reports_path).is_file());
     assert!(Path::new(model_evaluation_path).is_file());
@@ -32,6 +33,7 @@ fn assert_application_model_owners() {
     assert!(Path::new(model_setup_catalog_path).is_file());
     assert!(Path::new(model_runtime_spec_path).is_file());
     assert!(Path::new(model_setup_tests_path).is_file());
+    assert!(Path::new(model_promotion_tests_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
     let model_reports = fs::read_to_string(model_reports_path).unwrap();
@@ -49,7 +51,12 @@ fn assert_application_model_owners() {
     let model_setup = fs::read_to_string(model_setup_path).unwrap();
     let model_setup_catalog = fs::read_to_string(model_setup_catalog_path).unwrap();
     let model_runtime_spec = fs::read_to_string(model_runtime_spec_path).unwrap();
+    let model_promotion_tests = fs::read_to_string(model_promotion_tests_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
+    assert!(
+        model_adapter.contains("#[path = \"model/promotion_tests.rs\"]"),
+        "model adapter does not register its promotion regression-test owner"
+    );
     assert!(
         model_adapter.contains("#[path = \"model/tests.rs\"]"),
         "model adapter does not register its regression-test owner"
@@ -219,8 +226,6 @@ fn assert_application_model_owners() {
     }
     for responsibility in [
         "fn manifest_validation_blocks_unverified_artifact_candidate(",
-        "fn promotion_evidence_validation_accepts_measured_local_benchmark(",
-        "fn registry_promotion_binding_rejects_backend_and_benchmark_drift(",
         "fn cleanup_failed_dry_run_lists_app_managed_paths(",
     ] {
         assert!(
@@ -230,6 +235,19 @@ fn assert_application_model_owners() {
         assert!(
             !model_adapter.contains(responsibility),
             "model adapter still owns regression test: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "fn promotion_evidence_validation_accepts_measured_local_benchmark(",
+        "fn registry_promotion_binding_rejects_backend_and_benchmark_drift(",
+    ] {
+        assert!(
+            model_promotion_tests.contains(responsibility),
+            "model promotion regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_tests.contains(responsibility),
+            "general model regression owner still owns promotion test: {responsibility}"
         );
     }
     for (owner, responsibility) in [
@@ -292,6 +310,10 @@ fn assert_application_model_owners() {
     assert!(model_default_selection.lines().count() < 75);
     assert!(model_setup.lines().count() < 100);
     assert!(model_runtime_spec.lines().count() < 125);
+    assert!(
+        model_promotion_tests.lines().count() < 425,
+        "model promotion regression module regrew beyond its ownership boundary"
+    );
     assert!(
         model_tests.lines().count() < 550,
         "model regression module regrew beyond its ownership boundary"

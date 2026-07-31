@@ -45,5 +45,9 @@ use evidence::{local_benchmark_status, promotion_benchmark_evidence};
 use registry::registry_entry_json;
 
 #[cfg(test)]
+#[path = "model/promotion_tests.rs"]
+mod promotion_tests;
+
+#[cfg(test)]
 #[path = "model/tests.rs"]
 mod tests;

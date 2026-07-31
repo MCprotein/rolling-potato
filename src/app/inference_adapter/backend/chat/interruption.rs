@@ -29,59 +29,6 @@ pub(super) struct GenerationTerminalContext {
     pub(super) effective_max_tokens: u32,
 }
 
-pub(super) fn finish_preflight_failure(
-    generation: &BackendGenerationRecord,
-    error: AppError,
-    cancelled: bool,
-    timed_out: bool,
-    phase: &str,
-    elapsed_ms: u128,
-) -> Result<BackendChatRun, AppError> {
-    let (event_type, outcome, status_label) = if cancelled {
-        (
-            "backend.generation.cancelled",
-            "cancelled",
-            "사용자 요청으로 취소됨",
-        )
-    } else if timed_out {
-        (
-            "backend.generation.timeout",
-            "timed-out",
-            "제한 시간 초과로 취소됨",
-        )
-    } else {
-        ("backend.generation.failed", "failed", "preflight 실패")
-    };
-    let event_id = state::record_event(
-        event_type,
-        "backend generation preflight 종료",
-        &format!(
-            "generation_id={} client_pid={} sidecar_pid={} status={} phase={} timeout_ms={} elapsed_ms={} error_code={} error_detail=redacted",
-            generation.generation_id,
-            generation.client_pid,
-            generation.sidecar_pid,
-            outcome,
-            phase,
-            generation.timeout_ms,
-            elapsed_ms,
-            error.code
-        ),
-    )?;
-    write_generation_terminal_record(&generation.generation_id, outcome, &event_id)?;
-    Err(AppError {
-        code: error.code,
-        message: format!(
-            "backend chat 중단\n- 상태: {status_label}\n- generation id: {}\n- sidecar pid: {}\n- phase: {}\n- 경과 시간 ms: {}\n- 원인: {}\n- lifecycle event: {}",
-            generation.generation_id,
-            generation.sidecar_pid,
-            phase,
-            elapsed_ms,
-            error.message,
-            event_id
-        ),
-    })
-}
-
 pub(super) fn finish_interrupted_generation(
     record: &BackendSidecarRecord,
     generation: &BackendGenerationRecord,
