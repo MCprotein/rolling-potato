@@ -190,7 +190,7 @@ pub(super) fn dispatch_line(
                 Err(error) => state.push_turn(
                     ConversationRole::Error,
                     format!(
-                        "요청을 완료하지 못했습니다.\n{}\n첨부는 재시도를 위해 유지했습니다.",
+                        "요청을 완료하지 못했습니다.\n{}\n첨부는 재시도를 위해 유지했습니다. 제거하려면 /attach clear를 사용하세요.",
                         error.message
                     ),
                 ),

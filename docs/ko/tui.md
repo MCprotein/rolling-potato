@@ -150,7 +150,8 @@ inspection 명령은 `rpotato debug --help` 아래의 진단용 surface로 유�
 
 Bracketed paste는 하나의 입력으로 처리합니다. 절대 이미지/text 경로를 붙여넣거나
 `/attach <경로>`를 사용하면 `/` 명령으로 오판하지 않고 regular non-symlink 파일을
-local app data에 캡처해 첨부 badge로 표시합니다. UTF-8 text/code 파일은 256 KiB까지
+local app data에 캡처해 첨부 badge로 표시합니다. 전송 전 대기 첨부만 비우려면
+`/attach clear`를 사용합니다. UTF-8 text/code 파일은 256 KiB까지
 허용하되 응답·runtime 공간을 예약한 뒤 선택 model의 manifest context limit 안에
 들어오는 경우에만 다음 요청에 포함합니다. PNG/JPEG 이미지는 최대 4개, 합계
 20 MiB까지 허용하며 dispatch 시 한 번의 bounded file read로 size, signature,

@@ -117,6 +117,8 @@ fn bracketed_clipboard_image_path_is_captured_before_slash_command_routing() {
     let output = terminal.wait_for("첨부됨");
     assert!(output.contains("clipboard-test.png"));
     assert!(!output.contains("알 수 없는 TUI 명령"));
+    terminal.send("/attach clear\r");
+    terminal.wait_for("대기 중인 첨부를 모두 제거했습니다.");
     terminal.send("/quit\r");
     terminal.finish();
 }

@@ -155,7 +155,8 @@ inspection commands remain available for diagnostics under `rpotato debug --help
 
 Bracketed paste is consumed atomically. Pasting an absolute image/text path or using
 `/attach <path>` captures a regular, non-symlink file into local app data and shows an
-attachment badge instead of treating a leading `/` as a command. UTF-8 text/code files
+attachment badge instead of treating a leading `/` as a command. Use `/attach clear`
+to discard only pending attachments before sending. UTF-8 text/code files
 up to 256 KiB are included only while the composed request fits the selected
 model's manifest context limit after reserving response/runtime space. Up to four
 PNG/JPEG images with a combined limit of 20 MiB are revalidated from one bounded

@@ -33,7 +33,23 @@ fn failed_request_keeps_attachments_until_a_successful_retry() {
     assert!(terminal
         .frames
         .join("\n")
-        .contains("첨부는 재시도를 위해 유지했습니다."));
+        .contains("첨부는 재시도를 위해 유지했습니다. 제거하려면 /attach clear를 사용하세요."));
+}
+
+#[test]
+fn pending_attachments_can_be_cleared_without_erasing_the_conversation() {
+    let path = "/private/tmp/rpotato-clear.png";
+    let mut terminal = ScriptedTerminal::new([path, "/attach clear", "첨부 없는 요청", "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.requests, ["첨부 없는 요청"]);
+    assert_eq!(runtime.submitted_attachment_counts, [0]);
+    assert!(terminal
+        .frames
+        .join("\n")
+        .contains("대기 중인 첨부를 모두 제거했습니다."));
 }
 
 #[test]
