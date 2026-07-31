@@ -2,7 +2,9 @@ use crate::adapters::filesystem::benchmark_artifact;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::ledger;
 use crate::foundation::error::AppError;
-use crate::runtime_core::inference::backend::BackendChatRun;
+use crate::runtime_core::inference::backend::{
+    BackendChatRun, BackendGenerationIncompleteReason, BackendGenerationStatus,
+};
 use crate::runtime_core::inference::benchmark::fixture::BenchmarkFixture;
 use crate::runtime_core::inference::benchmark::report::{
     display_optional_u32, display_optional_u64, executable_redacted_report_json,
@@ -134,6 +136,7 @@ fn run_report_with_chat(
     let prompt = benchmark_artifact::read_prompt_artifact(prompt_path)?;
     benchmark_policy::validate_canonical_adoption_artifacts(&fixture, &prompt)?;
     let run = chat_once(&prompt.text, max_tokens)?;
+    ensure_complete_benchmark_run(&run)?;
     benchmark_policy::validate_canonical_adoption_run(&fixture, &run)?;
     let score = score_response(&fixture, &run.response);
     let identity = ledger::validated_current_identity()?;
@@ -242,6 +245,22 @@ fn run_report_with_chat(
         display_optional_u64(run.resource_peak_rss_bytes),
         event.event_id
     ))
+}
+
+fn ensure_complete_benchmark_run(run: &BackendChatRun) -> Result<(), AppError> {
+    match run.generation_status {
+        BackendGenerationStatus::Complete => Ok(()),
+        BackendGenerationStatus::Incomplete(BackendGenerationIncompleteReason::TokenLimit) => {
+            Err(AppError::blocked(
+                "benchmark generation이 token limit에서 중단되어 scoring evidence를 기록하지 않았습니다.",
+            ))
+        }
+        BackendGenerationStatus::Incomplete(BackendGenerationIncompleteReason::UnknownFinish) => {
+            Err(AppError::blocked(
+                "benchmark generation의 종료 상태를 확인할 수 없어 scoring evidence를 기록하지 않았습니다.",
+            ))
+        }
+    }
 }
 
 pub fn report_export(format: BenchmarkReportFormat) -> Result<String, AppError> {
