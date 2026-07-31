@@ -126,17 +126,8 @@ pub(super) fn decide_generated_candidate(
     web_enabled: bool,
     allow_direct_answer: bool,
 ) -> Result<RequestDecision, AppError> {
-    let grounding_fallback = web_enabled.then(|| {
-        crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
-            user_request,
-            prior_user_requests,
-        )
-    });
     match crate::runtime_core::agent::parse_turn_decision(&candidate.visible, allow_direct_answer) {
         Ok(crate::runtime_core::agent::AgentTurnDecision::Answer(answer)) => {
-            if let Some(tool) = grounding_fallback.flatten() {
-                return Ok(RequestDecision::WebTool(tool));
-            }
             return crate::app::inference_adapter::answer::finish_candidate(
                 crate::app::inference_adapter::answer::GeneratedCandidate {
                     response_language: candidate.response_language,
@@ -151,20 +142,31 @@ pub(super) fn decide_generated_candidate(
             {
                 return Ok(decision);
             }
+            return Ok(freshness_recovery(user_request, prior_user_requests)
+                .map(RequestDecision::WebTool)
+                .unwrap_or(RequestDecision::ContinueLocal));
         }
         Ok(crate::runtime_core::agent::AgentTurnDecision::Tool(_))
         | Ok(crate::runtime_core::agent::AgentTurnDecision::ContinueLocal) => {
-            if let Some(tool) = grounding_fallback.flatten() {
-                return Ok(RequestDecision::WebTool(tool));
-            }
             return Ok(RequestDecision::ContinueLocal);
         }
-        Err(_) => {}
+        Err(_) if web_enabled => {
+            return Ok(freshness_recovery(user_request, prior_user_requests)
+                .map(RequestDecision::WebTool)
+                .unwrap_or(RequestDecision::ContinueLocal));
+        }
+        Err(_) => return Ok(RequestDecision::ContinueLocal),
     }
-    if let Some(tool) = grounding_fallback.flatten() {
-        return Ok(RequestDecision::WebTool(tool));
-    }
-    Ok(RequestDecision::ContinueLocal)
+}
+
+fn freshness_recovery(
+    user_request: &str,
+    prior_user_requests: &[&str],
+) -> Option<crate::app::web_search_adapter::WebToolRoute> {
+    crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
+        user_request,
+        prior_user_requests,
+    )
 }
 
 pub(super) fn request_decision_from_agent_tool(
