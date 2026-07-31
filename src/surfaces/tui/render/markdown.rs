@@ -42,20 +42,135 @@ impl MarkdownState {
 
 fn semantic_line(source: &str) -> String {
     let trimmed = source.trim_start();
+    let indent = &source[..source.len().saturating_sub(trimmed.len())];
     let heading = trimmed
         .strip_prefix("### ")
         .or_else(|| trimmed.strip_prefix("## "))
         .or_else(|| trimmed.strip_prefix("# "));
     if let Some(heading) = heading {
-        return format!("**{heading}**");
+        return normalize_links(&format!("**{heading}**"));
     }
     if let Some(item) = trimmed
         .strip_prefix("* ")
         .or_else(|| trimmed.strip_prefix("- "))
+        .or_else(|| trimmed.strip_prefix("+ "))
     {
-        return format!("• {item}");
+        return normalize_links(&format!("{indent}• {item}"));
     }
-    source.to_string()
+    if let Some((number, item)) = ordered_list_item(trimmed) {
+        return normalize_links(&format!("{indent}{number}. {item}"));
+    }
+    if let Some(quote) = trimmed.strip_prefix("> ") {
+        return normalize_links(&format!("{indent}│ {quote}"));
+    }
+    if is_table_separator(trimmed) {
+        return render_table_separator(trimmed);
+    }
+    if let Some(row) = render_table_row(trimmed) {
+        return normalize_links(&format!("{indent}{row}"));
+    }
+    normalize_links(source)
+}
+
+fn ordered_list_item(source: &str) -> Option<(&str, &str)> {
+    let dot = source.find(". ")?;
+    let number = &source[..dot];
+    if number.is_empty() || !number.chars().all(|character| character.is_ascii_digit()) {
+        return None;
+    }
+    Some((number, &source[dot + 2..]))
+}
+
+fn is_table_separator(source: &str) -> bool {
+    table_cells(source).is_some_and(|cells| {
+        cells.iter().all(|cell| {
+            let cell = cell.trim().trim_matches(':');
+            cell.len() >= 3 && cell.chars().all(|character| character == '-')
+        })
+    })
+}
+
+fn render_table_separator(source: &str) -> String {
+    table_cells(source)
+        .unwrap_or_default()
+        .iter()
+        .map(|cell| {
+            let separator = cell.trim().trim_matches(':');
+            "─".repeat(separator.chars().count().clamp(3, 24))
+        })
+        .collect::<Vec<_>>()
+        .join("─┼─")
+}
+
+fn render_table_row(source: &str) -> Option<String> {
+    let cells = table_cells(source)?;
+    Some(
+        cells
+            .iter()
+            .map(|cell| cell.trim())
+            .collect::<Vec<_>>()
+            .join(" │ "),
+    )
+}
+
+fn table_cells(source: &str) -> Option<Vec<&str>> {
+    if !source.contains('|') {
+        return None;
+    }
+    let cells = source
+        .trim()
+        .trim_start_matches('|')
+        .trim_end_matches('|')
+        .split('|')
+        .collect::<Vec<_>>();
+    (cells.len() >= 2).then_some(cells)
+}
+
+fn normalize_links(source: &str) -> String {
+    let mut output = String::with_capacity(source.len());
+    let mut remaining = source;
+    let mut inline_code = false;
+    while let Some(character) = remaining.chars().next() {
+        if character == '`' {
+            inline_code = !inline_code;
+            output.push(character);
+            remaining = &remaining[character.len_utf8()..];
+            continue;
+        }
+        if !inline_code && character == '[' {
+            if let Some(label_end) = remaining.find("](") {
+                if let Some(target_end) = remaining[label_end + 2..].find(')') {
+                    let label = &remaining[1..label_end];
+                    let target_start = label_end + 2;
+                    let target_end = target_start + target_end;
+                    let target = &remaining[target_start..target_end];
+                    if !label.is_empty() && visible_link_target(target) {
+                        output.push_str(label);
+                        output.push_str(" (");
+                        output.push_str(target);
+                        output.push(')');
+                        remaining = &remaining[target_end + 1..];
+                        continue;
+                    }
+                }
+            }
+        }
+        output.push(character);
+        remaining = &remaining[character.len_utf8()..];
+    }
+    output
+}
+
+fn visible_link_target(target: &str) -> bool {
+    let target = target.trim();
+    !target.is_empty()
+        && !target.chars().any(char::is_control)
+        && (target.starts_with("https://")
+            || target.starts_with("http://")
+            || target.starts_with('/')
+            || target.starts_with("./")
+            || target.starts_with("../")
+            || target.starts_with('#'))
 }
 
 fn render_inline_wrapped(source: &str, width: usize, color: bool) -> Vec<String> {
@@ -172,6 +287,46 @@ mod tests {
         assert_eq!(header.len(), 1);
         assert!(super::super::text::display_cell_width(&header[0]) <= 18);
         assert!(header[0].ends_with('…'));
+    }
+
+    #[test]
+    fn links_tables_quotes_and_nested_lists_render_without_raw_markers() {
+        let mut state = MarkdownState::default();
+
+        assert_eq!(
+            state.render_line("- [공식 문서](https://example.com/docs)", 120, false),
+            ["• 공식 문서 (https://example.com/docs)"]
+        );
+        assert_eq!(
+            state.render_line("  - 중첩 항목", 120, false),
+            ["  • 중첩 항목"]
+        );
+        assert_eq!(
+            state.render_line("> 주의 사항", 120, false),
+            ["│ 주의 사항"]
+        );
+        assert_eq!(
+            state.render_line("| 모델 | 상태 |", 120, false),
+            ["모델 │ 상태"]
+        );
+        assert_eq!(
+            state.render_line("| --- | :---: |", 120, false),
+            ["────┼────"]
+        );
+        assert_eq!(
+            state.render_line("2. 다음 단계", 120, false),
+            ["2. 다음 단계"]
+        );
+    }
+
+    #[test]
+    fn inline_code_does_not_interpret_markdown_links() {
+        let mut state = MarkdownState::default();
+
+        assert_eq!(
+            state.render_line("`[label](https://example.com)`", 120, false),
+            ["[label](https://example.com)"]
+        );
     }
 
     fn display_width_without_ansi(value: &str) -> usize {
