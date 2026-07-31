@@ -231,6 +231,20 @@ cargo run -- plugin list
 cargo run -- uninstall --dry-run --purge-cache
 ```
 
+The deterministic test suite uses fake sidecars and does not make a real-model
+quality claim. On a development machine where the managed backend and promoted
+default model are already running, execute the separately opt-in end-to-end
+conversation smoke without downloading or replacing artifacts:
+
+```sh
+RPOTATO_REAL_MODEL_SMOKE=1 \
+  scripts/ci/verify-managed-real-model-smoke.sh target/debug/rpotato
+```
+
+The smoke uses a temporary project, preserves the existing model/backend, and
+requires a healthy backend, `conversation` routing, an `answer-only` completion,
+and a non-empty Korean final answer.
+
 Final binary command is `rpotato`.
 
 ## Code Structure Direction
