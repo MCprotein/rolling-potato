@@ -391,3 +391,30 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
 - Endpoint 계약을 바꾼 candidate는 관련 unit test 뒤 해당 user-journey integration
   suite를 로컬에서 한 번 실행하고, 같은 suite 실패를 CI 단순 재실행으로 넘기지
   않습니다.
+
+## 2026-08-01: 책임 추출 뒤 migration map과 source contract가 함께 갱신되지 않음
+
+### 증상
+
+- v0.55 candidate preflight의 전체 architecture contract에서 새 책임 소유자 21개가
+  migration map에 누락됐고, TUI runtime port 검사는 이동 전 facade만 읽었습니다.
+- projector 검증 helper와 회귀 테스트가 기존 backend·records 파일의 line budget을
+  넘겨 책임 경계 테스트가 실패했습니다.
+
+### 원인
+
+- 기능 단위 targeted contract만 실행해 새 파일 자체의 경계는 확인했지만, 저장소의
+  모든 governed file을 대조하는 전체 architecture inventory 검증을 candidate 직전까지
+  실행하지 않았습니다.
+- 구현 이동, source-text contract, migration map, regression owner 분리를 하나의
+  architecture 변경 단위로 닫지 않았습니다.
+
+### 재발 방지
+
+- 책임 추출이나 새 governed file 추가 시 production owner, source-text assertion,
+  `docs/architecture-migration-map.json`의 file record와 responsibility inventory를 같은
+  커밋에서 갱신합니다.
+- 기능 테스트가 커진 경우 line budget을 올리지 않고 별도 책임 소유자로 먼저 분리하며,
+  변경된 owner의 exact contract와 전체 migration-map contract를 커밋 전에 실행합니다.
+- Candidate preflight 실패는 실패한 contract만 재현해 수정하고, 새 HEAD에서만 최종
+  preflight를 다시 실행합니다. 같은 HEAD의 전체 preflight는 반복하지 않습니다.
