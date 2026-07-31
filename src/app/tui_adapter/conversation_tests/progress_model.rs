@@ -38,6 +38,24 @@ fn slow_requests_refresh_a_spinner_and_live_context_estimate() {
 }
 
 #[test]
+fn ctrl_c_cancels_the_worker_and_never_records_assistant_success() {
+    let mut terminal = ScriptedTerminal::new(["멈춰야 하는 요청", "/quit"]);
+    terminal.cancel_after_polls = Some(1);
+    let mut runtime = ConversationRuntime {
+        cooperatively_stalled: true,
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    let rendered = terminal.frames.join("\n");
+    assert_eq!(runtime.requests, ["멈춰야 하는 요청"]);
+    assert!(rendered.contains("Ctrl+C 취소"));
+    assert!(rendered.contains("요청을 취소했습니다."));
+    assert!(!rendered.contains("● 안녕하세요."));
+}
+
+#[test]
 fn progress_frame_failure_after_dispatch_never_invites_request_replay() {
     let mut terminal = ScriptedTerminal::new(["느린 요청", "/quit"]);
     terminal.frame_fault_at = Some((

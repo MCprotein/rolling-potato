@@ -1,4 +1,5 @@
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalIo};
 
 use super::outcome::TuiOutcome;
@@ -63,6 +64,7 @@ pub(crate) trait TuiRuntimePort: Send {
         request: &str,
         attachments: &[TuiAttachment],
         _progress: &TuiRequestProgressReporter,
+        _cancellation: &RequestCancellationToken,
     ) -> Result<String, AppError> {
         self.submit_request(request, attachments)
     }

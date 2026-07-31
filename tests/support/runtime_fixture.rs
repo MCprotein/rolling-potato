@@ -126,6 +126,8 @@ pub struct ScriptedTerminal {
             crate::runtime_core::terminal::TerminalFault,
         >,
     >,
+    pub cancel_after_polls: Option<usize>,
+    cancel_polls: usize,
 }
 
 impl ScriptedTerminal {
@@ -142,6 +144,8 @@ impl ScriptedTerminal {
             frame_fault: None,
             frame_fault_at: None,
             input_events: std::collections::VecDeque::new(),
+            cancel_after_polls: None,
+            cancel_polls: 0,
         }
     }
 }
@@ -161,6 +165,13 @@ impl crate::runtime_core::terminal::TerminalIo for ScriptedTerminal {
         &mut self,
     ) -> Result<Option<String>, crate::runtime_core::terminal::TerminalFault> {
         self.secrets.pop_front().unwrap_or(Ok(None))
+    }
+
+    fn request_cancelled(&mut self) -> Result<bool, crate::runtime_core::terminal::TerminalFault> {
+        self.cancel_polls += 1;
+        Ok(self
+            .cancel_after_polls
+            .is_some_and(|threshold| self.cancel_polls >= threshold))
     }
 
     fn read_input_with_suggestions(

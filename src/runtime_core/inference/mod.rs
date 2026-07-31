@@ -2,6 +2,7 @@
 
 pub(crate) mod backend;
 pub(crate) mod benchmark;
+pub(crate) mod cancellation;
 pub(crate) mod generation_policy;
 pub(crate) mod model;
 pub(crate) mod resource;

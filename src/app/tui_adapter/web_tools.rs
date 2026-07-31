@@ -3,6 +3,7 @@ use crate::app::web_search_adapter::{
     WebToolObservation, WebToolRoute,
 };
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::surfaces::tui::runtime_bridge::{TuiRequestProgress, TuiRequestProgressReporter};
 use std::time::Duration;
 
@@ -17,6 +18,7 @@ pub(super) struct WebTurnContext<'a> {
     pub(super) conversation_context: &'a str,
     pub(super) elapsed: Duration,
     pub(super) progress: &'a TuiRequestProgressReporter,
+    pub(super) cancellation: &'a RequestCancellationToken,
 }
 
 pub(super) fn observe(
@@ -25,6 +27,7 @@ pub(super) fn observe(
     route: WebToolRoute,
     context: WebTurnContext<'_>,
 ) -> Result<WebToolObservation, AppError> {
+    context.cancellation.check()?;
     let route = web_search_adapter::validate_public_web_step(route)?;
     let current_document = pages.current_url();
     let route = match research.admit(route, current_document, context.elapsed) {
@@ -72,6 +75,9 @@ pub(super) fn observe(
             web_search_adapter::observe_find_in_page(pages.current(), &query, context.request)
         }
     };
+    // ureq owns each blocking transport call. The safe portable cancellation
+    // boundary is therefore between Search/Open/Find transport steps.
+    context.cancellation.check()?;
     match result {
         Ok(observation) => {
             research.complete();

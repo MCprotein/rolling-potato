@@ -1,5 +1,15 @@
 use super::super::{TerminalChoice, TerminalFault, TerminalSuggestion};
 
+pub fn begin_request_cancel_capture() -> Result<(), TerminalFault> {
+    Ok(())
+}
+
+pub fn request_cancelled() -> bool {
+    false
+}
+
+pub fn end_request_cancel_capture() {}
+
 pub fn dimensions() -> Result<(u16, u16), TerminalFault> {
     Err(TerminalFault::SizeRead)
 }

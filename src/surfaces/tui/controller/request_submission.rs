@@ -1,6 +1,7 @@
 //! Synchronous request submission with live terminal progress presentation.
 
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalIo};
 
 use super::super::runtime_bridge::{TuiAttachment, TuiRequestProgress, TuiRequestProgressReporter};
@@ -71,14 +72,32 @@ pub(super) fn submit_request_with_progress(
 
     let mut frame_error = None;
     let (progress_reporter, progress_receiver) = TuiRequestProgressReporter::channel(32);
+    let cancellation = RequestCancellationToken::default();
+    terminal
+        .begin_request_cancel_capture()
+        .map_err(super::terminal_flow::terminal_fault_error)?;
     let result = std::thread::scope(|scope| {
         let handle = scope.spawn(|| {
-            runtime.submit_request_with_progress(request, attachments, &progress_reporter)
+            runtime.submit_request_with_progress(
+                request,
+                attachments,
+                &progress_reporter,
+                &cancellation,
+            )
         });
         let mut tick = 1;
         let mut runtime_progress = Vec::new();
         loop {
             std::thread::sleep(REFRESH);
+            match terminal.request_cancelled() {
+                Ok(true) => cancellation.cancel(),
+                Ok(false) => {}
+                Err(fault) if frame_error.is_none() => {
+                    cancellation.cancel();
+                    frame_error = Some(super::terminal_flow::terminal_fault_error(fault));
+                }
+                Err(_) => cancellation.cancel(),
+            }
             let progress_changed = drain_progress(&progress_receiver, &mut runtime_progress);
             if frame_error.is_none() && (!handle.is_finished() || progress_changed) {
                 let current = progress_notice(progress, &runtime_progress);
@@ -103,6 +122,7 @@ pub(super) fn submit_request_with_progress(
         }
         handle.join()
     });
+    terminal.end_request_cancel_capture();
     state.context_tokens_estimate = None;
     if let Some(error) = frame_error {
         return Err(error);
@@ -146,7 +166,7 @@ pub(super) fn test_secret_probe_enabled() -> bool {
 
 fn activity_notice(spinner: char, elapsed: std::time::Duration, progress: &str) -> String {
     format!(
-        "{spinner} 처리 중 · 경과 {:.1}초\n{progress}",
+        "{spinner} 처리 중 · 경과 {:.1}초 · Ctrl+C 취소\n{progress}",
         elapsed.as_secs_f32()
     )
 }

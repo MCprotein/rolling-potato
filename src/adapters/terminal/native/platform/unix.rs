@@ -3,7 +3,7 @@ use super::super::{
     TestTerminalFault,
 };
 use std::io::{self, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 const STDIN_FILENO: i32 = 0;
 const STDOUT_FILENO: i32 = 1;
@@ -84,6 +84,42 @@ unsafe extern "C" {
 
 static SIGNAL_ECHO_RESTORE_ARMED: AtomicBool = AtomicBool::new(false);
 static mut SIGNAL_ECHO_ORIGINAL: std::mem::MaybeUninit<Termios> = std::mem::MaybeUninit::uninit();
+static REQUEST_CANCEL_ARMED: AtomicBool = AtomicBool::new(false);
+static REQUEST_CANCELLED: AtomicBool = AtomicBool::new(false);
+static REQUEST_CANCEL_PREVIOUS_HANDLER: AtomicUsize = AtomicUsize::new(0);
+
+extern "C" fn capture_request_cancel(_signal_number: i32) {
+    REQUEST_CANCELLED.store(true, Ordering::Release);
+}
+
+pub fn begin_request_cancel_capture() -> Result<(), TerminalFault> {
+    if REQUEST_CANCEL_ARMED.swap(true, Ordering::SeqCst) {
+        return Err(TerminalFault::ModeRead);
+    }
+    REQUEST_CANCELLED.store(false, Ordering::Release);
+    // SAFETY: the handler only stores to an atomic and uses the C signal ABI.
+    let previous = unsafe { signal(SIGINT, capture_request_cancel as *const () as usize) };
+    if previous == SIG_ERR {
+        REQUEST_CANCEL_ARMED.store(false, Ordering::SeqCst);
+        return Err(TerminalFault::ModeRead);
+    }
+    REQUEST_CANCEL_PREVIOUS_HANDLER.store(previous, Ordering::Release);
+    Ok(())
+}
+
+pub fn request_cancelled() -> bool {
+    REQUEST_CANCELLED.load(Ordering::Acquire)
+}
+
+pub fn end_request_cancel_capture() {
+    if !REQUEST_CANCEL_ARMED.swap(false, Ordering::SeqCst) {
+        return;
+    }
+    let previous = REQUEST_CANCEL_PREVIOUS_HANDLER.load(Ordering::Acquire);
+    // SAFETY: restores the exact disposition returned when capture began.
+    let _ = unsafe { signal(SIGINT, previous) };
+    REQUEST_CANCELLED.store(false, Ordering::Release);
+}
 
 extern "C" fn restore_echo_before_signal_exit(signal_number: i32) {
     if SIGNAL_ECHO_RESTORE_ARMED.swap(false, Ordering::SeqCst) {

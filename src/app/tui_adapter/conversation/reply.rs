@@ -1,5 +1,6 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage};
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::runtime_core::knowledge::prompt::AssembledPrompt;
 use crate::surfaces::tui::runtime_bridge::TuiConversationTurn;
@@ -18,29 +19,38 @@ pub(in crate::app::tui_adapter) fn render_web_conversation_context(
     .map(|context| context.render_memory())
 }
 
-pub(in crate::app::tui_adapter) fn reply_with_context(
+pub(in crate::app::tui_adapter) fn reply_with_context_and_cancel(
     user_request: &str,
     local_context: &str,
     history: &[TuiConversationTurn],
     context_limit_tokens: u32,
+    cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
+    cancellation.check()?;
     let prompt =
         assemble_plain_prompt(user_request, local_context, history, context_limit_tokens)?.text;
-    crate::app::inference_adapter::answer::generate_for_user(
+    crate::app::inference_adapter::answer::generate_for_user_with_cancel(
         &prompt,
         user_request,
         GenerationIntent::InteractiveAnswer,
+        cancellation,
     )
 }
 
-pub(in crate::app::tui_adapter) fn reply_with_images(
+pub(in crate::app::tui_adapter) fn reply_with_images_and_cancel(
     input: &BackendChatInput,
     history: &[TuiConversationTurn],
     context_limit_tokens: u32,
+    cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
+    cancellation.check()?;
     let mut input = input.clone();
     input.text = assemble_vision_prompt(&input, history, context_limit_tokens)?.text;
-    crate::app::inference_adapter::answer::generate_input(&input, GenerationIntent::VisionAnswer)
+    crate::app::inference_adapter::answer::generate_input_with_cancel(
+        &input,
+        GenerationIntent::VisionAnswer,
+        cancellation,
+    )
 }
 
 pub(in crate::app::tui_adapter) fn estimate_context_tokens(

@@ -35,6 +35,9 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
                 elapsed: Duration::ZERO,
                 progress:
                     &crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter::default(),
+                cancellation:
+                    &crate::runtime_core::inference::cancellation::RequestCancellationToken::default(
+                    ),
             },
         )?;
         return Ok(super::super::web_tools::answer(observation, request).response);

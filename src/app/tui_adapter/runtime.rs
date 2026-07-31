@@ -14,6 +14,7 @@ use super::{
     canonical_selection_lease,
 };
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::surfaces::tui::controller::TuiRuntimePort;
 use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::runtime_bridge::{
@@ -80,6 +81,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             request,
             attachments,
             &TuiRequestProgressReporter::default(),
+            &RequestCancellationToken::default(),
         )
     }
 
@@ -88,6 +90,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         request: &str,
         attachments: &[TuiAttachment],
         progress: &TuiRequestProgressReporter,
+        cancellation: &RequestCancellationToken,
     ) -> Result<String, AppError> {
         self.ensure_fresh_session()?;
         self.conversation_memory()?;
@@ -102,6 +105,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             memory.turns(),
             memory.web_grounding(),
             progress,
+            cancellation,
         );
         let result = match execution {
             Ok(execution) => {
@@ -117,6 +121,10 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 })
             }
             Err(error) => {
+                if cancellation.is_cancelled() {
+                    self.conversation_memory = Some(memory);
+                    return Err(error);
+                }
                 let recorded = super::session_memory::record_failure(
                     &mut memory,
                     request.trim(),

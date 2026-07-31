@@ -4,6 +4,7 @@ use super::super::{attachment, conversation, TuiRuntimeAdapter};
 use super::backend::{ensure_runtime_ready, vision_status, RuntimeRequirement};
 use crate::app::web_search_adapter::{self, WebToolRoute};
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::surfaces::tui::runtime_bridge::{
     TuiAttachment, TuiConversationTurn, TuiRequestProgress, TuiRequestProgressReporter,
 };
@@ -27,7 +28,9 @@ pub(super) fn execute(
     history: &[TuiConversationTurn],
     web_grounding: &[crate::app::web_search_adapter::WebGroundingEvidence],
     progress: &TuiRequestProgressReporter,
+    cancellation: &RequestCancellationToken,
 ) -> Result<RequestExecution, AppError> {
+    cancellation.check()?;
     progress.emit(TuiRequestProgress::Preparing);
     let mut execution = execute_routed(
         adapter,
@@ -36,7 +39,9 @@ pub(super) fn execute(
         history,
         web_grounding,
         progress,
+        cancellation,
     )?;
+    cancellation.check()?;
     execution.response = conversation::ensure_public_answer(execution.response)?;
     Ok(execution)
 }
@@ -48,7 +53,9 @@ fn execute_routed(
     history: &[TuiConversationTurn],
     web_grounding: &[crate::app::web_search_adapter::WebGroundingEvidence],
     progress: &TuiRequestProgressReporter,
+    cancellation: &RequestCancellationToken,
 ) -> Result<RequestExecution, AppError> {
+    cancellation.check()?;
     let web_started = Instant::now();
     let mut web_research = crate::app::web_search_adapter::WebResearchSession::default();
     let user_request = request.trim();
@@ -72,10 +79,11 @@ fn execute_routed(
     if !input.images.is_empty() {
         ensure_runtime_ready(RuntimeRequirement::Vision)?;
         progress.emit(TuiRequestProgress::Answering);
-        return conversation::reply_with_images(
+        return conversation::reply_with_images_and_cancel(
             &input,
             history,
             required_context_limit(context_limit_tokens)?,
+            cancellation,
         )
         .map(plain_execution);
     }
@@ -102,6 +110,7 @@ fn execute_routed(
                 conversation_context: &web_conversation_context,
                 elapsed: web_started.elapsed(),
                 progress,
+                cancellation,
             },
         );
     }
@@ -127,11 +136,12 @@ fn execute_routed(
         .map(plain_execution);
     }
     progress.emit(TuiRequestProgress::Deciding);
-    match conversation::decide_request(
+    match conversation::decide_request_with_cancel(
         user_request,
         history,
         required_context_limit(context_limit_tokens)?,
         conversational && !has_text_attachments,
+        cancellation,
     )? {
         conversation::RequestDecision::Answer(answer) => {
             progress.emit(TuiRequestProgress::Answering);
@@ -154,6 +164,7 @@ fn execute_routed(
                     conversation_context: &web_conversation_context,
                     elapsed: web_started.elapsed(),
                     progress,
+                    cancellation,
                 },
             );
         }
@@ -161,15 +172,17 @@ fn execute_routed(
     }
     if conversational {
         progress.emit(TuiRequestProgress::Answering);
-        return conversation::reply_with_context(
+        return conversation::reply_with_context_and_cancel(
             user_request,
             local_context,
             history,
             required_context_limit(context_limit_tokens)?,
+            cancellation,
         )
         .map(plain_execution);
     }
     progress.emit(TuiRequestProgress::LocalWork);
+    cancellation.check()?;
     crate::app::runtime_adapter::agent_run_report(local_context)
         .map(|report| conversation::present_agent_report(&report))
         .map(plain_execution)

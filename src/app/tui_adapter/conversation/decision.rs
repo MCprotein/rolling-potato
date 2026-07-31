@@ -1,5 +1,6 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::ResponseLanguage;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
@@ -11,11 +12,45 @@ pub(in crate::app::tui_adapter) enum RequestDecision {
     WebTool(crate::app::web_search_adapter::WebToolRoute),
 }
 
+#[cfg(test)]
 pub(in crate::app::tui_adapter) fn decide_request(
     user_request: &str,
     history: &[TuiConversationTurn],
     context_limit_tokens: u32,
     allow_direct_answer: bool,
+) -> Result<RequestDecision, AppError> {
+    decide_request_impl(
+        user_request,
+        history,
+        context_limit_tokens,
+        allow_direct_answer,
+        None,
+    )
+}
+
+pub(in crate::app::tui_adapter) fn decide_request_with_cancel(
+    user_request: &str,
+    history: &[TuiConversationTurn],
+    context_limit_tokens: u32,
+    allow_direct_answer: bool,
+    cancellation: &RequestCancellationToken,
+) -> Result<RequestDecision, AppError> {
+    cancellation.check()?;
+    decide_request_impl(
+        user_request,
+        history,
+        context_limit_tokens,
+        allow_direct_answer,
+        Some(cancellation),
+    )
+}
+
+fn decide_request_impl(
+    user_request: &str,
+    history: &[TuiConversationTurn],
+    context_limit_tokens: u32,
+    allow_direct_answer: bool,
+    cancellation: Option<&RequestCancellationToken>,
 ) -> Result<RequestDecision, AppError> {
     let response_language = ResponseLanguage::from_user_request(user_request);
     let language_instruction = super::reply::language_instruction(response_language);
@@ -50,12 +85,24 @@ pub(in crate::app::tui_adapter) fn decide_request(
     let prompt = prompt_context
         .assemble(&instructions, "", user_request, "응답:")?
         .text;
-    let candidate = crate::app::inference_adapter::answer::generate_structured_candidate_for_user(
-        &prompt,
-        user_request,
-        GenerationIntent::StructuredRouteAndAnswer,
-        crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
-    )?;
+    let candidate = match cancellation {
+        Some(cancellation) => crate::app::inference_adapter::answer::generate_structured_candidate_for_user_with_cancel(
+            &prompt,
+            user_request,
+            GenerationIntent::StructuredRouteAndAnswer,
+            crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
+            cancellation,
+        )?,
+        None => crate::app::inference_adapter::answer::generate_structured_candidate_for_user(
+            &prompt,
+            user_request,
+            GenerationIntent::StructuredRouteAndAnswer,
+            crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
+        )?,
+    };
+    if let Some(cancellation) = cancellation {
+        cancellation.check()?;
+    }
     decide_generated_candidate(
         candidate,
         user_request,

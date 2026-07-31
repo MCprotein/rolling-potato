@@ -34,6 +34,7 @@ struct ConversationRuntime {
     submit_delay_ms: u64,
     context_estimate: Option<u32>,
     status_failure: Option<String>,
+    cooperatively_stalled: bool,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -165,6 +166,24 @@ impl TuiRuntimePort for ConversationRuntime {
             return Err(AppError::runtime("테스트 요청 실패"));
         }
         Ok("안녕하세요.".to_string())
+    }
+
+    fn submit_request_with_progress(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+        _progress: &crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter,
+        cancellation: &crate::runtime_core::inference::cancellation::RequestCancellationToken,
+    ) -> Result<String, AppError> {
+        if !self.cooperatively_stalled {
+            return self.submit_request(request, attachments);
+        }
+        self.requests.push(request.to_string());
+        while !cancellation.is_cancelled() {
+            std::thread::yield_now();
+        }
+        cancellation.check()?;
+        unreachable!()
     }
 
     fn new_tui_intent_id(&mut self) -> String {
