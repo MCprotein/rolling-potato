@@ -48,6 +48,7 @@ include!("tests/termination.rs");
 include!("tests/discovery.rs");
 include!("tests/installation.rs");
 include!("tests/records.rs");
+include!("tests/vision.rs");
 include!("tests/generation.rs");
 include!("tests/lifecycle.rs");
 include!("tests/diagnostics.rs");

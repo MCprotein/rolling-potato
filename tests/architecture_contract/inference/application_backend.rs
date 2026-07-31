@@ -6,12 +6,14 @@ fn assert_application_backend_owners() {
     let backend_runtime_snapshot_path = "src/app/inference_adapter/backend/runtime_snapshot.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
+    let backend_support_path = "src/app/inference_adapter/backend/support.rs";
     let backend_state_path = "src/adapters/filesystem/backend_state.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let backend_tests_termination_path = "src/app/inference_adapter/backend/tests/termination.rs";
     let backend_tests_discovery_path = "src/app/inference_adapter/backend/tests/discovery.rs";
     let backend_tests_installation_path = "src/app/inference_adapter/backend/tests/installation.rs";
     let backend_tests_records_path = "src/app/inference_adapter/backend/tests/records.rs";
+    let backend_tests_vision_path = "src/app/inference_adapter/backend/tests/vision.rs";
     let backend_tests_generation_path = "src/app/inference_adapter/backend/tests/generation.rs";
     let backend_tests_lifecycle_path = "src/app/inference_adapter/backend/tests/lifecycle.rs";
     let backend_tests_diagnostics_path = "src/app/inference_adapter/backend/tests/diagnostics.rs";
@@ -22,11 +24,13 @@ fn assert_application_backend_owners() {
     assert!(Path::new(backend_runtime_snapshot_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_sidecar_startup_path).is_file());
+    assert!(Path::new(backend_support_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     assert!(Path::new(backend_tests_termination_path).is_file());
     assert!(Path::new(backend_tests_discovery_path).is_file());
     assert!(Path::new(backend_tests_installation_path).is_file());
     assert!(Path::new(backend_tests_records_path).is_file());
+    assert!(Path::new(backend_tests_vision_path).is_file());
     assert!(Path::new(backend_tests_generation_path).is_file());
     assert!(Path::new(backend_tests_lifecycle_path).is_file());
     assert!(Path::new(backend_tests_diagnostics_path).is_file());
@@ -38,12 +42,14 @@ fn assert_application_backend_owners() {
     let backend_runtime_snapshot = fs::read_to_string(backend_runtime_snapshot_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
+    let backend_support = fs::read_to_string(backend_support_path).unwrap();
     let backend_state = fs::read_to_string(backend_state_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let backend_tests_termination = fs::read_to_string(backend_tests_termination_path).unwrap();
     let backend_tests_discovery = fs::read_to_string(backend_tests_discovery_path).unwrap();
     let backend_tests_installation = fs::read_to_string(backend_tests_installation_path).unwrap();
     let backend_tests_records = fs::read_to_string(backend_tests_records_path).unwrap();
+    let backend_tests_vision = fs::read_to_string(backend_tests_vision_path).unwrap();
     let backend_tests_generation = fs::read_to_string(backend_tests_generation_path).unwrap();
     let backend_tests_lifecycle = fs::read_to_string(backend_tests_lifecycle_path).unwrap();
     let backend_tests_diagnostics = fs::read_to_string(backend_tests_diagnostics_path).unwrap();
@@ -58,6 +64,7 @@ fn assert_application_backend_owners() {
         "discovery",
         "installation",
         "records",
+        "vision",
         "generation",
         "lifecycle",
         "diagnostics",
@@ -266,6 +273,21 @@ fn assert_application_backend_owners() {
         backend_adapter.lines().count() < 125,
         "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
     );
+    for responsibility in [
+        "fn vision_readiness(",
+        "fn runtime_vision_projector_ready(",
+        "fn runtime_binding_matches(",
+    ] {
+        assert!(
+            backend_support.contains(responsibility),
+            "inference backend support owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns: {responsibility}"
+        );
+    }
+    assert!(backend_support.lines().count() < 100);
     assert!(context_window.lines().count() < 100);
     assert!(backend_runtime_snapshot.lines().count() < 75);
     assert!(
@@ -293,6 +315,7 @@ fn assert_application_backend_owners() {
     assert!(backend_tests_discovery.lines().count() < 75);
     assert!(backend_tests_installation.lines().count() < 250);
     assert!(backend_tests_records.lines().count() < 150);
+    assert!(backend_tests_vision.lines().count() < 125);
     assert!(backend_tests_generation.lines().count() < 325);
     assert!(backend_tests_lifecycle.lines().count() < 150);
     assert!(backend_tests_diagnostics.lines().count() < 50);
