@@ -25,6 +25,7 @@ use crate::runtime_core::inference::backend::lifecycle::{
 };
 use crate::runtime_core::inference::backend::BackendAdapter;
 use crate::runtime_core::inference::model::manifest::model_id_for_artifact_hash;
+use crate::runtime_core::inference::model::manifest::{source_backed_vision_projector, CANDIDATES};
 use llama_backend::LlamaCppAdapter;
 #[cfg(test)]
 use llama_backend::{
@@ -101,6 +102,22 @@ fn model_identity(record: &BackendSidecarRecord) -> String {
     model_id_for_artifact_hash(&record.model_sha256)
         .map(str::to_string)
         .unwrap_or_else(|| format!("unregistered-artifact:{}", record.model_sha256))
+}
+
+fn vision_readiness(record: &BackendSidecarRecord) -> &'static str {
+    if record.mmproj_path.is_some() {
+        return "ready";
+    }
+    CANDIDATES
+        .iter()
+        .find(|candidate| candidate.sha256 == Some(record.model_sha256.as_str()))
+        .map_or("unavailable (text-ready)", |candidate| {
+            if source_backed_vision_projector(candidate).is_some() {
+                "on-demand (text-ready)"
+            } else {
+                "unsupported (text-ready)"
+            }
+        })
 }
 
 fn display_vec(values: &[String]) -> String {

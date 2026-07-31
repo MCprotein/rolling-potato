@@ -94,6 +94,22 @@ fn sidecar_record_round_trip_preserves_ctx_size_and_vision_artifact() {
 }
 
 #[test]
+fn backend_vision_readiness_distinguishes_support_from_runtime_readiness() {
+    let mut record = generation_test_sidecar();
+    record.model_sha256 =
+        "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d".to_string();
+
+    assert_eq!(vision_readiness(&record), "on-demand (text-ready)");
+
+    record.mmproj_path = Some(PathBuf::from("/models/mmproj.gguf"));
+    assert_eq!(vision_readiness(&record), "ready");
+
+    record.mmproj_path = None;
+    record.model_sha256 = "f".repeat(64);
+    assert_eq!(vision_readiness(&record), "unavailable (text-ready)");
+}
+
+#[test]
 fn generation_record_codec_preserves_exact_bytes_and_round_trips() {
     let record = BackendGenerationRecord {
         generation_id: "generation-codec".to_string(),

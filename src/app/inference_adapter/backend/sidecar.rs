@@ -150,11 +150,7 @@ pub fn status_report() -> Result<String, AppError> {
         record.pid,
         record.binary_path.display(),
         record.model_path.display(),
-        if record.mmproj_path.is_some() {
-            "ready"
-        } else {
-            "unavailable (text-ready)"
-        },
+        super::vision_readiness(&record),
         record
             .mmproj_path
             .as_ref()

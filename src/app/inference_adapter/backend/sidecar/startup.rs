@@ -173,11 +173,7 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
-                if record.mmproj_path.is_some() {
-                    "ready"
-                } else {
-                    "unavailable (text-ready)"
-                },
+                super::super::vision_readiness(&record),
                 record
                     .mmproj_path
                     .as_ref()
