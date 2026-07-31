@@ -1,4 +1,5 @@
 use super::*;
+use crate::surfaces::tui::controller::TuiRuntimePort;
 
 #[test]
 fn fresh_session_compaction_never_targets_the_previous_session() {

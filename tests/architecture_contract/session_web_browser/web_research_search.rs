@@ -4,9 +4,20 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let app_facade = fs::read_to_string("src/app/web_search_adapter.rs").unwrap();
     let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
+    let tui_runtime_port = fs::read_to_string("src/app/tui_adapter/runtime/port.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let tui_request_routing =
+        fs::read_to_string("src/app/tui_adapter/runtime/request/routing.rs").unwrap();
     let tui_request_support =
         fs::read_to_string("src/app/tui_adapter/runtime/request/support.rs").unwrap();
+    let tui_request_context =
+        fs::read_to_string("src/app/tui_adapter/runtime/request/support/context.rs").unwrap();
+    let tui_request_web_execution = fs::read_to_string(
+        "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+    )
+    .unwrap();
+    let tui_request_support_tests =
+        fs::read_to_string("src/app/tui_adapter/runtime/request/support/tests.rs").unwrap();
     let web_tools = fs::read_to_string("src/app/tui_adapter/web_tools.rs").unwrap();
     let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
     let tui_command_dispatch =
@@ -21,6 +32,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let agent_turn = fs::read_to_string("src/runtime_core/agent.rs").unwrap();
 
     for path in [
+        "src/adapters/web_search/browser_policy.rs",
         "src/adapters/web_search/evidence.rs",
         "src/adapters/web_search/find.rs",
         "src/adapters/web_search/html.rs",
@@ -63,6 +75,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/routing/web_policy.rs",
         "src/app/tui_adapter/runtime/web_sources.rs",
         "src/app/tui_adapter/runtime/request/support.rs",
+        "src/app/tui_adapter/runtime/request/support/context.rs",
+        "src/app/tui_adapter/runtime/request/support/tests.rs",
+        "src/app/tui_adapter/runtime/request/support/web_execution.rs",
         "src/app/tui_adapter/web_tools.rs",
         "src/runtime_core/agent.rs",
         "src/surfaces/tui/controller/command_dispatch/web.rs",
@@ -71,7 +86,15 @@ fn web_search_open_find_have_separate_bounded_owners() {
     ] {
         assert!(Path::new(path).is_file(), "missing web tool owner: {path}");
     }
-    for module in ["evidence", "find", "html", "page", "policy", "transport"] {
+    for module in [
+        "browser_policy",
+        "evidence",
+        "find",
+        "html",
+        "page",
+        "policy",
+        "transport",
+    ] {
         assert!(
             adapter_facade
                 .lines()
@@ -127,12 +150,17 @@ fn web_search_open_find_have_separate_bounded_owners() {
     }
     assert!(tui_web_dispatch.lines().count() < 125);
     assert!(tui_bridge.contains("struct TuiWebSourceOption"));
-    assert!(tui_request.contains("web_search_adapter::route_tool_request"));
-    assert!(tui_request.contains("execute_web_turn("));
+    assert!(tui_request_routing.contains("web_search_adapter::route_tool_request"));
+    assert!(tui_request_routing.contains("execute_web_turn("));
+    assert!(tui_request.lines().any(|line| line == "mod routing;"));
     assert!(tui_request.lines().any(|line| line == "mod support;"));
-    assert!(tui_request_support.contains("web_tools::observe"));
-    assert!(tui_request_support.contains("web_tools::answer"));
-    assert!(tui_request_support.contains("fn required_context_limit("));
+    assert!(tui_request_support.contains("mod context;"));
+    assert!(tui_request_support.contains("mod web_execution;"));
+    assert!(tui_request_support.contains("#[path = \"support/tests.rs\"]"));
+    assert!(tui_request_support_tests.contains("fn web_turn_records_typed_success_and_blocked_activity("));
+    assert!(tui_request_web_execution.contains("web_tools::observe"));
+    assert!(tui_request_web_execution.contains("web_tools::answer"));
+    assert!(tui_request_context.contains("fn required_context_limit("));
     assert!(!web_tools.contains("route_tool_request"));
     assert!(agent_turn.contains("TURN_DECISION_JSON_SCHEMA"));
     assert!(agent_turn.contains("enum AgentTurnDecision"));
@@ -160,7 +188,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(routing.lines().any(|line| line == "mod web_policy;"));
     assert!(routing_protocol.contains("fn route_tool_request("));
     assert!(routing_page_intent.contains("fn route_current_page_find("));
-    assert!(tui_request.contains("web_search_adapter::route_current_page_find"));
+    assert!(tui_request_routing.contains("web_search_adapter::route_current_page_find"));
     assert!(!routing_protocol.contains("WEB TOOL:"));
     assert!(routing_query.contains("fn contextualize_search_input("));
     assert!(routing_query.lines().any(|line| line == "mod context;"));
@@ -292,9 +320,16 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(research_flow.contains("supporting_passages("));
     assert!(research_flow.lines().count() < 350);
     assert!(research_flow_tests.lines().count() < 225);
-    assert!(tui_runtime.lines().count() <= 200);
-    assert!(tui_request.lines().count() < 150);
-    assert!(tui_request_support.lines().count() < 75);
+    assert!(tui_runtime.lines().any(|line| line == "mod port;"));
+    assert!(tui_runtime_port.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
+    assert!(tui_runtime.lines().count() < 25);
+    assert!(tui_runtime_port.lines().count() < 225);
+    assert!(tui_request.lines().count() < 75);
+    assert!(tui_request_routing.lines().count() < 225);
+    assert!(tui_request_support.lines().count() < 25);
+    assert!(tui_request_context.lines().count() < 75);
+    assert!(tui_request_web_execution.lines().count() < 125);
+    assert!(tui_request_support_tests.lines().count() < 100);
 }
 
 #[test]

@@ -1,6 +1,7 @@
 #[test]
 fn session_memory_review_fixes_keep_separate_bounded_owners() {
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
+    let tui_runtime_port = fs::read_to_string("src/app/tui_adapter/runtime/port.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
     let tui_status = fs::read_to_string("src/app/tui_adapter/runtime/status.rs").unwrap();
     let tui_status_tests =
@@ -74,9 +75,8 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
             "session-memory production owner contains regression test: {responsibility}"
         );
     }
-    assert!(tui_runtime.contains(
-        "super::session_memory::record_exchange_with_tool_activities("
-    ));
+    assert!(tui_runtime.lines().any(|line| line == "mod port;"));
+    assert!(tui_runtime_port.contains("session_memory::record_exchange_with_tool_activities("));
     assert!(!tui_request.contains("TranscriptOwner"));
     assert!(tui_status.contains("conversation::estimate_context_tokens("));
     assert!(tui_status.contains("resolve_context_tokens(latest_context_tokens"));
