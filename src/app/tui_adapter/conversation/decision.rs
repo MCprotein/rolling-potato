@@ -128,34 +128,33 @@ pub(super) fn decide_generated_candidate(
 ) -> Result<RequestDecision, AppError> {
     match crate::runtime_core::agent::parse_turn_decision(&candidate.visible, allow_direct_answer) {
         Ok(crate::runtime_core::agent::AgentTurnDecision::Answer(answer)) => {
-            return crate::app::inference_adapter::answer::finish_candidate(
+            crate::app::inference_adapter::answer::finish_candidate(
                 crate::app::inference_adapter::answer::GeneratedCandidate {
                     response_language: candidate.response_language,
                     visible: answer,
                 },
             )
-            .map(RequestDecision::Answer);
+            .map(RequestDecision::Answer)
         }
         Ok(crate::runtime_core::agent::AgentTurnDecision::Tool(tool)) if web_enabled => {
             if let Some(decision) =
                 request_decision_from_agent_tool(tool, user_request, prior_user_requests)
             {
-                return Ok(decision);
+                Ok(decision)
+            } else {
+                Ok(freshness_recovery(user_request, prior_user_requests)
+                    .map(RequestDecision::WebTool)
+                    .unwrap_or(RequestDecision::ContinueLocal))
             }
-            return Ok(freshness_recovery(user_request, prior_user_requests)
-                .map(RequestDecision::WebTool)
-                .unwrap_or(RequestDecision::ContinueLocal));
         }
         Ok(crate::runtime_core::agent::AgentTurnDecision::Tool(_))
         | Ok(crate::runtime_core::agent::AgentTurnDecision::ContinueLocal) => {
-            return Ok(RequestDecision::ContinueLocal);
+            Ok(RequestDecision::ContinueLocal)
         }
-        Err(_) if web_enabled => {
-            return Ok(freshness_recovery(user_request, prior_user_requests)
-                .map(RequestDecision::WebTool)
-                .unwrap_or(RequestDecision::ContinueLocal));
-        }
-        Err(_) => return Ok(RequestDecision::ContinueLocal),
+        Err(_) if web_enabled => Ok(freshness_recovery(user_request, prior_user_requests)
+            .map(RequestDecision::WebTool)
+            .unwrap_or(RequestDecision::ContinueLocal)),
+        Err(_) => Ok(RequestDecision::ContinueLocal),
     }
 }
 
