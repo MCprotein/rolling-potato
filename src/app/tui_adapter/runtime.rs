@@ -18,7 +18,8 @@ use crate::surfaces::tui::controller::TuiRuntimePort;
 use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::runtime_bridge::{
     new_tui_intent_id, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiReadPage,
-    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot, TuiWebSourceOption,
+    TuiReadRequest, TuiRequestProgress, TuiRequestProgressReporter, TuiSessionOption,
+    TuiSessionTransition, TuiStatusSnapshot, TuiWebSourceOption,
 };
 use backend::reconcile_existing_runtime;
 pub(super) use state::TuiRuntimeAdapter;
@@ -75,6 +76,19 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         request: &str,
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
+        self.submit_request_with_progress(
+            request,
+            attachments,
+            &TuiRequestProgressReporter::default(),
+        )
+    }
+
+    fn submit_request_with_progress(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+        progress: &TuiRequestProgressReporter,
+    ) -> Result<String, AppError> {
         self.ensure_fresh_session()?;
         self.conversation_memory()?;
         let mut memory = self
@@ -87,6 +101,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             attachments,
             memory.turns(),
             memory.web_grounding(),
+            progress,
         );
         let result = match execution {
             Ok(execution) => {
@@ -96,7 +111,10 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                     &execution.response,
                     &execution.web_grounding,
                 );
-                recorded.map(|()| execution.response)
+                recorded.map(|()| {
+                    progress.emit(TuiRequestProgress::Completed);
+                    execution.response
+                })
             }
             Err(error) => {
                 let recorded = super::session_memory::record_failure(

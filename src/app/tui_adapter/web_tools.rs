@@ -3,6 +3,7 @@ use crate::app::web_search_adapter::{
     WebToolObservation, WebToolRoute,
 };
 use crate::foundation::error::AppError;
+use crate::surfaces::tui::runtime_bridge::{TuiRequestProgress, TuiRequestProgressReporter};
 use std::time::Duration;
 
 pub(super) struct WebToolExecution {
@@ -10,33 +11,55 @@ pub(super) struct WebToolExecution {
     pub(super) grounding: Vec<WebGroundingEvidence>,
 }
 
+pub(super) struct WebTurnContext<'a> {
+    pub(super) request: &'a str,
+    pub(super) local_context: &'a str,
+    pub(super) conversation_context: &'a str,
+    pub(super) elapsed: Duration,
+    pub(super) progress: &'a TuiRequestProgressReporter,
+}
+
 pub(super) fn observe(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     route: WebToolRoute,
-    request: &str,
-    local_context: &str,
-    conversation_context: &str,
-    elapsed: Duration,
+    context: WebTurnContext<'_>,
 ) -> Result<WebToolObservation, AppError> {
     let route = web_search_adapter::validate_public_web_step(route)?;
     let current_document = pages.current_url();
-    let route = match research.admit(route, current_document, elapsed) {
+    let route = match research.admit(route, current_document, context.elapsed) {
         WebResearchAdmission::Execute(route) => route,
         WebResearchAdmission::Stop(terminal) => return Err(terminal.into_error()),
     };
     let failed_route = route.clone();
     let result = match route {
-        WebToolRoute::Search { query } => web_search_adapter::observe_search(
-            web_search_adapter::WebAnswerInput::new(&query, request, local_context)
-                .with_conversation_context(conversation_context),
-            research,
-            pages,
-            elapsed,
-        )
-        .map(WebToolObservation::Evidence),
+        WebToolRoute::Search { query } => {
+            let mut report_web_phase = |phase| {
+                context.progress.emit(match phase {
+                    web_search_adapter::WebResearchPhase::Searching => {
+                        TuiRequestProgress::Searching
+                    }
+                    web_search_adapter::WebResearchPhase::Opening => TuiRequestProgress::Opening,
+                    web_search_adapter::WebResearchPhase::Finding => TuiRequestProgress::Finding,
+                });
+            };
+            web_search_adapter::observe_search(
+                web_search_adapter::WebAnswerInput::new(
+                    &query,
+                    context.request,
+                    context.local_context,
+                )
+                .with_conversation_context(context.conversation_context),
+                research,
+                pages,
+                context.elapsed,
+                &mut report_web_phase,
+            )
+            .map(WebToolObservation::Evidence)
+        }
         WebToolRoute::Open { url } => {
-            web_search_adapter::observe_open_page(&url, request, research).map(|observed| {
+            context.progress.emit(TuiRequestProgress::Opening);
+            web_search_adapter::observe_open_page(&url, context.request, research).map(|observed| {
                 if let Some(page) = observed.page {
                     research.record_opened_document(&page.final_url);
                     pages.record(page);
@@ -45,7 +68,8 @@ pub(super) fn observe(
             })
         }
         WebToolRoute::Find { query } => {
-            web_search_adapter::observe_find_in_page(pages.current(), &query, request)
+            context.progress.emit(TuiRequestProgress::Finding);
+            web_search_adapter::observe_find_in_page(pages.current(), &query, context.request)
         }
     };
     match result {

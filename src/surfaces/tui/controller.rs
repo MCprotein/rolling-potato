@@ -4,7 +4,8 @@ use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalIo};
 use super::outcome::TuiOutcome;
 use super::runtime_bridge::{
     SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiModelOption, TuiReadPage,
-    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot, TuiWebSourceOption,
+    TuiReadRequest, TuiRequestProgressReporter, TuiSessionOption, TuiSessionTransition,
+    TuiStatusSnapshot, TuiWebSourceOption,
 };
 use super::view_model::{InteractiveState, InteractiveView};
 
@@ -57,6 +58,14 @@ pub(crate) trait TuiRuntimePort: Send {
         request: &str,
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError>;
+    fn submit_request_with_progress(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+        _progress: &TuiRequestProgressReporter,
+    ) -> Result<String, AppError> {
+        self.submit_request(request, attachments)
+    }
     fn new_tui_intent_id(&mut self) -> String;
     fn tui_selection_lease(&mut self, selected_object_id: &str)
         -> Result<SelectionLease, AppError>;

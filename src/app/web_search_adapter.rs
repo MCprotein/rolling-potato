@@ -44,6 +44,13 @@ pub(crate) enum WebToolObservation {
     Terminal(WebAnswerResult),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WebResearchPhase {
+    Searching,
+    Opening,
+    Finding,
+}
+
 pub(crate) struct WebEvidenceObservation {
     pub(crate) prompt: String,
     pub(crate) fallback: Option<String>,
@@ -79,8 +86,9 @@ pub(crate) fn observe_search(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     elapsed: Duration,
+    progress: &mut impl FnMut(WebResearchPhase),
 ) -> Result<WebEvidenceObservation, AppError> {
-    research_flow::observe(input, research, pages, elapsed)
+    research_flow::observe(input, research, pages, elapsed, progress)
 }
 
 pub(crate) fn answer_observation(

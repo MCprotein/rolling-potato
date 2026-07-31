@@ -3,7 +3,6 @@ use super::RequestExecution;
 use crate::app::web_search_adapter::{WebPageSession, WebResearchSession, WebToolRoute};
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::TuiConversationTurn;
-use std::time::Duration;
 
 pub(super) fn plain_execution(response: String) -> RequestExecution {
     RequestExecution {
@@ -23,20 +22,12 @@ pub(super) fn execute_web_turn(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     route: WebToolRoute,
-    request: &str,
-    local_context: &str,
-    conversation_context: &str,
-    elapsed: Duration,
+    context: web_tools::WebTurnContext<'_>,
 ) -> Result<RequestExecution, AppError> {
-    let observation = web_tools::observe(
-        research,
-        pages,
-        route,
-        request,
-        local_context,
-        conversation_context,
-        elapsed,
-    )?;
+    let progress = context.progress;
+    let request = context.request;
+    let observation = web_tools::observe(research, pages, route, context)?;
+    progress.emit(crate::surfaces::tui::runtime_bridge::TuiRequestProgress::Answering);
     Ok(web_execution(web_tools::answer(observation, request)))
 }
 

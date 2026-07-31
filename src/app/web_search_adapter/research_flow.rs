@@ -7,7 +7,7 @@ use crate::foundation::error::AppError;
 use super::{
     grounded_fallback, render_grounded_answer, web_answer_language_policy, WebAnswerInput,
     WebEvidenceObservation, WebGroundingEvidence, WebPageSession, WebResearchAdmission,
-    WebResearchSession, WebToolRoute,
+    WebResearchPhase, WebResearchSession, WebToolRoute,
 };
 
 const SEARCH_CONTEXT_CHARS: usize = 2_048;
@@ -24,9 +24,11 @@ pub(super) fn observe(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     elapsed: Duration,
+    progress: &mut impl FnMut(WebResearchPhase),
 ) -> Result<WebEvidenceObservation, AppError> {
     let started = Instant::now();
     let allow_lite_fallback = research.reserve_optional_network_request(elapsed);
+    progress(WebResearchPhase::Searching);
     let search = web_search::search(input.query, allow_lite_fallback)?;
     pages.record_discovered_sources(search.sources.clone());
     let search_context =
@@ -50,6 +52,7 @@ pub(super) fn observe(
         ) {
             break;
         }
+        progress(WebResearchPhase::Opening);
         let page = match web_search::open(&source.url) {
             Ok(WebOpenResult::Opened(page)) => page,
             Ok(WebOpenResult::Redirect { .. }) | Err(_) => {
@@ -65,6 +68,7 @@ pub(super) fn observe(
                 &page,
                 input.query,
                 elapsed.saturating_add(started.elapsed()),
+                progress,
             )
         } else {
             Vec::new()
@@ -131,6 +135,7 @@ fn supporting_passages(
     page: &WebPageEvidence,
     query: &str,
     elapsed: Duration,
+    progress: &mut impl FnMut(WebResearchPhase),
 ) -> Vec<String> {
     let Some(needle) = supporting_query_term(query) else {
         return Vec::new();
@@ -147,6 +152,7 @@ fn supporting_passages(
     ) {
         return Vec::new();
     }
+    progress(WebResearchPhase::Finding);
     web_search::find_in_page(page, &needle)
         .map(|evidence| {
             evidence
@@ -265,7 +271,7 @@ fn answer(
     elapsed: Duration,
 ) -> Result<super::WebAnswerResult, AppError> {
     let user_request = input.user_request.to_string();
-    observe(input, research, pages, elapsed).map(|observation| {
+    observe(input, research, pages, elapsed, &mut |_| {}).map(|observation| {
         super::answer_observation(
             super::WebToolObservation::Evidence(observation),
             &user_request,

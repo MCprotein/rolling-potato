@@ -28,10 +28,14 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
             &mut WebResearchSession::default(),
             pages,
             WebToolRoute::Open { url: source.url },
-            request,
-            "",
-            "",
-            Duration::ZERO,
+            super::super::web_tools::WebTurnContext {
+                request,
+                local_context: "",
+                conversation_context: "",
+                elapsed: Duration::ZERO,
+                progress:
+                    &crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter::default(),
+            },
         )?;
         return Ok(super::super::web_tools::answer(observation, request).response);
     }

@@ -4,7 +4,9 @@ use super::super::{attachment, conversation, TuiRuntimeAdapter};
 use super::backend::{ensure_runtime_ready, vision_status, RuntimeRequirement};
 use crate::app::web_search_adapter::{self, WebToolRoute};
 use crate::foundation::error::AppError;
-use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiConversationTurn};
+use crate::surfaces::tui::runtime_bridge::{
+    TuiAttachment, TuiConversationTurn, TuiRequestProgress, TuiRequestProgressReporter,
+};
 use std::time::Instant;
 
 mod support;
@@ -24,8 +26,17 @@ pub(super) fn execute(
     attachments: &[TuiAttachment],
     history: &[TuiConversationTurn],
     web_grounding: &[crate::app::web_search_adapter::WebGroundingEvidence],
+    progress: &TuiRequestProgressReporter,
 ) -> Result<RequestExecution, AppError> {
-    let mut execution = execute_routed(adapter, request, attachments, history, web_grounding)?;
+    progress.emit(TuiRequestProgress::Preparing);
+    let mut execution = execute_routed(
+        adapter,
+        request,
+        attachments,
+        history,
+        web_grounding,
+        progress,
+    )?;
     execution.response = conversation::ensure_public_answer(execution.response)?;
     Ok(execution)
 }
@@ -36,6 +47,7 @@ fn execute_routed(
     attachments: &[TuiAttachment],
     history: &[TuiConversationTurn],
     web_grounding: &[crate::app::web_search_adapter::WebGroundingEvidence],
+    progress: &TuiRequestProgressReporter,
 ) -> Result<RequestExecution, AppError> {
     let web_started = Instant::now();
     let mut web_research = crate::app::web_search_adapter::WebResearchSession::default();
@@ -59,6 +71,7 @@ fn execute_routed(
     let local_context = input.text.as_str();
     if !input.images.is_empty() {
         ensure_runtime_ready(RuntimeRequirement::Vision)?;
+        progress.emit(TuiRequestProgress::Answering);
         return conversation::reply_with_images(
             &input,
             history,
@@ -83,13 +96,17 @@ fn execute_routed(
             &mut web_research,
             &mut adapter.web_pages,
             route,
-            user_request,
-            local_context,
-            &web_conversation_context,
-            web_started.elapsed(),
+            super::super::web_tools::WebTurnContext {
+                request: user_request,
+                local_context,
+                conversation_context: &web_conversation_context,
+                elapsed: web_started.elapsed(),
+                progress,
+            },
         );
     }
     if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref(), vision) {
+        progress.emit(TuiRequestProgress::Answering);
         return Ok(plain_execution(reply));
     }
     ensure_runtime_ready(RuntimeRequirement::Text)?;
@@ -99,6 +116,7 @@ fn execute_routed(
         && !has_text_attachments
         && web_search_adapter::can_reuse_prior_grounding(user_request, web_grounding)
     {
+        progress.emit(TuiRequestProgress::Answering);
         let conversation_context =
             web_conversation_context(history, user_request, context_limit_tokens)?;
         return web_search_adapter::answer_from_grounding(
@@ -108,14 +126,19 @@ fn execute_routed(
         )
         .map(plain_execution);
     }
+    progress.emit(TuiRequestProgress::Deciding);
     match conversation::decide_request(
         user_request,
         history,
         required_context_limit(context_limit_tokens)?,
         conversational && !has_text_attachments,
     )? {
-        conversation::RequestDecision::Answer(answer) => return Ok(plain_execution(answer)),
+        conversation::RequestDecision::Answer(answer) => {
+            progress.emit(TuiRequestProgress::Answering);
+            return Ok(plain_execution(answer));
+        }
         conversation::RequestDecision::BrowserTool(tool) => {
+            progress.emit(TuiRequestProgress::LocalWork);
             return crate::app::browser_adapter::search_form(tool).map(plain_execution);
         }
         conversation::RequestDecision::WebTool(tool) => {
@@ -125,15 +148,19 @@ fn execute_routed(
                 &mut web_research,
                 &mut adapter.web_pages,
                 tool,
-                user_request,
-                local_context,
-                &web_conversation_context,
-                web_started.elapsed(),
+                super::super::web_tools::WebTurnContext {
+                    request: user_request,
+                    local_context,
+                    conversation_context: &web_conversation_context,
+                    elapsed: web_started.elapsed(),
+                    progress,
+                },
             );
         }
         conversation::RequestDecision::ContinueLocal => {}
     }
     if conversational {
+        progress.emit(TuiRequestProgress::Answering);
         return conversation::reply_with_context(
             user_request,
             local_context,
@@ -142,6 +169,7 @@ fn execute_routed(
         )
         .map(plain_execution);
     }
+    progress.emit(TuiRequestProgress::LocalWork);
     crate::app::runtime_adapter::agent_run_report(local_context)
         .map(|report| conversation::present_agent_report(&report))
         .map(plain_execution)

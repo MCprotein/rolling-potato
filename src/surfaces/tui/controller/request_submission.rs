@@ -3,7 +3,7 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalIo};
 
-use super::super::runtime_bridge::TuiAttachment;
+use super::super::runtime_bridge::{TuiAttachment, TuiRequestProgress, TuiRequestProgressReporter};
 use super::super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 use super::terminal_flow::write_pending_conversation_frame_with_status;
 use super::{read_status_or_notice, TuiRuntimePort};
@@ -70,27 +70,35 @@ pub(super) fn submit_request_with_progress(
     )?;
 
     let mut frame_error = None;
+    let (progress_reporter, progress_receiver) = TuiRequestProgressReporter::channel(32);
     let result = std::thread::scope(|scope| {
-        let handle = scope.spawn(|| runtime.submit_request(request, attachments));
+        let handle = scope.spawn(|| {
+            runtime.submit_request_with_progress(request, attachments, &progress_reporter)
+        });
         let mut tick = 1;
-        while !handle.is_finished() {
+        let mut runtime_progress = Vec::new();
+        loop {
             std::thread::sleep(REFRESH);
-            if handle.is_finished() || frame_error.is_some() {
-                continue;
+            let progress_changed = drain_progress(&progress_receiver, &mut runtime_progress);
+            if frame_error.is_none() && (!handle.is_finished() || progress_changed) {
+                let current = progress_notice(progress, &runtime_progress);
+                state.notice =
+                    activity_notice(SPINNER[tick % SPINNER.len()], started.elapsed(), &current);
+                tick += 1;
+                if let Err(error) = write_pending_conversation_frame_with_status(
+                    terminal,
+                    state,
+                    &status,
+                    width,
+                    height,
+                    &intent_id,
+                    FrameWriteBoundary::PostDispatch,
+                ) {
+                    frame_error = Some(error);
+                }
             }
-            state.notice =
-                activity_notice(SPINNER[tick % SPINNER.len()], started.elapsed(), progress);
-            tick += 1;
-            if let Err(error) = write_pending_conversation_frame_with_status(
-                terminal,
-                state,
-                &status,
-                width,
-                height,
-                &intent_id,
-                FrameWriteBoundary::PostDispatch,
-            ) {
-                frame_error = Some(error);
+            if handle.is_finished() {
+                break;
             }
         }
         handle.join()
@@ -100,6 +108,34 @@ pub(super) fn submit_request_with_progress(
         return Err(error);
     }
     result.map_err(|_| AppError::runtime("TUI 요청 실행 thread가 예기치 않게 종료되었습니다."))
+}
+
+fn drain_progress(
+    receiver: &std::sync::mpsc::Receiver<TuiRequestProgress>,
+    observed: &mut Vec<TuiRequestProgress>,
+) -> bool {
+    let mut changed = false;
+    while let Ok(progress) = receiver.try_recv() {
+        if !observed.contains(&progress) {
+            observed.push(progress);
+            changed = true;
+        }
+    }
+    changed
+}
+
+fn progress_notice(initial: &str, observed: &[TuiRequestProgress]) -> String {
+    if observed.is_empty() {
+        return initial.to_string();
+    }
+    format!(
+        "런타임 단계 · {}",
+        observed
+            .iter()
+            .map(|progress| progress.label())
+            .collect::<Vec<_>>()
+            .join(" → ")
+    )
 }
 
 pub(super) fn test_secret_probe_enabled() -> bool {
