@@ -222,13 +222,6 @@ impl NativeTerminalFixture {
         }
     }
 
-    pub fn start_conversation_backend(&self) -> PreparedConversationBackend {
-        self.start_conversation_backend_with_responses(
-            r#"{"decision":"web_search","input":"Rust 최신 릴리스","answer":""}"#,
-            "열린 원문을 바탕으로 생성한 최종 답변입니다. [source-f6c1fc4a4a917c01]",
-        )
-    }
-
     pub fn start_conversation_backend_with_responses(
         &self,
         structured_response_body: &str,

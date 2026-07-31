@@ -58,6 +58,30 @@ fn structured_model_turn_routes_tools_and_visible_answers_without_text_protocols
 }
 
 #[test]
+fn valid_model_tool_choice_wins_before_the_grounding_safety_fallback() {
+    let candidate = crate::app::inference_adapter::answer::GeneratedCandidate {
+        response_language: ResponseLanguage::KoreanDefault,
+        visible:
+            r#"{"decision":"web_open","input":"https://blog.example.net/rust-release","answer":""}"#
+                .to_string(),
+    };
+
+    assert_eq!(
+        decide_generated_candidate(
+            candidate,
+            "현재 Rust stable 정보를 https://blog.example.net/rust-release 에서 확인해줘",
+            &[],
+            true,
+            true,
+        )
+        .unwrap(),
+        RequestDecision::WebTool(crate::app::web_search_adapter::WebToolRoute::Open {
+            url: "https://blog.example.net/rust-release".to_string(),
+        })
+    );
+}
+
+#[test]
 fn required_external_grounding_overrides_a_small_model_direct_answer() {
     for request in [
         "2026년 월드컵 우승국가 어디냐",

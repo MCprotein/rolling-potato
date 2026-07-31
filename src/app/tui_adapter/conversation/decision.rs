@@ -28,16 +28,6 @@ pub(in crate::app::tui_adapter) fn decide_request(
         }
     }
     let prior_user_requests = recent_user_requests(history);
-    if web_enabled {
-        if let Some(tool) =
-            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
-                user_request,
-                &prior_user_requests,
-            )
-        {
-            return Ok(RequestDecision::WebTool(tool));
-        }
-    }
     let web_instruction = if web_enabled {
         "응답은 runtime이 강제하는 JSON object이며 decision, input, answer 세 field를 모두 채운다. 최신 정보나 외부 공개 근거가 필요하면 decision을 web_search, web_open, web_find 중 하나로 선택하고 input에 최소 공개 검색어·HTTPS URL·페이지 내부 검색어만 기록하며 answer는 빈 문자열로 둔다. 후속 질문의 검색어는 최근 사용자 발화를 반영한 자립형 문구로 만들되 모델 답변·첨부 내용·인증정보·개인정보는 넣지 않는다. 웹 도구가 필요하지 않으면 decision은 answer로 하고 answer에 최종 답변을 기록하며 input은 빈 문자열로 둔다."
     } else {
@@ -82,18 +72,17 @@ pub(super) fn decide_generated_candidate(
     web_enabled: bool,
     allow_direct_answer: bool,
 ) -> Result<RequestDecision, AppError> {
-    if web_enabled {
-        if let Some(tool) =
-            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
-                user_request,
-                prior_user_requests,
-            )
-        {
-            return Ok(RequestDecision::WebTool(tool));
-        }
-    }
+    let grounding_fallback = web_enabled.then(|| {
+        crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
+            user_request,
+            prior_user_requests,
+        )
+    });
     match crate::runtime_core::agent::parse_turn_decision(&candidate.visible, allow_direct_answer) {
         Ok(crate::runtime_core::agent::AgentTurnDecision::Answer(answer)) => {
+            if let Some(tool) = grounding_fallback.flatten() {
+                return Ok(RequestDecision::WebTool(tool));
+            }
             return crate::app::inference_adapter::answer::finish_candidate(
                 crate::app::inference_adapter::answer::GeneratedCandidate {
                     response_language: candidate.response_language,
@@ -111,19 +100,15 @@ pub(super) fn decide_generated_candidate(
         }
         Ok(crate::runtime_core::agent::AgentTurnDecision::Tool(_))
         | Ok(crate::runtime_core::agent::AgentTurnDecision::ContinueLocal) => {
+            if let Some(tool) = grounding_fallback.flatten() {
+                return Ok(RequestDecision::WebTool(tool));
+            }
             return Ok(RequestDecision::ContinueLocal);
         }
         Err(_) => {}
     }
-    if web_enabled {
-        if let Some(tool) =
-            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
-                user_request,
-                prior_user_requests,
-            )
-        {
-            return Ok(RequestDecision::WebTool(tool));
-        }
+    if let Some(tool) = grounding_fallback.flatten() {
+        return Ok(RequestDecision::WebTool(tool));
     }
     Ok(RequestDecision::ContinueLocal)
 }

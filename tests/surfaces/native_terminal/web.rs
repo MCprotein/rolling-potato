@@ -4,7 +4,10 @@ use super::*;
 #[test]
 fn conversation_agent_automatically_searches_and_returns_grounded_answer() {
     let fixture = NativeTerminalFixture::new("structured-web-conversation");
-    let backend = fixture.start_conversation_backend();
+    let backend = fixture.start_conversation_backend_with_responses(
+        r#"{"decision":"web_search","input":"Rust 최신 릴리스","answer":""}"#,
+        "열린 원문을 바탕으로 생성한 최종 답변입니다. [source-f6c1fc4a4a917c01]",
+    );
 
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("local ready");
@@ -23,14 +26,15 @@ fn conversation_agent_automatically_searches_and_returns_grounded_answer() {
     let requests = backend.request_bodies();
     assert_eq!(
         requests.len(),
-        1,
-        "명시적인 최신 정보 요청은 runtime이 검색을 결정하고 근거 답변 생성만 모델에 맡겨야 합니다: {requests:#?}"
+        2,
+        "최신 정보 요청은 모델의 구조화된 도구 결정과 근거 답변 생성이 모두 실행되어야 합니다: {requests:#?}"
     );
     assert!(requests[0].contains("\"response_format\""));
     assert!(requests[0].contains(r#""answer":{"type":"string"}"#));
     assert!(!requests[0].contains(r#""answer":{"type":"string","maxLength":"#));
-    assert!(requests[0].contains("OPENED_DOCUMENTS"));
-    assert!(requests[0].contains("안전한 Rust 안내서"));
+    assert!(requests[0].contains("\"web_search\""));
+    assert!(requests[1].contains("OPENED_DOCUMENTS"));
+    assert!(requests[1].contains("안전한 Rust 안내서"));
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
