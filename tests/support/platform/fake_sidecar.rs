@@ -93,19 +93,18 @@ fn handle(mut stream: TcpStream) {
 
     if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_MARKER") {
         if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
-            let _ = marker.write_all(b"request\n");
+            let request_kind = if is_input_tokens {
+                b"input_tokens\n".as_slice()
+            } else {
+                b"generation\n".as_slice()
+            };
+            let _ = marker.write_all(request_kind);
         }
     }
     if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_SIZE_MARKER") {
         if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
             let body_bytes = request.len().saturating_sub(header_end);
             let _ = writeln!(marker, "{body_bytes}");
-        }
-    }
-    if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_BODY_MARKER") {
-        if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
-            let _ = marker.write_all(request_body);
-            let _ = marker.write_all(b"\n---RPOTATO-REQUEST---\n");
         }
     }
 
@@ -118,6 +117,15 @@ fn handle(mut stream: TcpStream) {
         let _ = stream.write_all(response.as_bytes());
         let _ = stream.write_all(body);
         return;
+    }
+
+    // Body inspection belongs to the model generation request. Token preflight payloads use a
+    // different response contract and must not be mistaken for structured model decisions.
+    if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_BODY_MARKER") {
+        if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
+            let _ = marker.write_all(request_body);
+            let _ = marker.write_all(b"\n---RPOTATO-REQUEST---\n");
+        }
     }
 
     let response_path = response_fixture_path(request_body);

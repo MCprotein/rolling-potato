@@ -98,13 +98,10 @@ fn cli_team_runtime_executes_reconciles_and_retries_without_duplicate_merge() {
     }
     assert_eq!(ledger.matches("team.worker.completed").count(), 2);
     assert_eq!(ledger.matches("team.worker.action-owned").count(), 2);
-    assert_eq!(
-        fs::read_to_string(&fixture.requests)
-            .unwrap()
-            .lines()
-            .count(),
-        3
-    );
+    let requests = fs::read_to_string(&fixture.requests).unwrap();
+    assert_eq!(requests.lines().count(), 6);
+    assert_eq!(requests.lines().filter(|line| *line == "input_tokens").count(), 3);
+    assert_eq!(requests.lines().filter(|line| *line == "generation").count(), 3);
 }
 
 fn assert_stage_order(ledger: &str) {

@@ -30,7 +30,7 @@ fn native_backend_cancel_and_stop_lifecycle() {
         "15000",
     ]);
     wait_for_path(&fixture.active_generation_path(), Duration::from_secs(5));
-    wait_for_lines(&fixture.requests, 1, Duration::from_secs(5));
+    wait_for_marker_count(&fixture.requests, "generation", 1, Duration::from_secs(5));
     let cancel = fixture.command(&["backend", "cancel"]);
     assert_success(&cancel, "backend cancel");
     assert!(
@@ -63,7 +63,7 @@ fn native_backend_cancel_and_stop_lifecycle() {
         "15000",
     ]);
     wait_for_path(&fixture.active_generation_path(), Duration::from_secs(5));
-    wait_for_lines(&fixture.requests, 2, Duration::from_secs(5));
+    wait_for_marker_count(&fixture.requests, "generation", 2, Duration::from_secs(5));
     let stop = fixture.command(&["backend", "stop"]);
     assert_success(&stop, "backend stop");
     assert!(
@@ -243,18 +243,21 @@ fn wait_for_path(path: &Path, timeout: Duration) {
     panic!("path timeout: {}", path.display());
 }
 
-fn wait_for_lines(path: &Path, expected: usize, timeout: Duration) {
+fn wait_for_marker_count(path: &Path, marker: &str, expected: usize, timeout: Duration) {
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
-        let lines = fs::read_to_string(path)
-            .map(|text| text.lines().count())
+        let count = fs::read_to_string(path)
+            .map(|text| text.lines().filter(|line| *line == marker).count())
             .unwrap_or(0);
-        if lines >= expected {
+        if count >= expected {
             return;
         }
         thread::sleep(Duration::from_millis(10));
     }
-    panic!("line count timeout: {} expected {expected}", path.display());
+    panic!(
+        "request marker timeout: {} marker={marker} expected={expected}",
+        path.display()
+    );
 }
 
 fn assert_success(output: &Output, label: &str) {

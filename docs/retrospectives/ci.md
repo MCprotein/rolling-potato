@@ -361,6 +361,8 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
   `choices` 필드를 거부했습니다.
 - Preflight가 generation admission보다 먼저 실행되어 동시 요청이 중복 preflight를
   수행할 수 있었고, stalled preflight는 기존 cancel lifecycle에서 보이지 않았습니다.
+- Endpoint 응답을 분리한 뒤에도 공용 fixture의 generation request marker가 token
+  preflight까지 세어, subagent 사용자 여정의 실제 생성 3회가 6회로 집계됐습니다.
 
 ### 원인
 
@@ -379,6 +381,10 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
   함께 찾아 같은 논리 변경에서 갱신합니다.
 - Fake sidecar는 endpoint별 request와 response schema를 엄격히 분리하고, 잘못된
   generation 응답이 token preflight에서 성공으로 해석되지 않게 합니다.
+- 공용 fake sidecar의 request marker는 `input_tokens`와 `generation`을 구분하고
+  size budget은 두 transport phase를 모두 집계합니다. 모델 결정 검사용 body
+  marker는 generation만 기록하며, subagent lifecycle exact test를 candidate
+  preflight에 포함해 request accounting 의미가 다시 합쳐지지 않게 합니다.
 - 필수 preflight는 별도 요청이 아니라 generation operation의 phase로 취급합니다.
   Admission과 cancel visibility를 먼저 만들고, 하나의 absolute deadline에서 각
   transport 직전 남은 시간을 계산합니다.

@@ -398,7 +398,19 @@ impl Fixture {
         let request_markers = fs::read_to_string(&self.requests).unwrap();
         let marker_lines = request_markers.lines().collect::<Vec<_>>();
         assert_eq!(marker_lines.len(), sizes.len());
-        assert!(marker_lines.iter().all(|line| *line == "request"));
+        assert!(marker_lines
+            .iter()
+            .all(|line| matches!(*line, "input_tokens" | "generation")));
+        assert_eq!(
+            marker_lines
+                .iter()
+                .filter(|line| **line == "input_tokens")
+                .count(),
+            marker_lines
+                .iter()
+                .filter(|line| **line == "generation")
+                .count()
+        );
         assert!(!request_markers.contains(SOURCE_CONTEXT_SENTINEL));
         assert!(!request_sizes.contains(SOURCE_CONTEXT_SENTINEL));
         assert_tree_omits(&self.project.join(".rpotato"), SOURCE_CONTEXT_SENTINEL);
