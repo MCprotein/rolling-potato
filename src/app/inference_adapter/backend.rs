@@ -105,19 +105,50 @@ fn model_identity(record: &BackendSidecarRecord) -> String {
 }
 
 fn vision_readiness(record: &BackendSidecarRecord) -> &'static str {
-    if record.mmproj_path.is_some() {
-        return "ready";
-    }
-    CANDIDATES
+    let Some(candidate) = CANDIDATES
         .iter()
         .find(|candidate| candidate.sha256 == Some(record.model_sha256.as_str()))
-        .map_or("unavailable (text-ready)", |candidate| {
-            if source_backed_vision_projector(candidate).is_some() {
-                "on-demand (text-ready)"
-            } else {
-                "unsupported (text-ready)"
-            }
-        })
+    else {
+        return "unavailable (text-ready)";
+    };
+    if source_backed_vision_projector(candidate).is_none() {
+        return "unsupported (text-ready)";
+    }
+    supported_vision_readiness(runtime_vision_projector_ready(record))
+}
+
+fn supported_vision_readiness(projector_ready: bool) -> &'static str {
+    if projector_ready {
+        "ready"
+    } else {
+        "on-demand (text-ready)"
+    }
+}
+
+fn runtime_vision_projector_ready(record: &BackendSidecarRecord) -> bool {
+    let Some(verified) = crate::app::inference_adapter::model::verified_vision_projector(
+        &record.model_path,
+        &record.model_sha256,
+    ) else {
+        return false;
+    };
+    runtime_binding_matches(
+        record,
+        &verified.path,
+        &verified.sha256,
+        verified.size_bytes,
+    )
+}
+
+fn runtime_binding_matches(
+    record: &BackendSidecarRecord,
+    verified_path: &Path,
+    verified_sha256: &str,
+    verified_size_bytes: u64,
+) -> bool {
+    record.mmproj_path.as_deref() == Some(verified_path)
+        && record.mmproj_sha256.as_deref() == Some(verified_sha256)
+        && record.mmproj_size_bytes == Some(verified_size_bytes)
 }
 
 fn display_vec(values: &[String]) -> String {

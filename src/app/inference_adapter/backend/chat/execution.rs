@@ -17,7 +17,9 @@ use super::super::generation_state::{
     ActiveGenerationGuard,
 };
 use super::super::resource_sampling::record_backend_resource_sample;
-use super::super::{display_optional_u128, display_optional_u32, now_ms};
+use super::super::{
+    display_optional_u128, display_optional_u32, now_ms, runtime_vision_projector_ready,
+};
 use super::failure::{
     finish_preflight_failure, finish_stream_failure, resource_governor_blocked,
     StreamFailureContext,
@@ -43,7 +45,7 @@ pub(super) fn chat_input_with_options(
     let started_at_ms = now_ms();
     let record = ready_sidecar_record()?;
     let runtime_profile = runtime_profile::resolve(&record);
-    preflight::ensure_vision_ready(input, record.mmproj_path.is_some())?;
+    preflight::ensure_vision_ready(input, runtime_vision_projector_ready(&record))?;
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
     let model_id = runtime_profile.model_id.clone();
     let admission_probe = resource::chat_governor_decision(governor_sample.pressure, 1);
