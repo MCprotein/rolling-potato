@@ -12,8 +12,8 @@ use crate::runtime_core::workflow::storage_compat::ledger::{
 };
 
 pub use crate::runtime_core::observability::facade::{
-    BenchmarkRunMetric, BenchmarkRunReport, ModelRunMetric, ResourceSampleMetric,
-    SessionHistoryEntry, StoreStatus,
+    BenchmarkGenerationStatus, BenchmarkRunMetric, BenchmarkRunReport, ModelRunMetric,
+    ResourceSampleMetric, SessionHistoryEntry, StoreStatus,
 };
 
 const PROJECTION: SqliteObservabilityProjection = SqliteObservabilityProjection;

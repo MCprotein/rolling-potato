@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::benchmark as benchmark_policy;
+use crate::runtime_core::observability::facade::BenchmarkGenerationStatus;
 
 use super::manifest::{
     BackendSmokeEvidence, InstallValidation, LocalArtifactState, ModelArtifactDescriptor,
@@ -19,6 +20,10 @@ pub(crate) struct PromotionBenchmarkEvidence {
     pub(crate) fixture_id: String,
     pub(crate) fixture_sha256: String,
     pub(crate) prompt_artifact_sha256: Option<String>,
+    pub(crate) evidence_schema_version: Option<u32>,
+    pub(crate) generation_status: Option<BenchmarkGenerationStatus>,
+    pub(crate) finish_reason: Option<String>,
+    pub(crate) generation_profile_fingerprint: Option<String>,
     pub(crate) benchmark_name: String,
     pub(crate) score: Option<f64>,
     pub(crate) dataset_ref: Option<String>,
@@ -189,6 +194,41 @@ pub(crate) fn validate_promotion_evidence(
                     &mut blockers,
                     "benchmark local_pass=true evidence가 필요합니다.",
                 );
+            }
+            if row.evidence_schema_version
+                != Some(benchmark_policy::BENCHMARK_EVIDENCE_SCHEMA_VERSION)
+            {
+                push_unique(
+                    &mut blockers,
+                    "benchmark generation evidence schema가 없거나 지원 버전과 다릅니다.",
+                );
+            }
+            if row.generation_status != Some(BenchmarkGenerationStatus::Complete)
+                || row.finish_reason.as_deref() != Some("stop")
+            {
+                push_unique(
+                    &mut blockers,
+                    "benchmark generation이 완결된 stop 응답이라는 typed evidence가 필요합니다.",
+                );
+            }
+            match candidate.generation_profile {
+                Some(profile)
+                    if row.generation_profile_fingerprint.as_deref()
+                        == Some(
+                            benchmark_policy::expected_generation_profile_fingerprint(
+                                artifact.sha256,
+                                profile,
+                            )
+                            .as_str(),
+                        ) => {}
+                Some(_) => push_unique(
+                    &mut blockers,
+                    "benchmark generation profile fingerprint가 현재 source-backed profile과 다릅니다.",
+                ),
+                None => push_unique(
+                    &mut blockers,
+                    "후보 manifest에 generation runtime profile이 없습니다.",
+                ),
             }
             if row.backend_id.as_deref() != Some(candidate.backend) {
                 push_unique(

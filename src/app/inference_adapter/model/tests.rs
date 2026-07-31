@@ -141,6 +141,10 @@ fn local_benchmark_status_reports_measured_qwen_row() {
         fixture_sha256: "fixture-sha".to_string(),
         prompt_artifact_sha256: Some("prompt-sha".to_string()),
         prompt_chars: Some(147),
+        evidence_schema_version: Some(benchmark_policy::BENCHMARK_EVIDENCE_SCHEMA_VERSION),
+        generation_status: Some(observability::BenchmarkGenerationStatus::Complete),
+        finish_reason: Some("stop".to_string()),
+        generation_profile_fingerprint: Some("status-only-test".to_string()),
         claim_state: "measured-locally".to_string(),
         score: Some(3.0),
         score_unit: Some("0-3-local-product-score".to_string()),
@@ -311,6 +315,51 @@ fn promotion_evidence_rejects_canonical_benchmark_contract_drift() {
 }
 
 #[test]
+fn promotion_evidence_rejects_legacy_and_profile_mismatched_benchmarks() {
+    let candidate = find_candidate("qwen3.5-4b").unwrap();
+    let artifact = source_backed_artifact(candidate).unwrap();
+    let evidence = qwen_promotion_evidence(artifact);
+    let smoke = qwen_backend_smoke(artifact, &evidence);
+    let local_state = LocalArtifactState {
+        status: "verified-local-artifact",
+        detail: "test artifact verified".to_string(),
+        verified: true,
+    };
+    let canonical = qwen_benchmark_report(artifact, &evidence);
+
+    for benchmark in [
+        {
+            let mut row = canonical.clone();
+            row.evidence_schema_version = None;
+            row.generation_status = None;
+            row.finish_reason = None;
+            row.generation_profile_fingerprint = None;
+            row
+        },
+        {
+            let mut row = canonical;
+            row.generation_profile_fingerprint = Some("stale-profile".to_string());
+            row
+        },
+    ] {
+        let benchmark_evidence = promotion_benchmark_evidence(&benchmark);
+        let validation = validate_promotion_evidence(
+            candidate,
+            &evidence,
+            artifact,
+            &local_state,
+            Some(&benchmark_evidence),
+            Some(&smoke),
+        );
+        assert!(!validation.ready);
+        assert!(validation.blockers.iter().any(|blocker| {
+            blocker.contains("generation evidence schema")
+                || blocker.contains("generation profile fingerprint")
+        }));
+    }
+}
+
+#[test]
 fn registry_parser_accepts_pretty_json_entries() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let candidate = find_candidate("qwen3.5-4b").unwrap();
@@ -459,6 +508,18 @@ fn qwen_benchmark_report(
         fixture_sha256: benchmark_policy::ADOPTION_FIXTURE_SHA256.to_string(),
         prompt_artifact_sha256: Some(benchmark_policy::ADOPTION_PROMPT_SHA256.to_string()),
         prompt_chars: Some(147),
+        evidence_schema_version: Some(benchmark_policy::BENCHMARK_EVIDENCE_SCHEMA_VERSION),
+        generation_status: Some(observability::BenchmarkGenerationStatus::Complete),
+        finish_reason: Some("stop".to_string()),
+        generation_profile_fingerprint: Some(
+            benchmark_policy::expected_generation_profile_fingerprint(
+                artifact.sha256,
+                find_candidate("qwen3.5-4b")
+                    .unwrap()
+                    .generation_profile
+                    .unwrap(),
+            ),
+        ),
         claim_state: "measured-locally".to_string(),
         score: Some(3.0),
         score_unit: Some("0-3-local-product-score".to_string()),

@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::runtime_core::inference::benchmark as benchmark_policy;
+
 use super::super::manifest::PromotionEvidence;
 use super::super::promotion::PromotionBenchmarkEvidence;
 use super::{parse_registry_entry, render_promotion_evidence, render_registry_entry_snapshot};
@@ -111,6 +113,17 @@ fn promotion_evidence_renderer_preserves_exact_bytes() {
         fixture_id: "fixture-1".to_string(),
         fixture_sha256: "b".repeat(64),
         prompt_artifact_sha256: Some("c".repeat(64)),
+        evidence_schema_version: Some(benchmark_policy::BENCHMARK_EVIDENCE_SCHEMA_VERSION),
+        generation_status: Some(
+            crate::runtime_core::observability::facade::BenchmarkGenerationStatus::Complete,
+        ),
+        finish_reason: Some("stop".to_string()),
+        generation_profile_fingerprint: Some(
+            benchmark_policy::expected_generation_profile_fingerprint(
+                "a".repeat(64).as_str(),
+                candidate.generation_profile.unwrap(),
+            ),
+        ),
         benchmark_name: "local-smoke".to_string(),
         score: Some(3.0),
         dataset_ref: Some("dataset-1".to_string()),

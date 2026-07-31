@@ -75,6 +75,10 @@ pub fn record_report(path: &str) -> Result<String, AppError> {
         fixture_sha256: fixture.sha256.clone(),
         prompt_artifact_sha256: None,
         prompt_chars: None,
+        evidence_schema_version: None,
+        generation_status: None,
+        finish_reason: None,
+        generation_profile_fingerprint: None,
         claim_state: "not-comparable".to_string(),
         score: None,
         score_unit: None,
@@ -196,6 +200,12 @@ fn run_report_with_chat(
         fixture_sha256: fixture.sha256.clone(),
         prompt_artifact_sha256: Some(prompt.sha256.clone()),
         prompt_chars: Some(prompt.chars),
+        evidence_schema_version: Some(benchmark_policy::BENCHMARK_EVIDENCE_SCHEMA_VERSION),
+        generation_status: Some(observability::BenchmarkGenerationStatus::Complete),
+        finish_reason: Some(run.finish_reason.clone()),
+        generation_profile_fingerprint: Some(
+            benchmark_policy::generation_profile_fingerprint_for_run(&run),
+        ),
         claim_state: "measured-locally".to_string(),
         score: Some(score.score as f64),
         score_unit: Some("0-3-local-product-score".to_string()),
@@ -270,7 +280,7 @@ pub fn report_export(format: BenchmarkReportFormat) -> Result<String, AppError> 
             let mut output = String::new();
             for row in rows {
                 output.push_str(&format!(
-                    "{{\"benchmark_run_id\":\"{}\",\"session_id\":\"{}\",\"model_run_id\":{},\"model_id\":\"{}\",\"benchmark_name\":\"{}\",\"fixture_id\":\"{}\",\"fixture_sha256\":\"{}\",\"prompt_artifact_sha256\":{},\"prompt_chars\":{},\"claim_state\":\"{}\",\"score\":{},\"score_unit\":{},\"local_pass\":{},\"expected_matches\":{},\"expected_total\":{},\"forbidden_matches\":{},\"harness_ref\":\"{}\",\"dataset_ref\":{},\"backend_id\":{},\"latency_ms\":{},\"tokens_per_second\":{},\"prompt_tokens\":{},\"completion_tokens\":{},\"total_tokens\":{},\"resource_pressure\":{},\"peak_rss_bytes\":{},\"recorded_at_ms\":{},\"reproducibility_manifest\":{},\"redacted_report\":{}}}\n",
+                    "{{\"benchmark_run_id\":\"{}\",\"session_id\":\"{}\",\"model_run_id\":{},\"model_id\":\"{}\",\"benchmark_name\":\"{}\",\"fixture_id\":\"{}\",\"fixture_sha256\":\"{}\",\"prompt_artifact_sha256\":{},\"prompt_chars\":{},\"evidence_schema_version\":{},\"generation_status\":{},\"finish_reason\":{},\"generation_profile_fingerprint\":{},\"claim_state\":\"{}\",\"score\":{},\"score_unit\":{},\"local_pass\":{},\"expected_matches\":{},\"expected_total\":{},\"forbidden_matches\":{},\"harness_ref\":\"{}\",\"dataset_ref\":{},\"backend_id\":{},\"latency_ms\":{},\"tokens_per_second\":{},\"prompt_tokens\":{},\"completion_tokens\":{},\"total_tokens\":{},\"resource_pressure\":{},\"peak_rss_bytes\":{},\"recorded_at_ms\":{},\"reproducibility_manifest\":{},\"redacted_report\":{}}}\n",
                     ledger::json_string(&row.benchmark_run_id),
                     ledger::json_string(&row.session_id),
                     json_option(&row.model_run_id),
@@ -280,6 +290,14 @@ pub fn report_export(format: BenchmarkReportFormat) -> Result<String, AppError> 
                     ledger::json_string(&row.fixture_sha256),
                     json_option(&row.prompt_artifact_sha256),
                     json_option_u32(row.prompt_chars),
+                    json_option_u32(row.evidence_schema_version),
+                    json_option(
+                        &row
+                            .generation_status
+                            .map(|status| status.storage_label().to_string())
+                    ),
+                    json_option(&row.finish_reason),
+                    json_option(&row.generation_profile_fingerprint),
                     ledger::json_string(&row.claim_state),
                     row.score
                         .map(|score| format!("{score:.6}"))

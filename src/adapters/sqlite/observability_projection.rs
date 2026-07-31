@@ -9,11 +9,11 @@ use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::resource;
 use crate::runtime_core::observability::facade::{
-    BenchmarkEvidenceSummary, BenchmarkRunMetric, BenchmarkRunReport, CanonicalProjectionReadPort,
-    LatestModelRunSnapshot, ModelMetricSummary, ModelRunMetric, MonitorProjectionSnapshot,
-    ObservabilityProjectionPort, OptimizationPolicy, PerformanceBaseline, PerformanceGroupSummary,
-    PressureStateSummary, PrunePreview, ResourceSampleMetric, SessionEventEntry,
-    SessionHistoryEntry, StoreStatus,
+    BenchmarkEvidenceSummary, BenchmarkGenerationStatus, BenchmarkRunMetric, BenchmarkRunReport,
+    CanonicalProjectionReadPort, LatestModelRunSnapshot, ModelMetricSummary, ModelRunMetric,
+    MonitorProjectionSnapshot, ObservabilityProjectionPort, OptimizationPolicy,
+    PerformanceBaseline, PerformanceGroupSummary, PressureStateSummary, PrunePreview,
+    ResourceSampleMetric, SessionEventEntry, SessionHistoryEntry, StoreStatus,
 };
 #[cfg(test)]
 use crate::runtime_core::observability::facade::{
