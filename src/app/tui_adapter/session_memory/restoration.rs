@@ -4,9 +4,10 @@ use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
 use super::event_codec::{parse_conversation_event, ConversationEvent};
-use super::{ConversationMemory, CONVERSATION_STREAM_ID, RESET_MARKER};
+use super::{ConversationMemory, ConversationToolActivity, CONVERSATION_STREAM_ID, RESET_MARKER};
 
 const MAX_WEB_GROUNDING_SOURCES: usize = 12;
+const MAX_TOOL_ACTIVITIES: usize = 24;
 
 pub(super) fn load_for_session(session_id: &str) -> Result<ConversationMemory, AppError> {
     let records = transcript::records_for_session(session_id)?;
@@ -58,6 +59,9 @@ fn restore_evidence(
         Some(ConversationEvent::WebGrounding(evidence)) => {
             push_web_grounding(&mut memory.web_grounding, evidence);
         }
+        Some(ConversationEvent::ToolActivity(activity)) => {
+            push_tool_activity(&mut memory.tool_activities, activity);
+        }
         None if content == RESET_MARKER => reset(memory, pending_user),
         None => push_response(
             memory,
@@ -71,7 +75,24 @@ fn restore_evidence(
 fn reset(memory: &mut ConversationMemory, pending_user: &mut Option<TuiConversationTurn>) {
     memory.turns.clear();
     memory.web_grounding.clear();
+    memory.tool_activities.clear();
     *pending_user = None;
+}
+
+pub(super) fn push_tool_activity(
+    activities: &mut Vec<ConversationToolActivity>,
+    activity: ConversationToolActivity,
+) {
+    if let Some(index) = activities
+        .iter()
+        .position(|stored| stored.execution_id == activity.execution_id)
+    {
+        activities.remove(index);
+    }
+    activities.push(activity);
+    if activities.len() > MAX_TOOL_ACTIVITIES {
+        activities.drain(..activities.len() - MAX_TOOL_ACTIVITIES);
+    }
 }
 
 fn push_response(

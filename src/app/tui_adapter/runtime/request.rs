@@ -1,5 +1,6 @@
 //! Interactive request routing for the canonical TUI conversation.
 
+use super::super::session_memory::ConversationToolActivity;
 use super::super::{attachment, conversation, TuiRuntimeAdapter};
 use super::backend::{ensure_runtime_ready, vision_status, RuntimeRequirement};
 use crate::app::web_search_adapter::{self, WebToolRoute};
@@ -21,40 +22,41 @@ pub(super) struct RequestExecution {
     pub(super) web_grounding: Vec<crate::app::web_search_adapter::WebGroundingEvidence>,
 }
 
+pub(super) struct RequestContext<'a> {
+    pub(super) request: &'a str,
+    pub(super) attachments: &'a [TuiAttachment],
+    pub(super) history: &'a [TuiConversationTurn],
+    pub(super) web_grounding: &'a [crate::app::web_search_adapter::WebGroundingEvidence],
+    pub(super) progress: &'a TuiRequestProgressReporter,
+    pub(super) cancellation: &'a RequestCancellationToken,
+}
+
 pub(super) fn execute(
     adapter: &mut TuiRuntimeAdapter,
-    request: &str,
-    attachments: &[TuiAttachment],
-    history: &[TuiConversationTurn],
-    web_grounding: &[crate::app::web_search_adapter::WebGroundingEvidence],
-    progress: &TuiRequestProgressReporter,
-    cancellation: &RequestCancellationToken,
+    context: RequestContext<'_>,
+    tool_activities: &mut Vec<ConversationToolActivity>,
 ) -> Result<RequestExecution, AppError> {
-    cancellation.check()?;
-    progress.emit(TuiRequestProgress::Preparing);
-    let mut execution = execute_routed(
-        adapter,
-        request,
-        attachments,
-        history,
-        web_grounding,
-        progress,
-        cancellation,
-    )?;
-    cancellation.check()?;
+    context.cancellation.check()?;
+    context.progress.emit(TuiRequestProgress::Preparing);
+    let mut execution = execute_routed(adapter, &context, tool_activities)?;
+    context.cancellation.check()?;
     execution.response = conversation::ensure_public_answer(execution.response)?;
     Ok(execution)
 }
 
 fn execute_routed(
     adapter: &mut TuiRuntimeAdapter,
-    request: &str,
-    attachments: &[TuiAttachment],
-    history: &[TuiConversationTurn],
-    web_grounding: &[crate::app::web_search_adapter::WebGroundingEvidence],
-    progress: &TuiRequestProgressReporter,
-    cancellation: &RequestCancellationToken,
+    context: &RequestContext<'_>,
+    tool_activities: &mut Vec<ConversationToolActivity>,
 ) -> Result<RequestExecution, AppError> {
+    let RequestContext {
+        request,
+        attachments,
+        history,
+        web_grounding,
+        progress,
+        cancellation,
+    } = context;
     cancellation.check()?;
     let web_started = Instant::now();
     let mut web_research = crate::app::web_search_adapter::WebResearchSession::default();
@@ -112,6 +114,7 @@ fn execute_routed(
                 progress,
                 cancellation,
             },
+            tool_activities,
         );
     }
     if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref(), vision) {
@@ -166,6 +169,7 @@ fn execute_routed(
                     progress,
                     cancellation,
                 },
+                tool_activities,
             );
         }
         conversation::RequestDecision::ContinueLocal => {}

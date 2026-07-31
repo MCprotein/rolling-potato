@@ -74,7 +74,9 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
             "session-memory production owner contains regression test: {responsibility}"
         );
     }
-    assert!(tui_runtime.contains("super::session_memory::record_exchange("));
+    assert!(tui_runtime.contains(
+        "super::session_memory::record_exchange_with_tool_activities("
+    ));
     assert!(!tui_request.contains("TranscriptOwner"));
     assert!(tui_status.contains("conversation::estimate_context_tokens("));
     assert!(tui_status.contains("resolve_context_tokens(latest_context_tokens"));

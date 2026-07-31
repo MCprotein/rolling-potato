@@ -98,22 +98,27 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             .conversation_memory
             .take()
             .ok_or_else(|| AppError::blocked("conversation memory 초기화 실패"))?;
+        let mut tool_activities = Vec::new();
         let execution = request::execute(
             self,
-            request,
-            attachments,
-            memory.turns(),
-            memory.web_grounding(),
-            progress,
-            cancellation,
+            request::RequestContext {
+                request,
+                attachments,
+                history: memory.turns(),
+                web_grounding: memory.web_grounding(),
+                progress,
+                cancellation,
+            },
+            &mut tool_activities,
         );
         let result = match execution {
             Ok(execution) => {
-                let recorded = super::session_memory::record_exchange(
+                let recorded = super::session_memory::record_exchange_with_tool_activities(
                     &mut memory,
                     request.trim(),
                     &execution.response,
                     &execution.web_grounding,
+                    &tool_activities,
                 );
                 recorded.map(|()| {
                     progress.emit(TuiRequestProgress::Completed);
@@ -122,13 +127,18 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             }
             Err(error) => {
                 if cancellation.is_cancelled() {
+                    let recorded = super::session_memory::record_tool_activities(
+                        &mut memory,
+                        &tool_activities,
+                    );
                     self.conversation_memory = Some(memory);
-                    return Err(error);
+                    return recorded.and(Err(error));
                 }
-                let recorded = super::session_memory::record_failure(
+                let recorded = super::session_memory::record_failure_with_tool_activities(
                     &mut memory,
                     request.trim(),
                     &error.message,
+                    &tool_activities,
                 );
                 match recorded {
                     Ok(()) => Err(error),

@@ -1,6 +1,10 @@
 use crate::app::web_search_adapter::WebGroundingEvidence;
 use crate::foundation::serialization::{self as strict_json, CanonicalObject, CanonicalValue};
 
+use super::ConversationToolActivity;
+
+mod tool_activity;
+
 const CONVERSATION_EVENT_SCHEMA_VERSION: u64 = 1;
 pub(super) const MAX_WEB_GROUNDING_EXCERPT_CHARS: usize = 1_536;
 
@@ -8,6 +12,7 @@ pub(super) enum ConversationEvent {
     Reset,
     RuntimeError(String),
     WebGrounding(WebGroundingEvidence),
+    ToolActivity(ConversationToolActivity),
 }
 
 pub(super) fn render_reset_event() -> String {
@@ -38,6 +43,10 @@ pub(super) fn render_web_grounding_event(evidence: &WebGroundingEvidence) -> Str
     ])
 }
 
+pub(super) fn render_tool_activity_event(activity: &ConversationToolActivity) -> String {
+    tool_activity::render(activity)
+}
+
 fn render_event(mut entries: Vec<(String, CanonicalValue)>) -> String {
     entries.insert(
         0,
@@ -66,6 +75,11 @@ pub(super) fn parse_conversation_event(content: &str) -> Option<ConversationEven
             "title",
             "url",
             "excerpt",
+            "execution_id",
+            "tool",
+            "input",
+            "status",
+            "source_ids",
         ],
         "conversation event",
     )
@@ -89,6 +103,7 @@ pub(super) fn parse_conversation_event(content: &str) -> Option<ConversationEven
             url: strict_json::string(&object, "url", "conversation event").ok()?,
             excerpt: strict_json::string(&object, "excerpt", "conversation event").ok()?,
         })),
+        "tool_activity" => tool_activity::parse(&object).map(ConversationEvent::ToolActivity),
         _ => None,
     }
 }
