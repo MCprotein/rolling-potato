@@ -27,16 +27,16 @@ pub(crate) fn generation_profile_fingerprint_for_run(run: &BackendChatRun) -> St
         "disabled via source-backed chat template option" => "chat-template.enable_thinking=false",
         _ => "unresolved",
     };
-    generation_profile_fingerprint(
-        &run.model_artifact_hash,
-        run.requested_max_tokens,
-        run.effective_max_tokens,
-        &run.sampling_profile_version,
-        run.sampling,
+    generation_profile_fingerprint(GenerationProfileFingerprintInput {
+        artifact_sha256: &run.model_artifact_hash,
+        requested_max_tokens: run.requested_max_tokens,
+        effective_max_tokens: run.effective_max_tokens,
+        sampling_profile_version: &run.sampling_profile_version,
+        sampling: run.sampling,
         thinking_control,
-        &run.thinking_mode,
-        &run.thinking_source,
-    )
+        thinking_mode: &run.thinking_mode,
+        thinking_source: &run.thinking_source,
+    })
 }
 
 pub(crate) fn expected_generation_profile_fingerprint(
@@ -55,34 +55,47 @@ pub(crate) fn expected_generation_profile_fingerprint(
             source.source,
         ),
     };
-    generation_profile_fingerprint(
+    generation_profile_fingerprint(GenerationProfileFingerprintInput {
         artifact_sha256,
-        ADOPTION_MAX_TOKENS,
-        ADOPTION_MAX_TOKENS,
-        profile
+        requested_max_tokens: ADOPTION_MAX_TOKENS,
+        effective_max_tokens: ADOPTION_MAX_TOKENS,
+        sampling_profile_version: profile
             .sampling
             .map(|sampling| sampling.profile_version)
             .unwrap_or("model-default"),
-        profile.sampling.map(|sampling| BackendChatSampling {
+        sampling: profile.sampling.map(|sampling| BackendChatSampling {
             temperature: sampling.temperature,
             top_p: sampling.top_p,
         }),
         thinking_control,
         thinking_mode,
         thinking_source,
-    )
+    })
 }
 
-fn generation_profile_fingerprint(
-    artifact_sha256: &str,
+#[derive(Clone, Copy)]
+struct GenerationProfileFingerprintInput<'a> {
+    artifact_sha256: &'a str,
     requested_max_tokens: u32,
     effective_max_tokens: u32,
-    sampling_profile_version: &str,
+    sampling_profile_version: &'a str,
     sampling: Option<BackendChatSampling>,
-    thinking_control: &str,
-    thinking_mode: &str,
-    thinking_source: &str,
-) -> String {
+    thinking_control: &'a str,
+    thinking_mode: &'a str,
+    thinking_source: &'a str,
+}
+
+fn generation_profile_fingerprint(input: GenerationProfileFingerprintInput<'_>) -> String {
+    let GenerationProfileFingerprintInput {
+        artifact_sha256,
+        requested_max_tokens,
+        effective_max_tokens,
+        sampling_profile_version,
+        sampling,
+        thinking_control,
+        thinking_mode,
+        thinking_source,
+    } = input;
     let (temperature_bits, top_p_bits) = sampling.map_or_else(
         || ("model-default".to_string(), "model-default".to_string()),
         |sampling| {
@@ -275,16 +288,16 @@ mod tests {
     #[test]
     fn generation_profile_fingerprint_changes_with_behavior_controls() {
         let fingerprint = |sampling, thinking_control| {
-            generation_profile_fingerprint(
-                &"a".repeat(64),
-                ADOPTION_MAX_TOKENS,
-                ADOPTION_MAX_TOKENS,
-                "profile-v1",
+            generation_profile_fingerprint(GenerationProfileFingerprintInput {
+                artifact_sha256: &"a".repeat(64),
+                requested_max_tokens: ADOPTION_MAX_TOKENS,
+                effective_max_tokens: ADOPTION_MAX_TOKENS,
+                sampling_profile_version: "profile-v1",
                 sampling,
                 thinking_control,
-                "disabled via source-backed chat template option",
-                "https://example.test/source",
-            )
+                thinking_mode: "disabled via source-backed chat template option",
+                thinking_source: "https://example.test/source",
+            })
         };
         let baseline = fingerprint(
             Some(BackendChatSampling {
