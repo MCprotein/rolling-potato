@@ -26,6 +26,7 @@ pub(super) struct RequestContext<'a> {
     pub(super) request: &'a str,
     pub(super) attachments: &'a [TuiAttachment],
     pub(super) history: &'a [TuiConversationTurn],
+    pub(super) tool_history: &'a [ConversationToolActivity],
     pub(super) web_grounding: &'a [crate::app::web_search_adapter::WebGroundingEvidence],
     pub(super) progress: &'a TuiRequestProgressReporter,
     pub(super) cancellation: &'a RequestCancellationToken,
@@ -53,6 +54,7 @@ fn execute_routed(
         request,
         attachments,
         history,
+        tool_history,
         web_grounding,
         progress,
         cancellation,
@@ -84,6 +86,7 @@ fn execute_routed(
         return conversation::reply_with_images_and_cancel(
             &input,
             history,
+            tool_history,
             required_context_limit(context_limit_tokens)?,
             cancellation,
         )
@@ -98,7 +101,7 @@ fn execute_routed(
     if let Some(route) = immediate_web_route {
         let web_conversation_context = match &route {
             WebToolRoute::Search { .. } => {
-                web_conversation_context(history, user_request, context_limit_tokens)?
+                web_conversation_context(history, tool_history, user_request, context_limit_tokens)?
             }
             _ => String::new(),
         };
@@ -130,7 +133,7 @@ fn execute_routed(
     {
         progress.emit(TuiRequestProgress::Answering);
         let conversation_context =
-            web_conversation_context(history, user_request, context_limit_tokens)?;
+            web_conversation_context(history, tool_history, user_request, context_limit_tokens)?;
         return web_search_adapter::answer_from_grounding_with_cancel(
             user_request,
             &conversation_context,
@@ -143,6 +146,7 @@ fn execute_routed(
     match conversation::decide_request_with_cancel(
         user_request,
         history,
+        tool_history,
         required_context_limit(context_limit_tokens)?,
         conversational && !has_text_attachments,
         cancellation,
@@ -156,8 +160,12 @@ fn execute_routed(
             return crate::app::browser_adapter::search_form(tool).map(plain_execution);
         }
         conversation::RequestDecision::WebTool(tool) => {
-            let web_conversation_context =
-                web_conversation_context(history, user_request, context_limit_tokens)?;
+            let web_conversation_context = web_conversation_context(
+                history,
+                tool_history,
+                user_request,
+                context_limit_tokens,
+            )?;
             return execute_web_turn(
                 &mut web_research,
                 &mut adapter.web_pages,
@@ -181,6 +189,7 @@ fn execute_routed(
             user_request,
             local_context,
             history,
+            tool_history,
             required_context_limit(context_limit_tokens)?,
             cancellation,
         )

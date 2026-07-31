@@ -4,6 +4,8 @@ use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
+use super::super::session_memory::ConversationToolActivity;
+
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::app::tui_adapter) enum RequestDecision {
     Answer(String),
@@ -22,6 +24,7 @@ pub(in crate::app::tui_adapter) fn decide_request(
     decide_request_impl(
         user_request,
         history,
+        &[],
         context_limit_tokens,
         allow_direct_answer,
         None,
@@ -31,6 +34,7 @@ pub(in crate::app::tui_adapter) fn decide_request(
 pub(in crate::app::tui_adapter) fn decide_request_with_cancel(
     user_request: &str,
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
     allow_direct_answer: bool,
     cancellation: &RequestCancellationToken,
@@ -39,6 +43,7 @@ pub(in crate::app::tui_adapter) fn decide_request_with_cancel(
     decide_request_impl(
         user_request,
         history,
+        tool_activities,
         context_limit_tokens,
         allow_direct_answer,
         Some(cancellation),
@@ -48,6 +53,7 @@ pub(in crate::app::tui_adapter) fn decide_request_with_cancel(
 fn decide_request_impl(
     user_request: &str,
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
     allow_direct_answer: bool,
     cancellation: Option<&RequestCancellationToken>,
@@ -78,6 +84,7 @@ fn decide_request_impl(
     );
     let prompt_context = super::super::prompt_context::ConversationPromptContext::build(
         history,
+        tool_activities,
         user_request,
         context_limit_tokens,
         GenerationIntent::StructuredRouteAndAnswer,

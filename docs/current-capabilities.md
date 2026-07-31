@@ -128,7 +128,10 @@ Verified web grounding is persisted with the conversation and may be reused
 after `/resume` only for referential or topic-overlapping follow-ups. Oversized
 evidence is softly truncated to the evidence budget, and an uncited or unusable
 model summary is replaced by a concise runtime-grounded fallback with
-runtime-owned source links.
+runtime-owned source links. Recent typed Search/Open/Find activity is restored
+separately with its input, terminal status, and verified source IDs, then fitted
+to a model-window-relative prompt budget. This lets later turns distinguish a
+completed tool call from a failed or cancelled one without replaying the tool.
 
 See [runtime architecture](runtime-architecture.md),
 [command policy](command-policy.md), [hooks](hooks.md), and

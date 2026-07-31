@@ -105,6 +105,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 request,
                 attachments,
                 history: memory.turns(),
+                tool_history: memory.tool_activities(),
                 web_grounding: memory.web_grounding(),
                 progress,
                 cancellation,

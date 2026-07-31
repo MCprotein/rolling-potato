@@ -18,7 +18,8 @@ mod tool_activity;
 pub(super) use recording::{clear, record_tool_activities};
 use restoration::load_for_session;
 pub(super) use tool_activity::{
-    ConversationToolActivity, ConversationToolName, ConversationToolStatus,
+    render_prompt_memory as render_tool_activity_memory, ConversationToolActivity,
+    ConversationToolName, ConversationToolStatus,
 };
 
 const CONVERSATION_STREAM_ID: &str = "tui-conversation";
@@ -56,7 +57,6 @@ impl ConversationMemory {
         &self.web_grounding
     }
 
-    #[cfg(test)]
     pub(super) fn tool_activities(&self) -> &[ConversationToolActivity] {
         &self.tool_activities
     }

@@ -17,6 +17,7 @@ pub struct PendingSourceApproval {
 pub struct PreparedConversationBackend {
     project: PathBuf,
     data: PathBuf,
+    structured_response: PathBuf,
     request_bodies: PathBuf,
     stopped: bool,
 }
@@ -34,6 +35,10 @@ impl PreparedConversationBackend {
 
     pub fn clear_request_bodies(&self) {
         std::fs::write(&self.request_bodies, b"").unwrap();
+    }
+
+    pub fn set_structured_response(&self, response: &str) {
+        std::fs::write(&self.structured_response, response).unwrap();
     }
 
     fn stop(&mut self) {
@@ -327,6 +332,7 @@ impl NativeTerminalFixture {
         PreparedConversationBackend {
             project: self.project.clone(),
             data: self.data.clone(),
+            structured_response,
             request_bodies,
             stopped: false,
         }

@@ -17,6 +17,7 @@ pub(crate) struct PromptBudget {
     pub(crate) runtime_reserve_tokens: usize,
     pub(crate) input_limit_tokens: usize,
     pub(crate) typed_memory_target_tokens: usize,
+    pub(crate) tool_activity_target_tokens: usize,
     pub(crate) recall_target_tokens: usize,
     pub(crate) recent_target_tokens: usize,
 }
@@ -41,6 +42,7 @@ impl PromptBudget {
             runtime_reserve_tokens,
             input_limit_tokens,
             typed_memory_target_tokens: (input_limit_tokens / 8).clamp(128, 8_192),
+            tool_activity_target_tokens: (input_limit_tokens / 8).clamp(128, 8_192),
             recall_target_tokens: (input_limit_tokens / 4).clamp(256, 32_768),
             recent_target_tokens: (input_limit_tokens / 4).clamp(256, 16_384),
         })
@@ -50,6 +52,7 @@ impl PromptBudget {
 pub(crate) struct PromptParts<'a> {
     pub(crate) instructions: &'a str,
     pub(crate) typed_memory: &'a str,
+    pub(crate) tool_activity: &'a str,
     pub(crate) recalled_history: &'a str,
     pub(crate) recent_history: &'a str,
     pub(crate) attachment_context: &'a str,
@@ -89,6 +92,11 @@ pub(crate) fn assemble(
         budget.typed_memory_target_tokens.min(remaining),
     );
     remaining = remaining.saturating_sub(estimate_tokens(&typed_memory));
+    let tool_activity = bounded_tail(
+        parts.tool_activity,
+        budget.tool_activity_target_tokens.min(remaining),
+    );
+    remaining = remaining.saturating_sub(estimate_tokens(&tool_activity));
     let recalled_history = bounded_head(
         parts.recalled_history,
         budget.recall_target_tokens.min(remaining),
@@ -103,6 +111,7 @@ pub(crate) fn assemble(
 
     let mut sections = vec![parts.instructions.trim().to_string()];
     push_nonempty(&mut sections, typed_memory);
+    push_nonempty(&mut sections, tool_activity);
     push_nonempty(&mut sections, recalled_history);
     push_nonempty(&mut sections, recent_history);
     push_nonempty(&mut sections, attachment_context);
@@ -168,6 +177,7 @@ mod tests {
             PromptParts {
                 instructions: "stable instructions",
                 typed_memory: &"memory ".repeat(2_000),
+                tool_activity: &"tool ".repeat(2_000),
                 recalled_history: &"recall ".repeat(2_000),
                 recent_history: &"recent ".repeat(2_000),
                 attachment_context: &"attachment ".repeat(2_000),

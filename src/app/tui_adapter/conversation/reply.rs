@@ -5,13 +5,17 @@ use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::runtime_core::knowledge::prompt::AssembledPrompt;
 use crate::surfaces::tui::runtime_bridge::TuiConversationTurn;
 
+use super::super::session_memory::ConversationToolActivity;
+
 pub(in crate::app::tui_adapter) fn render_web_conversation_context(
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     user_request: &str,
     context_limit_tokens: u32,
 ) -> Result<String, AppError> {
     super::super::prompt_context::ConversationPromptContext::build(
         history,
+        tool_activities,
         user_request,
         context_limit_tokens,
         GenerationIntent::GroundedWebAnswer,
@@ -23,12 +27,19 @@ pub(in crate::app::tui_adapter) fn reply_with_context_and_cancel(
     user_request: &str,
     local_context: &str,
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
     cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
     cancellation.check()?;
-    let prompt =
-        assemble_plain_prompt(user_request, local_context, history, context_limit_tokens)?.text;
+    let prompt = assemble_plain_prompt(
+        user_request,
+        local_context,
+        history,
+        tool_activities,
+        context_limit_tokens,
+    )?
+    .text;
     crate::app::inference_adapter::answer::generate_for_user_with_cancel(
         &prompt,
         user_request,
@@ -40,12 +51,14 @@ pub(in crate::app::tui_adapter) fn reply_with_context_and_cancel(
 pub(in crate::app::tui_adapter) fn reply_with_images_and_cancel(
     input: &BackendChatInput,
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
     cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
     cancellation.check()?;
     let mut input = input.clone();
-    input.text = assemble_vision_prompt(&input, history, context_limit_tokens)?.text;
+    input.text =
+        assemble_vision_prompt(&input, history, tool_activities, context_limit_tokens)?.text;
     crate::app::inference_adapter::answer::generate_input_with_cancel(
         &input,
         GenerationIntent::VisionAnswer,
@@ -57,12 +70,19 @@ pub(in crate::app::tui_adapter) fn estimate_context_tokens(
     user_request: &str,
     input: &BackendChatInput,
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
 ) -> Result<u32, AppError> {
     let prompt = if input.images.is_empty() {
-        assemble_plain_prompt(user_request, &input.text, history, context_limit_tokens)?
+        assemble_plain_prompt(
+            user_request,
+            &input.text,
+            history,
+            tool_activities,
+            context_limit_tokens,
+        )?
     } else {
-        assemble_vision_prompt(input, history, context_limit_tokens)?
+        assemble_vision_prompt(input, history, tool_activities, context_limit_tokens)?
     };
     Ok(u32::try_from(prompt.estimated_tokens)
         .unwrap_or(u32::MAX)
@@ -73,6 +93,7 @@ fn assemble_plain_prompt(
     user_request: &str,
     local_context: &str,
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
 ) -> Result<AssembledPrompt, AppError> {
     let language_instruction =
@@ -86,6 +107,7 @@ fn assemble_plain_prompt(
     );
     super::super::prompt_context::ConversationPromptContext::build(
         history,
+        tool_activities,
         user_request,
         context_limit_tokens,
         GenerationIntent::InteractiveAnswer,
@@ -96,6 +118,7 @@ fn assemble_plain_prompt(
 fn assemble_vision_prompt(
     input: &BackendChatInput,
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
 ) -> Result<AssembledPrompt, AppError> {
     let language_instruction = language_instruction(input.response_language);
@@ -104,6 +127,7 @@ fn assemble_vision_prompt(
     );
     super::super::prompt_context::ConversationPromptContext::build(
         history,
+        tool_activities,
         &input.text,
         context_limit_tokens,
         GenerationIntent::VisionAnswer,

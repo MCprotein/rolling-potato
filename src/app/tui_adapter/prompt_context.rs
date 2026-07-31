@@ -9,9 +9,12 @@ use crate::runtime_core::knowledge::prompt::{self, AssembledPrompt, PromptBudget
 use crate::runtime_core::knowledge::recall::{self, DialogueRole, DialogueTurn, DialogueTurnRef};
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
+use super::session_memory::{render_tool_activity_memory, ConversationToolActivity};
+
 pub(super) struct ConversationPromptContext {
     budget: PromptBudget,
     typed_memory: String,
+    tool_activity: String,
     recalled_history: String,
     recent_history: String,
 }
@@ -19,6 +22,7 @@ pub(super) struct ConversationPromptContext {
 impl ConversationPromptContext {
     pub(super) fn build(
         history: &[TuiConversationTurn],
+        tool_activities: &[ConversationToolActivity],
         query: &str,
         context_limit_tokens: u32,
         intent: GenerationIntent,
@@ -55,6 +59,8 @@ impl ConversationPromptContext {
             budget.recall_target_tokens,
             budget.recent_target_tokens,
         );
+        let tool_activity =
+            render_tool_activity_memory(tool_activities, budget.tool_activity_target_tokens);
         Ok(Self {
             budget,
             typed_memory: render_turns(
@@ -62,6 +68,7 @@ impl ConversationPromptContext {
                 "사용자가 과거에 직접 밝힌 선호·사실·정정 후보이며, 현재 요청과 충돌하면 현재 요청을 따른다.",
                 &plan.typed_user_memory,
             ),
+            tool_activity,
             recalled_history: render_turns(
                 "RECALLED_CONVERSATION",
                 "현재 질문과 관련성이 높은 과거 완료 대화다.",
@@ -78,6 +85,7 @@ impl ConversationPromptContext {
     pub(super) fn render_memory(&self) -> String {
         [
             self.typed_memory.as_str(),
+            self.tool_activity.as_str(),
             self.recalled_history.as_str(),
             self.recent_history.as_str(),
         ]
@@ -104,6 +112,7 @@ impl ConversationPromptContext {
             PromptParts {
                 instructions,
                 typed_memory: &self.typed_memory,
+                tool_activity: &self.tool_activity,
                 recalled_history: &self.recalled_history,
                 recent_history: &self.recent_history,
                 attachment_context: &attachment_context,
@@ -179,6 +188,7 @@ mod tests {
 
         let context = ConversationPromptContext::build(
             &history,
+            &[],
             "내 이름 기억해?",
             131_072,
             GenerationIntent::InteractiveAnswer,
@@ -209,6 +219,7 @@ mod tests {
         ];
         let context = ConversationPromptContext::build(
             &history,
+            &[],
             "질문",
             4_096,
             GenerationIntent::InteractiveAnswer,
@@ -250,6 +261,7 @@ mod tests {
 
         let context = ConversationPromptContext::build(
             &history,
+            &[],
             "다른 질문",
             4_096,
             GenerationIntent::InteractiveAnswer,
@@ -261,5 +273,39 @@ mod tests {
 
         assert!(prompt.text.contains("\"role\":\"runtime\""));
         assert!(prompt.text.contains("내부 runtime 오류"));
+    }
+
+    #[test]
+    fn typed_tool_activity_is_bounded_context_not_a_claim_of_new_execution() {
+        let activities = vec![ConversationToolActivity::bounded(
+            "execution-1",
+            super::super::session_memory::ConversationToolName::Search,
+            "Rust 최신 안정 버전",
+            super::super::session_memory::ConversationToolStatus::Succeeded,
+            ["source-rust".to_string()],
+        )];
+
+        let context = ConversationPromptContext::build(
+            &[],
+            &activities,
+            "아까 검색은 성공했어?",
+            4_096,
+            GenerationIntent::InteractiveAnswer,
+        )
+        .unwrap();
+        let prompt = context
+            .assemble("system", "", "아까 검색은 성공했어?", "답변:")
+            .unwrap();
+
+        assert!(prompt
+            .text
+            .contains("<TOOL_ACTIVITY_MEMORY untrusted=\"true\">"));
+        assert!(prompt.text.contains("Rust 최신 안정 버전"));
+        assert!(prompt.text.contains("\"status\":\"succeeded\""));
+        assert!(prompt.text.contains("source-rust"));
+        assert!(prompt.text.ends_with(
+            "<CURRENT_USER_REQUEST>\n아까 검색은 성공했어?\n</CURRENT_USER_REQUEST>\n\n답변:"
+        ));
+        assert!(prompt.estimated_tokens <= prompt.input_limit_tokens);
     }
 }

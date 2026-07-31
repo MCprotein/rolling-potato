@@ -104,6 +104,7 @@ fn tool_activity(
 
 pub(super) fn web_conversation_context(
     history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
     user_request: &str,
     context_limit_tokens: Option<u32>,
 ) -> Result<String, AppError> {
@@ -112,6 +113,7 @@ pub(super) fn web_conversation_context(
     }
     conversation::render_web_conversation_context(
         history,
+        tool_activities,
         user_request,
         required_context_limit(context_limit_tokens)?,
     )
