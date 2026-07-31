@@ -33,7 +33,8 @@ fn model_labels_distinguish_model_and_lazy_projector_cache_state() {
         license: "test".to_string(),
         note: String::new(),
         current: false,
-        recommended: false,
+        evaluation_recommended: false,
+        readiness: TuiModelReadiness::EvaluationOnly,
     };
 
     assert_eq!(option.model_artifact_label(), "download 3.0 GiB");

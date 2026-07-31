@@ -116,6 +116,10 @@ fn setup_options_distinguish_local_model_cache_from_lazy_projector_download() {
     assert!(!option.vision_projector_cached);
     assert_eq!(option.download_bytes, artifact.size_bytes);
     assert!(option.note.contains("첫 이미지"));
+    assert_eq!(
+        option.readiness,
+        crate::surfaces::tui::runtime_bridge::TuiModelReadiness::EvaluationOnly
+    );
     if let Some(previous) = previous_data {
         std::env::set_var("RPOTATO_DATA_HOME", previous);
     } else {

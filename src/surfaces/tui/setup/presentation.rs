@@ -9,9 +9,13 @@ pub(super) fn render_setup_screen(options: &[TuiModelOption], color: bool) -> St
     output.push_str(&paint("rpotato 첫 실행 설정\n", "\u{001b}[1;36m", color));
     output.push_str("backend와 GGUF 경로는 자동으로 관리됩니다. 사용할 모델만 선택하세요.\n\n");
     for (index, option) in options.iter().enumerate() {
-        let recommendation = if option.recommended { " [권장]" } else { "" };
+        let recommendation = if option.evaluation_recommended {
+            " [평가 권장]"
+        } else {
+            ""
+        };
         output.push_str(&format!(
-            "{}. {}{}\n   id {} | {} | {} | context {} | RAM {} | {}\n   {}\n",
+            "{}. {}{}\n   id {} | {} | {} | context {} | RAM {} | {}\n   상태: {}\n   {}\n",
             index + 1,
             option.display_name,
             recommendation,
@@ -24,6 +28,7 @@ pub(super) fn render_setup_screen(options: &[TuiModelOption], color: bool) -> St
                 .unwrap_or_else(|| "미확정".to_string()),
             option.ram,
             option.license,
+            option.readiness.label(),
             option.note
         ));
     }
@@ -36,9 +41,13 @@ pub(super) fn model_choices(options: &[TuiModelOption]) -> Vec<TerminalChoice> {
         .iter()
         .map(|option| TerminalChoice {
             value: option.id.clone(),
-            label: option.display_name.clone(),
+            label: if option.evaluation_recommended {
+                format!("{} · 평가 권장", option.display_name)
+            } else {
+                option.display_name.clone()
+            },
             description: format!(
-                "{} · {} · context {} · RAM {} · {}",
+                "{} · {} · context {} · RAM {} · {} · {}",
                 option.quantization,
                 option.model_artifact_label(),
                 option
@@ -46,10 +55,11 @@ pub(super) fn model_choices(options: &[TuiModelOption]) -> Vec<TerminalChoice> {
                     .map(compact_tokens)
                     .unwrap_or_else(|| "미확정".to_string()),
                 option.ram,
-                option.license
+                option.license,
+                option.readiness.label()
             ),
             current: option.current,
-            recommended: option.recommended,
+            recommended: false,
         })
         .collect::<Vec<_>>();
     choices.push(TerminalChoice {
@@ -74,15 +84,24 @@ pub(super) fn confirmation_choices(selected: &TuiModelOption) -> [TerminalChoice
         TerminalChoice {
             value: "install".to_string(),
             label: if selected.model_cached {
-                "기존 모델로 시작".to_string()
+                if selected.readiness.is_runtime_ready() {
+                    "기존 모델로 시작".to_string()
+                } else {
+                    "기존 모델로 평가 시작".to_string()
+                }
             } else {
-                "설치하고 시작".to_string()
+                if selected.readiness.is_runtime_ready() {
+                    "설치하고 시작".to_string()
+                } else {
+                    "평가용으로 설치하고 시작".to_string()
+                }
             },
             description: format!(
-                "{} · {} · {}",
+                "{} · {} · {} · {}",
                 selected.display_name,
                 selected.model_artifact_label(),
-                selected.license
+                selected.license,
+                selected.readiness.label()
             ),
             current: false,
             recommended: true,

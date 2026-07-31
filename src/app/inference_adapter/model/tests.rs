@@ -34,7 +34,7 @@ fn first_run_options_expose_only_source_backed_facts_and_one_evidence_based_reco
     assert_eq!(
         options
             .iter()
-            .filter(|option| option.recommended)
+            .filter(|option| option.evaluation_recommended)
             .map(|option| option.id.as_str())
             .collect::<Vec<_>>(),
         ["gemma-4-e4b"]

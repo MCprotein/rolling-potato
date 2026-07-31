@@ -1,11 +1,13 @@
 //! Source-backed model choices rendered for interactive setup.
 
 use crate::runtime_core::inference::model::manifest::{
-    source_backed_artifact, source_backed_vision_projector, ModelManifestEntry, CANDIDATES,
+    source_backed_artifact, source_backed_vision_projector, validate_install_ready,
+    ModelManifestEntry, CANDIDATES,
 };
-use crate::surfaces::tui::runtime_bridge::TuiModelOption;
+use crate::surfaces::tui::runtime_bridge::{TuiModelOption, TuiModelReadiness};
 
 use super::configured_model_id;
+use crate::app::inference_adapter::model::evidence::local_promotion_readiness;
 
 pub(super) fn setup_options() -> Vec<TuiModelOption> {
     let current = configured_model_id();
@@ -27,6 +29,16 @@ pub(super) fn setup_options() -> Vec<TuiModelOption> {
                     projector, &path,
                 )
             });
+            let readiness = if validate_install_ready(candidate).ready {
+                TuiModelReadiness::StaticVerified
+            } else if local_promotion_readiness(candidate)
+                .map(|readiness| readiness.validation.ready)
+                .unwrap_or(false)
+            {
+                TuiModelReadiness::LocalPromotionReady
+            } else {
+                TuiModelReadiness::EvaluationOnly
+            };
             TuiModelOption {
                 id: candidate.id.to_string(),
                 display_name: candidate.display_name.to_string(),
@@ -56,9 +68,10 @@ pub(super) fn setup_options() -> Vec<TuiModelOption> {
                 },
                 note: model_note(candidate, projector, projector_cached),
                 current: current.as_deref() == Some(candidate.id),
-                recommended: candidate
+                evaluation_recommended: candidate
                     .setup_profile
                     .is_some_and(|profile| profile.recommended),
+                readiness,
             }
         })
         .collect()
