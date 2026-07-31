@@ -6,12 +6,14 @@ use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{
-    BackendChatInput, BackendChatRun, BackendGenerationStatus, MAX_CHAT_TIMEOUT_MS,
+    BackendChatInput, BackendChatRun, BackendGenerationStatus,
 };
 use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
 use crate::runtime_core::inference::{resource, stream::StreamTermination};
 
-use super::super::generation_gateway::{bind_default_backend_budget, GenerationTokenRequest};
+use super::super::generation_gateway::{
+    bind_default_backend_budget, GenerationPromptEstimate, GenerationTokenRequest,
+};
 use super::super::generation_state::{
     begin_active_generation, generation_cancel_requested, write_generation_terminal_record,
     ActiveGenerationGuard,
@@ -20,6 +22,7 @@ use super::super::resource_sampling::record_backend_resource_sample;
 use super::super::sidecar::trace_backend_start;
 use super::super::{display_optional_u128, display_optional_u32, now_ms};
 use super::interruption::{finish_interrupted_generation, GenerationTerminalContext};
+use super::preflight;
 use super::readiness::ready_sidecar_record;
 use super::runtime_profile;
 use super::CHAT_TIMEOUT_MS;
@@ -34,24 +37,26 @@ pub(super) fn chat_input_with_options(
 ) -> Result<BackendChatRun, AppError> {
     input.validate()?;
     let timeout_ms = timeout_ms.unwrap_or(CHAT_TIMEOUT_MS as u32);
-    if timeout_ms == 0 || timeout_ms > MAX_CHAT_TIMEOUT_MS {
-        return Err(AppError::usage(format!(
-            "backend chat timeout은 1..={MAX_CHAT_TIMEOUT_MS} ms 범위여야 합니다."
-        )));
-    }
+    preflight::validate_timeout(timeout_ms)?;
+    let request_started_at = Instant::now();
     let record = ready_sidecar_record()?;
     let runtime_profile = runtime_profile::resolve(&record);
-    if !input.images.is_empty() && record.mmproj_path.is_none() {
-        return Err(AppError::blocked(
-            "이미지 입력을 사용할 수 없습니다.\n- 이유: 현재 backend는 text-ready이지만 vision-ready가 아닙니다.\n- 다음: /model에서 vision(mmproj) 준비 상태를 확인한 뒤 모델을 다시 준비하세요.",
-        ));
-    }
-
+    preflight::ensure_vision_ready(input, record.mmproj_path.is_some())?;
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
     let model_id = runtime_profile.model_id.clone();
+    let input_preflight = preflight::count_input_tokens(
+        input,
+        &runtime_profile.request,
+        &record.host,
+        record.port,
+        timeout_ms,
+        request_started_at,
+        &mut external_cancel_requested,
+    )?;
+    let timeout_ms = input_preflight.remaining_timeout_ms;
     let budget = bind_default_backend_budget(
         token_request,
-        &input.text,
+        GenerationPromptEstimate::exact(input_preflight.exact_input_tokens),
         record.ctx_size,
         timeout_ms,
         governor_sample.pressure,

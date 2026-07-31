@@ -11,10 +11,8 @@ use crate::runtime_core::inference::generation_policy::{
     ManagedThroughputEvidence, PolicyValueSourceKind, ProvisionalBudgetInput, VersionedValueSource,
 };
 use crate::runtime_core::inference::resource::{ResourcePressure, DEGRADED_CHAT_MAX_TOKENS};
-use crate::runtime_core::knowledge::compaction::estimate_tokens;
-
-const PROMPT_ESTIMATOR_ID: &str = "runtime-core-conservative-text-estimator";
-const PROMPT_ESTIMATOR_VERSION: &str = "v1";
+const PROMPT_ESTIMATOR_ID: &str = "llama.cpp-chat-input-tokens";
+const PROMPT_ESTIMATOR_VERSION: &str = "b9982-input-tokens-v1";
 const RUNTIME_SNAPSHOT_VERSION: &str = "backend-sidecar-record-v1";
 const CHAT_TIMEOUT_CONTRACT_VERSION: &str = "backend-chat-timeout-v1";
 const RESOURCE_GOVERNOR_VERSION: &str = "chat-resource-governor-v1";
@@ -48,35 +46,38 @@ impl BoundGenerationBudget {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct GenerationRuntimeFacts<'a> {
-    pub(super) prompt: &'a str,
+pub(super) struct GenerationRuntimeFacts {
+    pub(super) prompt: GenerationPromptEstimate,
     pub(super) context_window_tokens: Option<u32>,
     pub(super) timeout_ms: u32,
     pub(super) resource_pressure: ResourcePressure,
     pub(super) observed_tokens_per_second: Option<u32>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(super) struct GenerationPromptEstimate {
+    pub(super) exact_input_tokens: u32,
+}
+
+impl GenerationPromptEstimate {
+    pub(super) fn exact(exact_input_tokens: u32) -> Self {
+        Self { exact_input_tokens }
+    }
+}
+
 pub(super) fn bind_generation_budget(
     request: GenerationTokenRequest,
-    facts: GenerationRuntimeFacts<'_>,
+    facts: GenerationRuntimeFacts,
 ) -> Result<BoundGenerationBudget, AppError> {
-    match request {
-        GenerationTokenRequest::ExplicitBound(tokens) => {
-            if tokens == 0 {
-                return Err(AppError::usage("max tokens는 1 이상이어야 합니다."));
-            }
-            Ok(BoundGenerationBudget {
-                requested_max_tokens: tokens,
-                limiting_factors: vec![GenerationLimitingFactor::ExplicitUserOverride],
-            })
-        }
-        GenerationTokenRequest::Intent(intent) => bind_intent_budget(intent, facts),
+    if matches!(request, GenerationTokenRequest::ExplicitBound(0)) {
+        return Err(AppError::usage("max tokens는 1 이상이어야 합니다."));
     }
+    bind_budget(request, facts)
 }
 
 pub(super) fn bind_default_backend_budget(
     request: GenerationTokenRequest,
-    prompt: &str,
+    prompt: GenerationPromptEstimate,
     context_window_tokens: Option<u32>,
     timeout_ms: u32,
     resource_pressure: ResourcePressure,
@@ -96,24 +97,37 @@ pub(super) fn bind_default_backend_budget(
     )
 }
 
-fn bind_intent_budget(
-    intent: GenerationIntent,
-    facts: GenerationRuntimeFacts<'_>,
+fn bind_budget(
+    request: GenerationTokenRequest,
+    facts: GenerationRuntimeFacts,
 ) -> Result<BoundGenerationBudget, AppError> {
+    let intent = match request {
+        GenerationTokenRequest::Intent(intent) => intent,
+        GenerationTokenRequest::ExplicitBound(_) => GenerationIntent::InteractiveAnswer,
+    };
     let context_window_tokens = facts.context_window_tokens.ok_or_else(|| {
         AppError::blocked(
             "모델 인지형 생성 예산을 계산할 수 없습니다.\n- 이유: 활성 backend의 context size가 기록되지 않았습니다.\n- 다음: 모델을 명시적인 context size로 다시 준비하세요.",
         )
     })?;
-    let estimated_prompt_tokens = u32::try_from(estimate_tokens(facts.prompt)).unwrap_or(u32::MAX);
-    let capacities = capacities(
+    let estimated_prompt_tokens = facts.prompt.exact_input_tokens;
+    let mut capacities = capacities(
         context_window_tokens,
         facts.timeout_ms,
         facts.resource_pressure,
         facts.observed_tokens_per_second,
     );
+    if let GenerationTokenRequest::ExplicitBound(tokens) = request {
+        capacities.explicit_user_override = Some(ActiveTokenCapacity::new(
+            tokens,
+            source(
+                PolicyValueSourceKind::IntentContract,
+                "explicit-generation-bound-v1",
+            ),
+        ));
+    }
     let uncertainty = estimator_uncertainty();
-    let profile = GenerationPolicyProfileV1::default();
+    let profile = exact_prompt_policy_profile();
     let provisional = profile
         .provisional_budget(&ProvisionalBudgetInput {
             intent,
@@ -143,9 +157,16 @@ fn bind_intent_budget(
         )
         .map_err(policy_error)?;
 
+    let limiting_factors = if matches!(request, GenerationTokenRequest::ExplicitBound(_))
+        && final_budget.limiting_factors == [GenerationLimitingFactor::ProvisionalReservation]
+    {
+        provisional.limiting_factors
+    } else {
+        final_budget.limiting_factors
+    };
     Ok(BoundGenerationBudget {
         requested_max_tokens: final_budget.final_max_tokens,
-        limiting_factors: final_budget.limiting_factors,
+        limiting_factors,
     })
 }
 
@@ -206,6 +227,15 @@ fn estimator_uncertainty() -> EstimatorUncertaintyInput {
     }
 }
 
+fn exact_prompt_policy_profile() -> GenerationPolicyProfileV1 {
+    GenerationPolicyProfileV1 {
+        bootstrap_unseen_framing_tokens: 0,
+        fallback_estimator_error_bps: 0,
+        minimum_estimator_uncertainty_tokens: 0,
+        ..GenerationPolicyProfileV1::default()
+    }
+}
+
 fn source(kind: PolicyValueSourceKind, version: &str) -> VersionedValueSource {
     VersionedValueSource::new(kind, version)
 }
@@ -219,85 +249,5 @@ fn policy_error(error: GenerationPolicyError) -> AppError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn default_chat_budget_exceeds_legacy_512_with_observed_runtime_capacity() {
-        let budget = bind_generation_budget(
-            GenerationTokenRequest::Intent(GenerationIntent::InteractiveAnswer),
-            GenerationRuntimeFacts {
-                prompt: &"가".repeat(3_900),
-                context_window_tokens: Some(131_072),
-                timeout_ms: 30_000,
-                resource_pressure: ResourcePressure::Normal,
-                observed_tokens_per_second: Some(24),
-            },
-        )
-        .unwrap();
-
-        assert_eq!(budget.requested_max_tokens, 672);
-        assert!(budget.requested_max_tokens > 512);
-        assert_eq!(
-            budget.limiting_factors,
-            [GenerationLimitingFactor::DeadlineThroughput]
-        );
-    }
-
-    #[test]
-    fn context_window_is_remainder_capacity_not_a_completion_cap() {
-        let budget = bind_generation_budget(
-            GenerationTokenRequest::Intent(GenerationIntent::InteractiveAnswer),
-            GenerationRuntimeFacts {
-                prompt: "짧은 질문",
-                context_window_tokens: Some(131_072),
-                timeout_ms: 30_000,
-                resource_pressure: ResourcePressure::Normal,
-                observed_tokens_per_second: Some(24),
-            },
-        )
-        .unwrap();
-
-        assert_eq!(budget.requested_max_tokens, 672);
-        assert_ne!(budget.requested_max_tokens, 131_072);
-    }
-
-    #[test]
-    fn untrusted_throughput_is_not_promoted_to_a_quality_cap() {
-        let budget = bind_default_backend_budget(
-            GenerationTokenRequest::Intent(GenerationIntent::InteractiveAnswer),
-            "짧은 질문",
-            Some(131_072),
-            30_000,
-            ResourcePressure::Normal,
-        )
-        .unwrap();
-
-        assert!(budget.requested_max_tokens > 512);
-        assert_eq!(
-            budget.limiting_factors,
-            [GenerationLimitingFactor::ProvisionalReservation]
-        );
-    }
-
-    #[test]
-    fn explicit_bound_remains_available_for_governed_callers() {
-        let budget = bind_generation_budget(
-            GenerationTokenRequest::ExplicitBound(192),
-            GenerationRuntimeFacts {
-                prompt: "benchmark",
-                context_window_tokens: None,
-                timeout_ms: 5_000,
-                resource_pressure: ResourcePressure::Normal,
-                observed_tokens_per_second: None,
-            },
-        )
-        .unwrap();
-
-        assert_eq!(budget.requested_max_tokens, 192);
-        assert_eq!(
-            budget.limiting_factors,
-            [GenerationLimitingFactor::ExplicitUserOverride]
-        );
-    }
-}
+#[path = "generation_gateway/tests.rs"]
+mod tests;

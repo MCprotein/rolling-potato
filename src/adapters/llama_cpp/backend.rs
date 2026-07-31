@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 mod discovery;
 mod health;
+mod input_tokens;
 mod request;
 mod sidecar;
 mod version;
@@ -14,6 +15,7 @@ pub(crate) use discovery::is_executable;
 #[cfg(test)]
 use health::first_http_status_line;
 pub(crate) use health::probe_health;
+pub(crate) use input_tokens::{chat_input_tokens_request_body, parse_chat_input_tokens_response};
 #[cfg(test)]
 pub(crate) use request::chat_request_body;
 pub(crate) use request::chat_request_body_for_input;

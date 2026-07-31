@@ -9,6 +9,9 @@ use crate::runtime_core::inference::backend::{
 };
 
 const MAX_JSON_SCHEMA_REPETITION: u128 = 1_999;
+const KOREAN_SYSTEM_PROMPT: &str = "기본 답변은 자연스러운 한국어로 작성하고, 코드·수식·URL·고유명사는 필요한 원문 표기를 유지합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
+const USER_SELECTED_LANGUAGE_SYSTEM_PROMPT: &str =
+    "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
 pub(super) const JSON_SCHEMA_REPETITION_KEYS: [&str; 6] = [
     "minLength",
     "maxLength",
@@ -53,11 +56,7 @@ pub(crate) fn chat_request_body_for_input(
     stream: bool,
 ) -> Result<String, AppError> {
     validate_response_schema(input)?;
-    let system_prompt = if input.response_language.allows_non_korean() {
-        "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
-    } else {
-        "기본 답변은 자연스러운 한국어로 작성하고, 코드·수식·URL·고유명사는 필요한 원문 표기를 유지합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
-    };
+    let system_prompt = system_prompt(input);
     let template_options = if runtime_profile.disable_thinking_via_template {
         ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
     } else {
@@ -112,6 +111,14 @@ pub(crate) fn chat_request_body_for_input(
         response_format,
         stream_options
     ))
+}
+
+fn system_prompt(input: &BackendChatInput) -> &'static str {
+    if input.response_language.allows_non_korean() {
+        USER_SELECTED_LANGUAGE_SYSTEM_PROMPT
+    } else {
+        KOREAN_SYSTEM_PROMPT
+    }
 }
 
 fn validate_response_schema(input: &BackendChatInput) -> Result<(), AppError> {

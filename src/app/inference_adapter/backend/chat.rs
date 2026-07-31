@@ -4,6 +4,7 @@ use crate::runtime_core::inference::generation_policy::GenerationIntent;
 
 mod execution;
 mod interruption;
+mod preflight;
 mod readiness;
 mod report;
 mod runtime_profile;

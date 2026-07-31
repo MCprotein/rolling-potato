@@ -7,8 +7,10 @@ use crate::runtime_core::inference::stream::{StreamCompletion, StreamOutcome, St
 
 const READ_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
+mod bounded_json;
 mod protocol;
 
+pub(crate) use bounded_json::post_bounded_json;
 use protocol::{ChatSseDecoder, HttpResponseDecoder};
 #[cfg(test)]
 use protocol::{
