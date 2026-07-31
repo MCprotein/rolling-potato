@@ -149,3 +149,46 @@ fn explicit_zero_is_rejected_before_runtime_capacity_lookup() {
     assert_eq!(error.code, 2);
     assert!(error.message.contains("1 이상"));
 }
+
+#[test]
+fn resource_clamp_is_deferred_to_the_runtime_governor_with_request_provenance() {
+    let normal = bind_generation_budget(
+        GenerationTokenRequest::ExplicitBound(512),
+        GenerationRuntimeFacts {
+            prompt: GenerationPromptEstimate::exact(128),
+            context_window_tokens: Some(4_096),
+            timeout_ms: 30_000,
+            resource_pressure: ResourcePressure::Normal,
+            observed_tokens_per_second: None,
+        },
+    )
+    .unwrap();
+    let degraded = bind_generation_budget(
+        GenerationTokenRequest::ExplicitBound(512),
+        GenerationRuntimeFacts {
+            prompt: GenerationPromptEstimate::exact(128),
+            context_window_tokens: Some(4_096),
+            timeout_ms: 30_000,
+            resource_pressure: ResourcePressure::Degraded,
+            observed_tokens_per_second: None,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(normal, degraded);
+    assert_eq!(degraded.requested_max_tokens, 512);
+
+    let governor = crate::runtime_core::inference::resource::chat_governor_decision(
+        ResourcePressure::Degraded,
+        degraded.requested_max_tokens,
+    );
+    assert_eq!(governor.requested_max_tokens, 512);
+    assert_eq!(
+        governor.effective_max_tokens,
+        Some(crate::runtime_core::inference::resource::DEGRADED_CHAT_MAX_TOKENS)
+    );
+    assert_eq!(
+        governor.token_action,
+        crate::runtime_core::inference::resource::ResourceGovernorTokenAction::Clamped
+    );
+}

@@ -10,12 +10,11 @@ use crate::runtime_core::inference::generation_policy::{
     GenerationLimitingFactor, GenerationPolicyError, GenerationPolicyProfileV1,
     ManagedThroughputEvidence, PolicyValueSourceKind, ProvisionalBudgetInput, VersionedValueSource,
 };
-use crate::runtime_core::inference::resource::{ResourcePressure, DEGRADED_CHAT_MAX_TOKENS};
+use crate::runtime_core::inference::resource::ResourcePressure;
 const PROMPT_ESTIMATOR_ID: &str = "llama.cpp-chat-input-tokens";
 const PROMPT_ESTIMATOR_VERSION: &str = "b9982-input-tokens-v1";
 const RUNTIME_SNAPSHOT_VERSION: &str = "backend-sidecar-record-v1";
 const CHAT_TIMEOUT_CONTRACT_VERSION: &str = "backend-chat-timeout-v1";
-const RESOURCE_GOVERNOR_VERSION: &str = "chat-resource-governor-v1";
 const EXACT_THROUGHPUT_EVIDENCE_VERSION: &str = "artifact-backend-conservative-tps-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -185,15 +184,11 @@ fn capacities(
                 EXACT_THROUGHPUT_EVIDENCE_VERSION,
             ),
         });
-    let resource_capacity = (resource_pressure == ResourcePressure::Degraded).then(|| {
-        ActiveTokenCapacity::new(
-            DEGRADED_CHAT_MAX_TOKENS,
-            source(
-                PolicyValueSourceKind::ResourceGovernor,
-                RESOURCE_GOVERNOR_VERSION,
-            ),
-        )
-    });
+    // Runtime resource admission and clamping are owned by the resource
+    // governor. Keeping that decision out of the generation policy preserves
+    // the policy-requested value so diagnostics can show the exact
+    // policy-requested -> transport-effective transition.
+    let _ = resource_pressure;
 
     GenerationCapacityInputs {
         context_window_tokens,
@@ -214,7 +209,7 @@ fn capacities(
         }),
         semantic_capacity: None,
         governance_capacity: None,
-        resource_capacity,
+        resource_capacity: None,
         explicit_user_override: None,
     }
 }

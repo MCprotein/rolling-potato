@@ -39,7 +39,6 @@ pub(crate) enum PolicyValueSourceKind {
     #[allow(dead_code)]
     SinkContract,
     IntentContract,
-    ResourceGovernor,
     ManagedObservation,
 }
 
