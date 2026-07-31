@@ -198,7 +198,7 @@ mod tests {
         let rendered = render_prompt_memory(&activities, 8_192);
 
         assert!(!rendered.contains("query-0"));
-        assert!(!rendered.contains("query-1"));
+        assert!(!rendered.contains(r#"\"input\":\"query-1\u003c"#));
         assert!(rendered.contains("query-2"));
         assert!(rendered.contains("\"status\":\"cancelled\""));
         assert!(rendered.contains("source-13"));

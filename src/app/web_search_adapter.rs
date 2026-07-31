@@ -52,6 +52,21 @@ pub(crate) enum WebResearchPhase {
     Finding,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WebResearchTraceStatus {
+    Succeeded,
+    Failed,
+    Blocked,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WebResearchTraceStep {
+    pub(crate) route: WebToolRoute,
+    pub(crate) status: WebResearchTraceStatus,
+    pub(crate) source_ids: Vec<String>,
+}
+
 pub(crate) struct WebEvidenceObservation {
     pub(crate) prompt: String,
     pub(crate) fallback: Option<String>,
@@ -88,9 +103,10 @@ pub(crate) fn observe_search(
     pages: &mut WebPageSession,
     elapsed: Duration,
     progress: &mut impl FnMut(WebResearchPhase),
+    trace: &mut Vec<WebResearchTraceStep>,
     cancellation: &RequestCancellationToken,
 ) -> Result<WebEvidenceObservation, AppError> {
-    research_flow::observe(input, research, pages, elapsed, progress, &|| {
+    research_flow::observe(input, research, pages, elapsed, progress, trace, &|| {
         cancellation.check()
     })
 }

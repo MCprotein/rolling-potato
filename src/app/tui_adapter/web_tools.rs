@@ -1,6 +1,6 @@
 use crate::app::web_search_adapter::{
     self, WebGroundingEvidence, WebPageSession, WebResearchAdmission, WebResearchSession,
-    WebToolObservation, WebToolRoute,
+    WebResearchTraceStatus, WebResearchTraceStep, WebToolObservation, WebToolRoute,
 };
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::cancellation::RequestCancellationToken;
@@ -26,6 +26,7 @@ pub(super) fn observe(
     pages: &mut WebPageSession,
     route: WebToolRoute,
     context: WebTurnContext<'_>,
+    trace: &mut Vec<WebResearchTraceStep>,
 ) -> Result<WebToolObservation, AppError> {
     context.cancellation.check()?;
     let route = web_search_adapter::validate_public_web_step(route)?;
@@ -57,13 +58,25 @@ pub(super) fn observe(
                 pages,
                 context.elapsed,
                 &mut report_web_phase,
+                trace,
                 context.cancellation,
             )
             .map(WebToolObservation::Evidence)
         }
         WebToolRoute::Open { url } => {
             context.progress.emit(TuiRequestProgress::Opening);
+            let route = WebToolRoute::Open { url: url.clone() };
             web_search_adapter::observe_open_page(&url, context.request, research).map(|observed| {
+                let source_ids = observed
+                    .page
+                    .as_ref()
+                    .map(|page| vec![page.source_id.clone()])
+                    .unwrap_or_default();
+                trace.push(WebResearchTraceStep {
+                    route,
+                    status: WebResearchTraceStatus::Succeeded,
+                    source_ids,
+                });
                 if let Some(page) = observed.page {
                     research.record_opened_document(&page.final_url);
                     pages.record(page);
@@ -73,7 +86,19 @@ pub(super) fn observe(
         }
         WebToolRoute::Find { query } => {
             context.progress.emit(TuiRequestProgress::Finding);
-            web_search_adapter::observe_find_in_page(pages.current(), &query, context.request)
+            let route = WebToolRoute::Find {
+                query: query.clone(),
+            };
+            let result =
+                web_search_adapter::observe_find_in_page(pages.current(), &query, context.request);
+            if let Ok(observation) = &result {
+                trace.push(WebResearchTraceStep {
+                    route,
+                    status: WebResearchTraceStatus::Succeeded,
+                    source_ids: observation_source_ids(observation),
+                });
+            }
+            result
         }
     };
     // ureq owns each blocking transport call. The safe portable cancellation
@@ -88,6 +113,21 @@ pub(super) fn observe(
             research.record_failed_input(&failed_route);
             Err(error)
         }
+    }
+}
+
+fn observation_source_ids(observation: &WebToolObservation) -> Vec<String> {
+    match observation {
+        WebToolObservation::Evidence(observation) => observation
+            .grounding
+            .iter()
+            .map(|evidence| evidence.source_id.clone())
+            .collect(),
+        WebToolObservation::Terminal(answer) => answer
+            .grounding
+            .iter()
+            .map(|evidence| evidence.source_id.clone())
+            .collect(),
     }
 }
 

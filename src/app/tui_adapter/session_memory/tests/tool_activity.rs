@@ -63,3 +63,40 @@ fn recorded_tool_activity_survives_exchange_and_cancel_without_synthetic_turns()
         assert_eq!(restored.turns()[1].content, "찾았습니다. [source-rust]");
     });
 }
+
+#[test]
+fn ordered_search_open_find_trace_is_restored_without_replay_turns() {
+    with_memory_fixture("ordered-web-trace-resume", || {
+        let mut memory = load().unwrap();
+        let source_ids = ["source-rust".to_string()];
+        let activities = vec![
+            ConversationToolActivity::bounded(
+                "search-step",
+                ConversationToolName::Search,
+                "Rust stable release",
+                ConversationToolStatus::Succeeded,
+                source_ids.clone(),
+            ),
+            ConversationToolActivity::bounded(
+                "open-step",
+                ConversationToolName::Open,
+                "https://example.com/rust",
+                ConversationToolStatus::Succeeded,
+                source_ids.clone(),
+            ),
+            ConversationToolActivity::bounded(
+                "find-step",
+                ConversationToolName::Find,
+                "release",
+                ConversationToolStatus::Succeeded,
+                source_ids,
+            ),
+        ];
+        record_tool_activities(&mut memory, &activities).unwrap();
+
+        let restored = load().unwrap();
+        assert_eq!(restored.tool_activities(), activities);
+        assert!(restored.turns().is_empty());
+        assert!(restored.web_grounding().is_empty());
+    });
+}

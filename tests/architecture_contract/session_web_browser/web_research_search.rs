@@ -18,6 +18,14 @@ fn web_search_open_find_have_separate_bounded_owners() {
     .unwrap();
     let tui_request_support_tests =
         fs::read_to_string("src/app/tui_adapter/runtime/request/support/tests.rs").unwrap();
+    let tui_request_single_step = fs::read_to_string(
+        "src/app/tui_adapter/runtime/request/support/tests/single_step.rs",
+    )
+    .unwrap();
+    let tui_request_research_trace = fs::read_to_string(
+        "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
+    )
+    .unwrap();
     let web_tools = fs::read_to_string("src/app/tui_adapter/web_tools.rs").unwrap();
     let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
     let tui_command_dispatch =
@@ -59,6 +67,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/research/tests.rs",
         "src/app/web_search_adapter/research/types.rs",
         "src/app/web_search_adapter/research_flow.rs",
+        "src/app/web_search_adapter/research_flow/cached_answer.rs",
+        "src/app/web_search_adapter/research_flow/network_call.rs",
         "src/app/web_search_adapter/routing/grounding_policy.rs",
         "src/app/web_search_adapter/routing/grounding_policy/features.rs",
         "src/app/web_search_adapter/routing/grounding_policy/query_plan.rs",
@@ -77,6 +87,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/tui_adapter/runtime/request/support.rs",
         "src/app/tui_adapter/runtime/request/support/context.rs",
         "src/app/tui_adapter/runtime/request/support/tests.rs",
+        "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
+        "src/app/tui_adapter/runtime/request/support/tests/single_step.rs",
         "src/app/tui_adapter/runtime/request/support/web_execution.rs",
         "src/app/tui_adapter/web_tools.rs",
         "src/runtime_core/agent.rs",
@@ -157,7 +169,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_request_support.contains("mod context;"));
     assert!(tui_request_support.contains("mod web_execution;"));
     assert!(tui_request_support.contains("#[path = \"support/tests.rs\"]"));
-    assert!(tui_request_support_tests.contains("fn web_turn_records_typed_success_and_blocked_activity("));
+    assert!(tui_request_support_tests.contains("#[path = \"tests/research_trace.rs\"]"));
+    assert!(tui_request_support_tests.contains("#[path = \"tests/single_step.rs\"]"));
+    assert!(tui_request_single_step.contains("fn web_turn_records_typed_success_and_blocked_activity("));
+    assert!(tui_request_research_trace.contains("fn automatic_search_records_ordered_search_open_find_trace("));
     assert!(tui_request_web_execution.contains("web_tools::observe"));
     assert!(tui_request_web_execution.contains("web_tools::answer"));
     assert!(tui_request_context.contains("fn required_context_limit("));
@@ -314,11 +329,27 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let research_flow_tests =
         fs::read_to_string("src/app/web_search_adapter/research_flow/tests.rs").unwrap();
     assert!(research_flow.contains("#[path = \"research_flow/tests.rs\"]"));
+    assert!(research_flow.lines().any(|line| line == "mod cached_answer;"));
+    assert!(research_flow.lines().any(|line| line == "mod network_call;"));
     assert!(research_flow_tests
         .contains("opened_primary_document_overrides_conflicting_search_snippet"));
     assert!(research_flow.contains("search.sources.iter().take(3)"));
     assert!(research_flow.contains("supporting_passages("));
     assert!(research_flow.lines().count() < 350);
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/research_flow/cached_answer.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 100
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/research_flow/network_call.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 300
+    );
     assert!(research_flow_tests.lines().count() < 225);
     assert!(tui_runtime.lines().any(|line| line == "mod port;"));
     assert!(tui_runtime_port.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
@@ -329,7 +360,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_request_support.lines().count() < 25);
     assert!(tui_request_context.lines().count() < 75);
     assert!(tui_request_web_execution.lines().count() < 125);
-    assert!(tui_request_support_tests.lines().count() < 100);
+    assert!(tui_request_support_tests.lines().count() < 25);
+    assert!(tui_request_single_step.lines().count() < 125);
+    assert!(tui_request_research_trace.lines().count() < 100);
 }
 
 #[test]

@@ -39,6 +39,7 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
                     &crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter::default(),
                 cancellation: &cancellation,
             },
+            &mut Vec::new(),
         )?;
         return super::super::web_tools::answer(observation, request, &cancellation)
             .map(|execution| execution.response);
