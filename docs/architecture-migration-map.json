@@ -2855,6 +2855,23 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/backend/chat/preflight.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat timeout, vision readiness, and exact input-token preflight",
+          "target": "src/app/inference_adapter/backend/chat/preflight.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/preflight.rs",
+            "src/adapters/llama_cpp/backend/input_tokens.rs",
+            "src/adapters/llama_cpp/stream/bounded_json.rs",
+            "tests/architecture_contract/inference/application_backend_chat.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
       "slices": [
         {
@@ -2949,6 +2966,22 @@
           "evidence": [
             "src/app/inference_adapter/backend/generation_gateway.rs",
             "src/runtime_core/inference/generation_policy/mod.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway/tests.rs",
+      "slices": [
+        {
+          "responsibility": "model-aware generation capacity regression tests",
+          "target": "src/app/inference_adapter/backend/generation_gateway/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/generation_gateway.rs",
+            "src/app/inference_adapter/backend/generation_gateway/tests.rs",
             "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
@@ -3209,6 +3242,23 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/backend/input_tokens.rs",
+      "slices": [
+        {
+          "responsibility": "pinned llama.cpp exact chat input-token request and response contract",
+          "target": "src/adapters/llama_cpp/backend/input_tokens.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/input_tokens.rs",
+            "src/adapters/llama_cpp/backend/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/backend/request.rs",
       "slices": [
         {
@@ -3446,6 +3496,39 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/stream/bounded_json.rs",
+      "slices": [
+        {
+          "responsibility": "bounded cancellable JSON transport for llama.cpp capability preflights",
+          "target": "src/adapters/llama_cpp/stream/bounded_json.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/bounded_json.rs",
+            "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+      "slices": [
+        {
+          "responsibility": "bounded JSON transport and error-sanitization regression tests",
+          "target": "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream/bounded_json.rs",
+            "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/stream/protocol.rs",
       "slices": [
         {
@@ -3526,6 +3609,22 @@
             "src/runtime_core/inference/benchmark.rs",
             "src/adapters/filesystem/benchmark_artifact.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+      "slices": [
+        {
+          "responsibility": "incomplete benchmark generation evidence regression tests",
+          "target": "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+            "tests/architecture_contract/adapter_boundaries/application/benchmark.rs"
           ]
         }
       ]
@@ -17802,6 +17901,12 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/backend/chat/preflight.rs",
+      "responsibilities": [
+        "backend chat timeout, vision readiness, and exact input-token preflight"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
       "responsibilities": [
         "exact artifact runtime generation profile resolution"
@@ -17835,6 +17940,12 @@
       "path": "src/app/inference_adapter/backend/generation_gateway.rs",
       "responsibilities": [
         "model-aware generation intent, capacity, and completion gateway"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway/tests.rs",
+      "responsibilities": [
+        "model-aware generation capacity regression tests"
       ]
     },
     {
@@ -17934,6 +18045,12 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/backend/input_tokens.rs",
+      "responsibilities": [
+        "pinned llama.cpp exact chat input-token request and response contract"
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/backend/request.rs",
       "responsibilities": [
         "OpenAI-compatible llama.cpp chat request serialization"
@@ -18024,6 +18141,18 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/stream/bounded_json.rs",
+      "responsibilities": [
+        "bounded cancellable JSON transport for llama.cpp capability preflights"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+      "responsibilities": [
+        "bounded JSON transport and error-sanitization regression tests"
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/stream/protocol.rs",
       "responsibilities": [
         "bounded HTTP chunked decoding, SSE event decoding, and reasoning-trace filtering"
@@ -18051,6 +18180,12 @@
       "path": "src/app/inference_adapter/benchmark/tests.rs",
       "responsibilities": [
         "benchmark validation, recording, executable scoring, parser rejection, and canonical adoption regression tests"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+      "responsibilities": [
+        "incomplete benchmark generation evidence regression tests"
       ]
     },
     {
