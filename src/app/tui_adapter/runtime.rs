@@ -132,7 +132,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                         &tool_activities,
                     );
                     self.conversation_memory = Some(memory);
-                    return recorded.and(Err(error));
+                    return recorded.and(Err(cancellation.cancelled_error()));
                 }
                 let recorded = super::session_memory::record_failure_with_tool_activities(
                     &mut memory,

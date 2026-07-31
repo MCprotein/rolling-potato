@@ -131,10 +131,11 @@ fn execute_routed(
         progress.emit(TuiRequestProgress::Answering);
         let conversation_context =
             web_conversation_context(history, user_request, context_limit_tokens)?;
-        return web_search_adapter::answer_from_grounding(
+        return web_search_adapter::answer_from_grounding_with_cancel(
             user_request,
             &conversation_context,
             web_grounding,
+            cancellation,
         )
         .map(plain_execution);
     }

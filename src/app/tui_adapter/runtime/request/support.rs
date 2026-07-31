@@ -52,7 +52,22 @@ pub(super) fn execute_web_turn(
         }
     };
     progress.emit(crate::surfaces::tui::runtime_bridge::TuiRequestProgress::Answering);
-    let execution = web_tools::answer(observation, request);
+    let execution = match web_tools::answer(observation, request, cancellation) {
+        Ok(execution) => execution,
+        Err(error) => {
+            tool_activities.push(tool_activity(
+                execution_id,
+                &activity_route,
+                if cancellation.is_cancelled() {
+                    ConversationToolStatus::Cancelled
+                } else {
+                    ConversationToolStatus::Failed
+                },
+                &[],
+            ));
+            return Err(error);
+        }
+    };
     let source_ids = execution
         .grounding
         .iter()

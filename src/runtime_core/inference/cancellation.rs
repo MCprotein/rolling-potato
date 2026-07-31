@@ -25,10 +25,14 @@ impl RequestCancellationToken {
 
     pub(crate) fn check(&self) -> Result<(), AppError> {
         if self.is_cancelled() {
-            Err(AppError::runtime(REQUEST_CANCELLED_MESSAGE))
+            Err(self.cancelled_error())
         } else {
             Ok(())
         }
+    }
+
+    pub(crate) fn cancelled_error(&self) -> AppError {
+        AppError::runtime(REQUEST_CANCELLED_MESSAGE)
     }
 }
 
@@ -46,6 +50,10 @@ mod tests {
         assert!(worker_token.is_cancelled());
         assert_eq!(
             worker_token.check().unwrap_err().message,
+            REQUEST_CANCELLED_MESSAGE
+        );
+        assert_eq!(
+            worker_token.cancelled_error().message,
             REQUEST_CANCELLED_MESSAGE
         );
     }

@@ -2,6 +2,7 @@
 
 use crate::foundation::error::AppError;
 use std::net::{SocketAddr, ToSocketAddrs};
+use std::time::{Duration, Instant};
 
 mod evidence;
 mod find;
@@ -18,9 +19,17 @@ use page::parse_page_document;
 use policy::{
     resolve_redirect_url, same_web_origin, validate_open_url, validate_public_host, validate_query,
 };
-use transport::{fetch_page_response, fetch_search_document, PageResponse, SearchEndpoint};
+use transport::{
+    fetch_page_response_with_timeout, fetch_search_document_with_timeout, PageResponse,
+    SearchEndpoint,
+};
 
 const MAX_PAGE_REDIRECTS: usize = 10;
+const SEARCH_REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+#[cfg(test)]
+const SEARCH_OPERATION_TIMEOUT: Duration = Duration::from_secs(40);
+const PAGE_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const PAGE_OPERATION_TIMEOUT: Duration = Duration::from_secs(30 * (MAX_PAGE_REDIRECTS as u64 + 1));
 
 #[cfg(test)]
 use evidence::{stable_source_id, SearchResult, MAX_SEARCH_CONTEXT_CHARS};
@@ -36,11 +45,20 @@ use policy::{
 #[cfg(test)]
 use transport::{direct_agent_config, map_search_error, page_agent_config};
 
+#[cfg(test)]
 pub(crate) fn search(
     query: &str,
     allow_lite_fallback: bool,
 ) -> Result<WebSearchEvidence, AppError> {
-    let query = validate_query(query)?;
+    search_with_timeout(query, allow_lite_fallback, SEARCH_OPERATION_TIMEOUT)
+}
+
+pub(crate) fn search_with_timeout(
+    query: &str,
+    allow_lite_fallback: bool,
+    timeout: Duration,
+) -> Result<WebSearchEvidence, AppError> {
+    let query = validate_query(query)?.to_string();
 
     #[cfg(debug_assertions)]
     {
@@ -50,7 +68,7 @@ pub(crate) fn search(
             .map(|fixture| fixture.to_string_lossy().into_owned());
         if html_fixture.is_some() || lite_fixture.is_some() {
             return evidence_from_documents(
-                query,
+                &query,
                 html_fixture.as_deref(),
                 lite_fixture.as_deref(),
                 allow_lite_fallback,
@@ -58,10 +76,15 @@ pub(crate) fn search(
         }
     }
 
-    let html = fetch_search_document(query, SearchEndpoint::Html);
+    let started = Instant::now();
+    let html = fetch_search_document_with_timeout(
+        &query,
+        SearchEndpoint::Html,
+        remaining_timeout(started, timeout)?.min(SEARCH_REQUEST_TIMEOUT),
+    );
     if let Ok(evidence) = html.and_then(|document| {
         parse_html_search_results(&document)
-            .and_then(|results| evidence_from_results(query, results))
+            .and_then(|results| evidence_from_results(&query, results))
     }) {
         return Ok(evidence);
     }
@@ -70,14 +93,18 @@ pub(crate) fn search(
             "직접 웹 검색 HTML 결과를 사용할 수 없고 lite fallback 요청 예산이 없습니다.",
         ));
     }
-    fetch_search_document(query, SearchEndpoint::Lite)
-        .and_then(|document| parse_lite_search_results(&document))
-        .and_then(|results| evidence_from_results(query, results))
-        .map_err(|_| {
-            AppError::runtime(
-                "직접 웹 검색 HTML과 lite 결과를 모두 사용할 수 없어 검색을 종료했습니다.",
-            )
-        })
+    fetch_search_document_with_timeout(
+        &query,
+        SearchEndpoint::Lite,
+        remaining_timeout(started, timeout)?.min(SEARCH_REQUEST_TIMEOUT),
+    )
+    .and_then(|document| parse_lite_search_results(&document))
+    .and_then(|results| evidence_from_results(&query, results))
+    .map_err(|_| {
+        AppError::runtime(
+            "직접 웹 검색 HTML과 lite 결과를 모두 사용할 수 없어 검색을 종료했습니다.",
+        )
+    })
 }
 
 #[cfg(any(test, debug_assertions))]
@@ -112,6 +139,10 @@ fn evidence_from_documents(
 }
 
 pub(crate) fn open(url: &str) -> Result<WebOpenResult, AppError> {
+    open_with_timeout(url, PAGE_OPERATION_TIMEOUT)
+}
+
+pub(crate) fn open_with_timeout(url: &str, timeout: Duration) -> Result<WebOpenResult, AppError> {
     let requested_url = validate_open_url(url)?;
 
     #[cfg(debug_assertions)]
@@ -125,9 +156,13 @@ pub(crate) fn open(url: &str) -> Result<WebOpenResult, AppError> {
         .map(WebOpenResult::Opened);
     }
 
+    let started = Instant::now();
     let mut current_url = requested_url.clone();
     for redirect_count in 0..=MAX_PAGE_REDIRECTS {
-        match fetch_page_response(&current_url)? {
+        match fetch_page_response_with_timeout(
+            &current_url,
+            remaining_timeout(started, timeout)?.min(PAGE_REQUEST_TIMEOUT),
+        )? {
             PageResponse::Document { content_type, body } => {
                 return parse_page_document(&requested_url, &current_url, &body, &content_type)
                     .map(WebOpenResult::Opened);
@@ -150,6 +185,13 @@ pub(crate) fn open(url: &str) -> Result<WebOpenResult, AppError> {
         }
     }
     unreachable!("redirect loop returns at its bounded terminal state")
+}
+
+fn remaining_timeout(started: Instant, timeout: Duration) -> Result<Duration, AppError> {
+    timeout
+        .checked_sub(started.elapsed())
+        .filter(|remaining| !remaining.is_zero())
+        .ok_or_else(|| AppError::blocked("웹 transport 시간 상한에 도달했습니다."))
 }
 
 pub(crate) fn configuration_summary() -> String {

@@ -57,6 +57,7 @@ pub(super) fn observe(
                 pages,
                 context.elapsed,
                 &mut report_web_phase,
+                context.cancellation,
             )
             .map(WebToolObservation::Evidence)
         }
@@ -90,10 +91,15 @@ pub(super) fn observe(
     }
 }
 
-pub(super) fn answer(observation: WebToolObservation, request: &str) -> WebToolExecution {
-    let answer = web_search_adapter::answer_observation(observation, request);
-    WebToolExecution {
+pub(super) fn answer(
+    observation: WebToolObservation,
+    request: &str,
+    cancellation: &RequestCancellationToken,
+) -> Result<WebToolExecution, AppError> {
+    let answer =
+        web_search_adapter::answer_observation_with_cancel(observation, request, cancellation)?;
+    Ok(WebToolExecution {
         response: answer.response,
         grounding: answer.grounding,
-    }
+    })
 }

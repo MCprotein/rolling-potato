@@ -174,6 +174,25 @@ impl WebResearchSession {
         true
     }
 
+    pub(crate) fn remaining_elapsed_budget(
+        &mut self,
+        elapsed: Duration,
+    ) -> Result<Duration, crate::foundation::error::AppError> {
+        if let Some(terminal) = self.terminal {
+            return Err(terminal.into_error());
+        }
+        self.budget
+            .max_elapsed
+            .checked_sub(elapsed)
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| {
+                self.terminal = Some(WebResearchTerminal::BudgetReached(
+                    WebResearchLimit::Elapsed,
+                ));
+                WebResearchTerminal::BudgetReached(WebResearchLimit::Elapsed).into_error()
+            })
+    }
+
     pub(crate) fn record_opened_document(&mut self, url: &str) {
         let url = url.trim();
         if !url.is_empty() {
