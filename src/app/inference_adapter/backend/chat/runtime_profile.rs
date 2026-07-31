@@ -15,10 +15,19 @@ pub(super) struct ResolvedChatRuntimeProfile {
 
 pub(super) fn resolve(record: &BackendSidecarRecord) -> ResolvedChatRuntimeProfile {
     if let Some((candidate, profile)) = generation_profile_for_artifact_hash(&record.model_sha256) {
-        let disable_thinking_via_template = matches!(
-            profile.thinking_control,
-            ModelThinkingControl::ChatTemplateEnableThinkingFalse
-        );
+        let (disable_thinking_via_template, thinking_mode, thinking_source) =
+            match profile.thinking_control {
+                ModelThinkingControl::ModelDefault => (
+                    false,
+                    "model-default".to_string(),
+                    "no source-backed request override".to_string(),
+                ),
+                ModelThinkingControl::ChatTemplateEnableThinkingFalse { source } => (
+                    true,
+                    "disabled via source-backed chat template option".to_string(),
+                    source.source.to_string(),
+                ),
+            };
         return ResolvedChatRuntimeProfile {
             model_id: candidate.id.to_string(),
             request: BackendChatRuntimeProfile {
@@ -32,12 +41,8 @@ pub(super) fn resolve(record: &BackendSidecarRecord) -> ResolvedChatRuntimeProfi
                     top_p: sampling.top_p,
                 }),
                 disable_thinking_via_template,
-                thinking_mode: if disable_thinking_via_template {
-                    "disabled via source-backed chat template option".to_string()
-                } else {
-                    "model-default".to_string()
-                },
-                thinking_source: profile.thinking_source.source.to_string(),
+                thinking_mode,
+                thinking_source,
             },
         };
     }
@@ -95,6 +100,22 @@ mod tests {
         assert!(qwen.request.sampling.is_none());
         assert_eq!(qwen.request.sampling_profile_version, "model-default");
         assert!(qwen.request.thinking_source.starts_with("https://"));
+    }
+
+    #[test]
+    fn gemma_uses_model_default_without_an_exact_backend_option_claim() {
+        let gemma = resolve(&record(
+            "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+            "/tmp/arbitrary-name.gguf",
+        ));
+
+        assert_eq!(gemma.model_id, "gemma-4-e4b");
+        assert!(!gemma.request.disable_thinking_via_template);
+        assert_eq!(gemma.request.thinking_mode, "model-default");
+        assert_eq!(
+            gemma.request.thinking_source,
+            "no source-backed request override"
+        );
     }
 
     #[test]

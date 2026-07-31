@@ -46,7 +46,12 @@ fn installable_artifacts_bind_generation_behavior_by_exact_hash() {
             assert!(sampling.source.source.starts_with("https://"));
             assert_eq!(sampling.source.status, "confirmed");
         }
-        assert!(profile.thinking_source.source.starts_with("https://"));
-        assert_eq!(profile.thinking_source.status, "confirmed");
+        match profile.thinking_control {
+            ModelThinkingControl::ModelDefault => {}
+            ModelThinkingControl::ChatTemplateEnableThinkingFalse { source } => {
+                assert!(source.source.starts_with("https://"));
+                assert_eq!(source.status, "confirmed");
+            }
+        }
     }
 }

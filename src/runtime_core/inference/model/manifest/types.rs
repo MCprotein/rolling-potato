@@ -62,14 +62,14 @@ impl ModelSamplingProfile {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ModelThinkingControl {
-    ChatTemplateEnableThinkingFalse,
+    ModelDefault,
+    ChatTemplateEnableThinkingFalse { source: SourceClaim },
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ModelGenerationProfile {
     pub(crate) sampling: Option<ModelSamplingProfile>,
     pub(crate) thinking_control: ModelThinkingControl,
-    pub(crate) thinking_source: SourceClaim,
 }
 
 #[derive(Debug, Clone, Copy)]

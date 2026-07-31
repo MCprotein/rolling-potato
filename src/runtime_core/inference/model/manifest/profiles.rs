@@ -4,24 +4,19 @@ use super::{ModelGenerationProfile, ModelSetupProfile, ModelThinkingControl, Sou
 
 pub(super) const QWEN_4B_GENERATION: ModelGenerationProfile = ModelGenerationProfile {
     sampling: None,
-    thinking_control: ModelThinkingControl::ChatTemplateEnableThinkingFalse,
-    thinking_source: SourceClaim {
-        claim: "Qwen3.5 documents instruct/non-thinking mode through enable_thinking=false.",
-        source: "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode",
-        checked_at: "2026-07-30",
-        status: "confirmed",
+    thinking_control: ModelThinkingControl::ChatTemplateEnableThinkingFalse {
+        source: SourceClaim {
+            claim: "Qwen3.5 documents instruct/non-thinking mode through enable_thinking=false.",
+            source: "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode",
+            checked_at: "2026-07-30",
+            status: "confirmed",
+        },
     },
 };
 
 pub(super) const GEMMA_4B_GENERATION: ModelGenerationProfile = ModelGenerationProfile {
     sampling: None,
-    thinking_control: ModelThinkingControl::ChatTemplateEnableThinkingFalse,
-    thinking_source: SourceClaim {
-        claim: "Gemma documents thinking control for supported runtimes.",
-        source: "https://ai.google.dev/gemma/docs/capabilities/thinking",
-        checked_at: "2026-07-30",
-        status: "confirmed",
-    },
+    thinking_control: ModelThinkingControl::ModelDefault,
 };
 
 pub(super) const QWEN_4B_SETUP: ModelSetupProfile = ModelSetupProfile {
