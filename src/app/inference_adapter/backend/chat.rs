@@ -1,5 +1,6 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{BackendChatInput, BackendChatRun};
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::inference::generation_policy::GenerationIntent;
 
 mod execution;
@@ -46,6 +47,22 @@ pub(crate) fn chat_once_with_input_for_intent(
         false,
         None,
         || Ok(false),
+        |_| Ok(()),
+    )
+}
+
+pub(crate) fn chat_once_with_input_for_intent_and_cancel(
+    input: &BackendChatInput,
+    intent: GenerationIntent,
+    cancellation: &RequestCancellationToken,
+) -> Result<BackendChatRun, AppError> {
+    cancellation.check()?;
+    chat_input_with_options(
+        input,
+        GenerationTokenRequest::Intent(intent),
+        false,
+        None,
+        || Ok(cancellation.is_cancelled()),
         |_| Ok(()),
     )
 }

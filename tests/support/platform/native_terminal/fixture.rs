@@ -17,6 +17,7 @@ pub struct PendingSourceApproval {
 pub struct PreparedConversationBackend {
     project: PathBuf,
     data: PathBuf,
+    structured_response: PathBuf,
     request_bodies: PathBuf,
     stopped: bool,
 }
@@ -34,6 +35,10 @@ impl PreparedConversationBackend {
 
     pub fn clear_request_bodies(&self) {
         std::fs::write(&self.request_bodies, b"").unwrap();
+    }
+
+    pub fn set_structured_response(&self, response: &str) {
+        std::fs::write(&self.structured_response, response).unwrap();
     }
 
     fn stop(&mut self) {
@@ -222,13 +227,6 @@ impl NativeTerminalFixture {
         }
     }
 
-    pub fn start_conversation_backend(&self) -> PreparedConversationBackend {
-        self.start_conversation_backend_with_responses(
-            r#"{"decision":"web_search","input":"Rust 최신 릴리스","answer":""}"#,
-            "열린 원문을 바탕으로 생성한 최종 답변입니다. [source-f6c1fc4a4a917c01]",
-        )
-    }
-
     pub fn start_conversation_backend_with_responses(
         &self,
         structured_response_body: &str,
@@ -334,6 +332,7 @@ impl NativeTerminalFixture {
         PreparedConversationBackend {
             project: self.project.clone(),
             data: self.data.clone(),
+            structured_response,
             request_bodies,
             stopped: false,
         }

@@ -155,7 +155,8 @@ inspection commands remain available for diagnostics under `rpotato debug --help
 
 Bracketed paste is consumed atomically. Pasting an absolute image/text path or using
 `/attach <path>` captures a regular, non-symlink file into local app data and shows an
-attachment badge instead of treating a leading `/` as a command. UTF-8 text/code files
+attachment badge instead of treating a leading `/` as a command. Use `/attach clear`
+to discard only pending attachments before sending. UTF-8 text/code files
 up to 256 KiB are included only while the composed request fits the selected
 model's manifest context limit after reserving response/runtime space. Up to four
 PNG/JPEG images with a combined limit of 20 MiB are revalidated from one bounded
@@ -230,10 +231,12 @@ Completed TUI user/assistant exchanges are stored as an append-only, session-sco
 canonical conversation stream. Restarting `rpotato` restores only complete pairs.
 `/clear` records a reset boundary instead of deleting audit history. Prompt assembly
 keeps stable instructions first and the current user request last, with typed user-memory
-candidates, query-driven recall, recent complete exchanges, and attachments assigned
-separate budgets derived from the selected model's manifest context length. Historical
-dialogue and attachment payloads are explicitly encoded as untrusted data. No vector
-database or external memory service is required.
+candidates, recent typed Search/Open/Find activity, query-driven recall, recent complete
+exchanges, and attachments assigned separate budgets derived from the selected model's
+manifest context length. Tool activity records carry their actual input, terminal status,
+and verified source IDs; they never imply that a tool ran again after `/resume`. Historical
+dialogue, tool activity, and attachment payloads are explicitly encoded as untrusted data.
+No vector database or external memory service is required.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

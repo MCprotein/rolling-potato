@@ -2,6 +2,7 @@
 
 use crate::adapters::web_search::WebSourceEvidence;
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use std::time::Duration;
 
 mod answer_binding;
@@ -44,6 +45,28 @@ pub(crate) enum WebToolObservation {
     Terminal(WebAnswerResult),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WebResearchPhase {
+    Searching,
+    Opening,
+    Finding,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WebResearchTraceStatus {
+    Succeeded,
+    Failed,
+    Blocked,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WebResearchTraceStep {
+    pub(crate) route: WebToolRoute,
+    pub(crate) status: WebResearchTraceStatus,
+    pub(crate) source_ids: Vec<String>,
+}
+
 pub(crate) struct WebEvidenceObservation {
     pub(crate) prompt: String,
     pub(crate) fallback: Option<String>,
@@ -79,10 +102,16 @@ pub(crate) fn observe_search(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     elapsed: Duration,
+    progress: &mut impl FnMut(WebResearchPhase),
+    trace: &mut Vec<WebResearchTraceStep>,
+    cancellation: &RequestCancellationToken,
 ) -> Result<WebEvidenceObservation, AppError> {
-    research_flow::observe(input, research, pages, elapsed)
+    research_flow::observe(input, research, pages, elapsed, progress, trace, &|| {
+        cancellation.check()
+    })
 }
 
+#[cfg(test)]
 pub(crate) fn answer_observation(
     observation: WebToolObservation,
     user_request: &str,
@@ -107,12 +136,44 @@ pub(crate) fn answer_observation(
     }
 }
 
-pub(crate) fn answer_from_grounding(
+pub(crate) fn answer_observation_with_cancel(
+    observation: WebToolObservation,
+    user_request: &str,
+    cancellation: &RequestCancellationToken,
+) -> Result<WebAnswerResult, AppError> {
+    match observation {
+        WebToolObservation::Terminal(answer) => Ok(answer),
+        WebToolObservation::Evidence(observation) => {
+            let generated = generate_observation_answer_with_cancel(
+                &observation.prompt,
+                user_request,
+                &observation.sources,
+                cancellation,
+            )?;
+            Ok(WebAnswerResult {
+                response: render_grounded_answer(
+                    generated,
+                    observation.fallback,
+                    &observation.sources,
+                ),
+                grounding: observation.grounding,
+            })
+        }
+    }
+}
+
+pub(crate) fn answer_from_grounding_with_cancel(
     user_request: &str,
     conversation_context: &str,
     grounding: &[WebGroundingEvidence],
+    cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
-    research_flow::answer_from_grounding(user_request, conversation_context, grounding)
+    research_flow::answer_from_grounding_with_cancel(
+        user_request,
+        conversation_context,
+        grounding,
+        cancellation,
+    )
 }
 
 pub(super) fn web_answer_language_policy(query: &str) -> &'static str {
@@ -142,6 +203,32 @@ fn generate_observation_answer(
     )
     .ok()?;
     answer_contract::finish(candidate, sources).ok()
+}
+
+fn generate_observation_answer_with_cancel(
+    prompt: &str,
+    user_request: &str,
+    sources: &[WebSourceEvidence],
+    cancellation: &RequestCancellationToken,
+) -> Result<Option<String>, AppError> {
+    #[cfg(test)]
+    if std::env::var_os("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL").is_some() {
+        return Ok(None);
+    }
+    cancellation.check()?;
+    let candidate = match crate::app::inference_adapter::answer::generate_structured_candidate_for_user_with_cancel(
+        prompt,
+        user_request,
+        crate::runtime_core::inference::generation_policy::GenerationIntent::GroundedWebAnswer,
+        answer_contract::GROUNDED_ANSWER_JSON_SCHEMA,
+        cancellation,
+    ) {
+        Ok(candidate) => candidate,
+        Err(error) if cancellation.is_cancelled() => return Err(error),
+        Err(_) => return Ok(None),
+    };
+    cancellation.check()?;
+    Ok(answer_contract::finish(candidate, sources).ok())
 }
 
 #[cfg(test)]

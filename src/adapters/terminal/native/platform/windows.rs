@@ -56,6 +56,42 @@ unsafe extern "system" {
 static SIGNAL_ECHO_RESTORE_ARMED: AtomicBool = AtomicBool::new(false);
 static SIGNAL_ECHO_HANDLE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static SIGNAL_ECHO_ORIGINAL: AtomicU32 = AtomicU32::new(0);
+static REQUEST_CANCEL_ARMED: AtomicBool = AtomicBool::new(false);
+static REQUEST_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+unsafe extern "system" fn capture_request_cancel(control: u32) -> i32 {
+    if control == CTRL_C_EVENT && REQUEST_CANCEL_ARMED.load(Ordering::Acquire) {
+        REQUEST_CANCELLED.store(true, Ordering::Release);
+        return 1;
+    }
+    0
+}
+
+pub fn begin_request_cancel_capture() -> Result<(), TerminalFault> {
+    if REQUEST_CANCEL_ARMED.swap(true, Ordering::SeqCst) {
+        return Err(TerminalFault::ModeRead);
+    }
+    REQUEST_CANCELLED.store(false, Ordering::Release);
+    // SAFETY: the callback uses the Windows console control handler ABI.
+    if unsafe { SetConsoleCtrlHandler(Some(capture_request_cancel), 1) } == 0 {
+        REQUEST_CANCEL_ARMED.store(false, Ordering::SeqCst);
+        return Err(TerminalFault::ModeRead);
+    }
+    Ok(())
+}
+
+pub fn request_cancelled() -> bool {
+    REQUEST_CANCELLED.load(Ordering::Acquire)
+}
+
+pub fn end_request_cancel_capture() {
+    if !REQUEST_CANCEL_ARMED.swap(false, Ordering::SeqCst) {
+        return;
+    }
+    // SAFETY: removes the exact callback installed when capture began.
+    let _ = unsafe { SetConsoleCtrlHandler(Some(capture_request_cancel), 0) };
+    REQUEST_CANCELLED.store(false, Ordering::Release);
+}
 
 unsafe extern "system" fn restore_echo_before_console_exit(control: u32) -> i32 {
     if matches!(

@@ -7,6 +7,7 @@ use crate::runtime_core::inference::backend::{
     BackendChatInput, BackendChatRun, BackendGenerationIncompleteReason, BackendGenerationStatus,
     ResponseLanguage,
 };
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::inference::generation_policy::{
     GenerationIntent, GenerationPolicyProfileV1,
 };
@@ -25,21 +26,28 @@ pub(crate) struct GeneratedCandidate {
     pub(crate) visible: String,
 }
 
-pub(crate) fn generate_for_user(
+pub(crate) fn generate_for_user_with_cancel(
     prompt: &str,
     user_request: &str,
     intent: GenerationIntent,
+    cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
-    finish_candidate(generate_candidate_for_user(prompt, user_request, intent)?)
+    finish_candidate(generate_candidate_for_user_with_cancel(
+        prompt,
+        user_request,
+        intent,
+        cancellation,
+    )?)
 }
 
-pub(crate) fn generate_candidate_for_user(
+fn generate_candidate_for_user_with_cancel(
     prompt: &str,
     user_request: &str,
     intent: GenerationIntent,
+    cancellation: &RequestCancellationToken,
 ) -> Result<GeneratedCandidate, AppError> {
     let input = BackendChatInput::text_for_user(prompt, user_request);
-    generate_candidate_with_input(&input, intent)
+    generate_candidate_with_input_and_cancel(&input, intent, cancellation)
 }
 
 pub(crate) fn generate_structured_candidate_for_user(
@@ -50,6 +58,17 @@ pub(crate) fn generate_structured_candidate_for_user(
 ) -> Result<GeneratedCandidate, AppError> {
     let input = BackendChatInput::text_for_user(prompt, user_request).with_json_schema(schema);
     generate_candidate_with_input(&input, intent)
+}
+
+pub(crate) fn generate_structured_candidate_for_user_with_cancel(
+    prompt: &str,
+    user_request: &str,
+    intent: GenerationIntent,
+    schema: &str,
+    cancellation: &RequestCancellationToken,
+) -> Result<GeneratedCandidate, AppError> {
+    let input = BackendChatInput::text_for_user(prompt, user_request).with_json_schema(schema);
+    generate_candidate_with_input_and_cancel(&input, intent, cancellation)
 }
 
 fn generate_candidate_with_input(
@@ -68,15 +87,33 @@ fn generate_candidate_with_input(
     })
 }
 
+fn generate_candidate_with_input_and_cancel(
+    input: &BackendChatInput,
+    intent: GenerationIntent,
+    cancellation: &RequestCancellationToken,
+) -> Result<GeneratedCandidate, AppError> {
+    let run = backend::chat_once_with_input_for_intent_and_cancel(input, intent, cancellation)?;
+    ensure_complete(&run)?;
+    let visible = visible_text(&run.response);
+    if visible.is_empty() {
+        return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
+    }
+    Ok(GeneratedCandidate {
+        response_language: input.response_language,
+        visible,
+    })
+}
+
 pub(crate) fn finish_candidate(candidate: GeneratedCandidate) -> Result<String, AppError> {
     finish_generated(candidate.response_language, &candidate.visible)
 }
 
-pub(crate) fn generate_input(
+pub(crate) fn generate_input_with_cancel(
     input: &BackendChatInput,
     intent: GenerationIntent,
+    cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
-    let run = backend::chat_once_with_input_for_intent(input, intent)?;
+    let run = backend::chat_once_with_input_for_intent_and_cancel(input, intent, cancellation)?;
     ensure_complete(&run)?;
     finish_generated(input.response_language, &run.response)
 }

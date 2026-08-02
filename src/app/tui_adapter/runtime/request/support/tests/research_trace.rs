@@ -1,0 +1,63 @@
+use super::super::*;
+use crate::app::tui_adapter::session_memory::{ConversationToolName, ConversationToolStatus};
+use crate::app::tui_adapter::web_tools;
+use crate::app::web_search_adapter::{WebPageSession, WebResearchSession, WebToolRoute};
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
+use crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter;
+
+#[test]
+fn automatic_search_records_ordered_search_open_find_trace() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    std::env::set_var(
+        "RPOTATO_TEST_WEB_SEARCH_HTML",
+        r#"<html><body><div class="result results_links web-result">
+            <h2 class="result__title"><a class="result__a" href="https://example.com/rust">Rust release</a></h2>
+            <a class="result__snippet">Rust stable release notes</a>
+        </div></body></html>"#,
+    );
+    std::env::set_var(
+        "RPOTATO_TEST_WEB_OPEN_HTML",
+        "<html><title>Rust release</title><main>Rust stable release notes</main></html>",
+    );
+    std::env::set_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL", "1");
+    let cancellation = RequestCancellationToken::default();
+    let progress = TuiRequestProgressReporter::default();
+    let mut activities = Vec::new();
+
+    execute_web_turn(
+        &mut WebResearchSession::default(),
+        &mut WebPageSession::default(),
+        WebToolRoute::Search {
+            query: "Rust stable release".to_string(),
+        },
+        web_tools::WebTurnContext {
+            request: "Rust stable release를 검색해줘",
+            local_context: "",
+            conversation_context: "",
+            elapsed: std::time::Duration::ZERO,
+            progress: &progress,
+            cancellation: &cancellation,
+        },
+        &mut activities,
+    )
+    .unwrap();
+
+    for name in [
+        "RPOTATO_TEST_WEB_SEARCH_HTML",
+        "RPOTATO_TEST_WEB_OPEN_HTML",
+        "RPOTATO_TEST_WEB_RESEARCH_NO_MODEL",
+    ] {
+        std::env::remove_var(name);
+    }
+    assert_eq!(activities.len(), 3, "{activities:?}");
+    assert_eq!(activities[0].tool, ConversationToolName::Search);
+    assert_eq!(activities[1].tool, ConversationToolName::Open);
+    assert_eq!(activities[2].tool, ConversationToolName::Find);
+    assert!(activities
+        .iter()
+        .all(|activity| activity.status == ConversationToolStatus::Succeeded));
+    let source_id = activities[0].source_ids.first().expect("search source id");
+    assert!(activities.iter().all(|activity| {
+        activity.source_ids.first() == Some(source_id) && activity.source_ids.len() == 1
+    }));
+}

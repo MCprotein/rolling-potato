@@ -150,7 +150,8 @@ inspection 명령은 `rpotato debug --help` 아래의 진단용 surface로 유�
 
 Bracketed paste는 하나의 입력으로 처리합니다. 절대 이미지/text 경로를 붙여넣거나
 `/attach <경로>`를 사용하면 `/` 명령으로 오판하지 않고 regular non-symlink 파일을
-local app data에 캡처해 첨부 badge로 표시합니다. UTF-8 text/code 파일은 256 KiB까지
+local app data에 캡처해 첨부 badge로 표시합니다. 전송 전 대기 첨부만 비우려면
+`/attach clear`를 사용합니다. UTF-8 text/code 파일은 256 KiB까지
 허용하되 응답·runtime 공간을 예약한 뒤 선택 model의 manifest context limit 안에
 들어오는 경우에만 다음 요청에 포함합니다. PNG/JPEG 이미지는 최대 4개, 합계
 20 MiB까지 허용하며 dispatch 시 한 번의 bounded file read로 size, signature,
@@ -221,9 +222,11 @@ opt-in으로만 실행합니다.
 stream에 저장합니다. `rpotato`를 다시 실행하면 완료된 pair만 복원합니다. `/clear`는
 감사 이력을 삭제하지 않고 reset boundary를 기록합니다. Prompt는 stable instruction을
 가장 앞에, 현재 사용자 요청을 가장 뒤에 두며 typed user-memory 후보, query 기반 recall,
-완료된 최근 exchange, attachment에 선택 모델 manifest의 context length로 계산한 별도
-budget을 배정합니다. 과거 대화와 attachment payload는 명시적으로 신뢰하지 않는 data로
-encoding하며 vector database나 외부 memory service를 요구하지 않습니다.
+최근 typed Search/Open/Find activity, 완료된 최근 exchange, attachment에 선택 모델
+manifest의 context length로 계산한 별도 budget을 배정합니다. Tool activity record는 실제
+input, terminal status, 검증된 source ID를 보존하며 `/resume` 뒤 tool이 다시 실행됐다고
+간주하지 않습니다. 과거 대화, tool activity, attachment payload는 명시적으로 신뢰하지
+않는 data로 encoding하며 vector database나 외부 memory service를 요구하지 않습니다.
 
 <!-- TUI-READ-CONTRACT:START -->
 8개 view(`overview`, `monitor`, `sessions`, `transcript`, `tool-output`, `approvals`,

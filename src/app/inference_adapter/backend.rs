@@ -4,7 +4,6 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 #[cfg(test)]
 use std::time::{Duration, Instant};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(test)]
 use crate::adapters::filesystem::backend_state;
@@ -18,13 +17,13 @@ use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 #[cfg(test)]
 use crate::runtime_core::inference::backend::lifecycle::BackendGenerationRecord;
+#[cfg(test)]
 use crate::runtime_core::inference::backend::lifecycle::BackendSidecarRecord;
 #[cfg(test)]
 use crate::runtime_core::inference::backend::lifecycle::{
     parse_generation_record, render_generation_record,
 };
 use crate::runtime_core::inference::backend::BackendAdapter;
-use crate::runtime_core::inference::model::manifest::model_id_for_artifact_hash;
 use llama_backend::LlamaCppAdapter;
 #[cfg(test)]
 use llama_backend::{
@@ -44,11 +43,15 @@ mod installation;
 mod resource_sampling;
 mod runtime_snapshot;
 mod sidecar;
+mod support;
 pub use chat::{
     cancel_generation_report, chat_once, chat_once_bounded, chat_once_bounded_with_cancel,
     chat_report, chat_stream_report, preflight_chat_ready,
 };
-pub(crate) use chat::{chat_once_for_intent, chat_once_with_input_for_intent};
+pub(crate) use chat::{
+    chat_once_for_intent, chat_once_with_input_for_intent,
+    chat_once_with_input_for_intent_and_cancel,
+};
 #[cfg(test)]
 use generation_state::{
     begin_active_generation, generation_cancel_requested, write_generation_terminal_record,
@@ -66,6 +69,13 @@ use sidecar::{
 pub use sidecar::{
     doctor_report, doctor_summary, health_check_report, start_report, status_report, stop_report,
 };
+use support::{
+    display_optional_u128, display_optional_u32, display_vec, model_identity, now_ms,
+    runtime_vision_projector_ready, vision_readiness, HEALTH_TIMEOUT_MS,
+    TERMINAL_RECORD_RETENTION_MS,
+};
+#[cfg(test)]
+use support::{runtime_binding_matches, supported_vision_readiness};
 
 pub(crate) fn ensure_installed_report() -> Result<String, AppError> {
     let discovery = llama_backend::discover();
@@ -78,41 +88,6 @@ pub(crate) fn ensure_installed_report() -> Result<String, AppError> {
         ));
     }
     install_report()
-}
-
-const HEALTH_TIMEOUT_MS: u64 = 500;
-const TERMINAL_RECORD_RETENTION_MS: u128 = 5 * 60 * 1_000;
-fn display_optional_u32(value: Option<u32>) -> String {
-    value
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| "model-default".to_string())
-}
-
-fn display_optional_u128(value: Option<u128>) -> String {
-    value
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| "unknown".to_string())
-}
-
-fn model_identity(record: &BackendSidecarRecord) -> String {
-    model_id_for_artifact_hash(&record.model_sha256)
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("unregistered-artifact:{}", record.model_sha256))
-}
-
-fn display_vec(values: &[String]) -> String {
-    if values.is_empty() {
-        "없음".to_string()
-    } else {
-        values.join(", ")
-    }
-}
-
-fn now_ms() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

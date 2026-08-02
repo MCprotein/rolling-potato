@@ -21,6 +21,9 @@ fn configured_manifest_id_matches_its_backend_artifact_stem() {
 
 #[test]
 fn retained_context_grows_for_success_and_runtime_error_turns() {
+    use super::super::super::session_memory::{
+        ConversationToolActivity, ConversationToolName, ConversationToolStatus,
+    };
     use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
     let successful = vec![
@@ -51,6 +54,7 @@ fn retained_context_grows_for_success_and_runtime_error_turns() {
         "",
         &input,
         &successful,
+        &[],
         262_144,
     )
     .unwrap();
@@ -58,12 +62,29 @@ fn retained_context_grows_for_success_and_runtime_error_turns() {
         "",
         &input,
         &with_failure,
+        &[],
+        262_144,
+    )
+    .unwrap();
+    let tool_activity = ConversationToolActivity::bounded(
+        "execution-1",
+        ConversationToolName::Search,
+        "Rust 최신 안정 버전",
+        ConversationToolStatus::Succeeded,
+        ["source-rust".to_string()],
+    );
+    let with_tool = super::super::super::conversation::estimate_context_tokens(
+        "",
+        &input,
+        &with_failure,
+        &[tool_activity],
         262_144,
     )
     .unwrap();
 
     assert!(first > 0);
     assert!(second > first);
+    assert!(with_tool > second);
 }
 
 #[test]

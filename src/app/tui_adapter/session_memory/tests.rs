@@ -5,6 +5,8 @@ use super::*;
 
 #[path = "tests/restoration.rs"]
 mod restoration_tests;
+#[path = "tests/tool_activity.rs"]
+mod tool_activity_tests;
 
 fn with_memory_fixture(test_name: &str, test: impl FnOnce()) {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();

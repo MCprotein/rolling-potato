@@ -107,6 +107,7 @@ fn search_results_enter_the_source_picker_and_open_for_followup_find() {
         "RPOTATO_TEST_WEB_OPEN_HTML",
         "<html><title>Selected Source</title><main>Verified checksum evidence.</main></html>",
     );
+    std::env::set_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL", "1");
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new([
@@ -125,6 +126,7 @@ fn search_results_enter_the_source_picker_and_open_for_followup_find() {
         "RPOTATO_TEST_SKIP_UPDATE_CHECK",
         "RPOTATO_TEST_WEB_SEARCH_HTML",
         "RPOTATO_TEST_WEB_OPEN_HTML",
+        "RPOTATO_TEST_WEB_RESEARCH_NO_MODEL",
     ] {
         std::env::remove_var(name);
     }
@@ -133,4 +135,9 @@ fn search_results_enter_the_source_picker_and_open_for_followup_find() {
     assert!(rendered.contains("Selected Source"));
     assert!(rendered.contains("일치: 1개"));
     assert!(rendered.contains("Verified checksum evidence."));
+    assert!(rendered
+        .contains("런타임 단계 · 준비 중 → 검색 중 → 검색 문서 읽는 중 → 문서 안에서 근거 찾는"));
+    assert!(
+        rendered.contains("런타임 단계 · 준비 중 → 문서 안에서 근거 찾는 중 → 답변 구성 중 → 완료")
+    );
 }

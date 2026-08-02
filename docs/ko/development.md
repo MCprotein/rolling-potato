@@ -231,6 +231,19 @@ cargo run -- plugin list
 cargo run -- uninstall --dry-run --purge-cache
 ```
 
+정본 테스트 suite는 fake sidecar를 사용하므로 실제 모델 품질 근거가 아닙니다.
+관리형 backend와 승격된 기본 모델이 이미 실행 중인 개발 환경에서는 artifact를
+다운로드하거나 교체하지 않는 별도 opt-in 대화 smoke를 실행합니다.
+
+```sh
+RPOTATO_REAL_MODEL_SMOKE=1 \
+  scripts/ci/verify-managed-real-model-smoke.sh target/debug/rpotato
+```
+
+이 smoke는 임시 project를 사용하고 기존 모델/backend를 보존합니다. Healthy backend,
+`conversation` routing, `answer-only` 완료, 비어 있지 않은 한국어 최종 답변을 모두
+요구합니다.
+
 최종 binary 명령은 `rpotato`입니다.
 
 ## 코드 구조 방향

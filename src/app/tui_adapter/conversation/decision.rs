@@ -1,7 +1,10 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::ResponseLanguage;
+use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
+
+use super::super::session_memory::ConversationToolActivity;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::app::tui_adapter) enum RequestDecision {
@@ -11,11 +14,49 @@ pub(in crate::app::tui_adapter) enum RequestDecision {
     WebTool(crate::app::web_search_adapter::WebToolRoute),
 }
 
+#[cfg(test)]
 pub(in crate::app::tui_adapter) fn decide_request(
     user_request: &str,
     history: &[TuiConversationTurn],
     context_limit_tokens: u32,
     allow_direct_answer: bool,
+) -> Result<RequestDecision, AppError> {
+    decide_request_impl(
+        user_request,
+        history,
+        &[],
+        context_limit_tokens,
+        allow_direct_answer,
+        None,
+    )
+}
+
+pub(in crate::app::tui_adapter) fn decide_request_with_cancel(
+    user_request: &str,
+    history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
+    context_limit_tokens: u32,
+    allow_direct_answer: bool,
+    cancellation: &RequestCancellationToken,
+) -> Result<RequestDecision, AppError> {
+    cancellation.check()?;
+    decide_request_impl(
+        user_request,
+        history,
+        tool_activities,
+        context_limit_tokens,
+        allow_direct_answer,
+        Some(cancellation),
+    )
+}
+
+fn decide_request_impl(
+    user_request: &str,
+    history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
+    context_limit_tokens: u32,
+    allow_direct_answer: bool,
+    cancellation: Option<&RequestCancellationToken>,
 ) -> Result<RequestDecision, AppError> {
     let response_language = ResponseLanguage::from_user_request(user_request);
     let language_instruction = super::reply::language_instruction(response_language);
@@ -28,16 +69,6 @@ pub(in crate::app::tui_adapter) fn decide_request(
         }
     }
     let prior_user_requests = recent_user_requests(history);
-    if web_enabled {
-        if let Some(tool) =
-            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
-                user_request,
-                &prior_user_requests,
-            )
-        {
-            return Ok(RequestDecision::WebTool(tool));
-        }
-    }
     let web_instruction = if web_enabled {
         "응답은 runtime이 강제하는 JSON object이며 decision, input, answer 세 field를 모두 채운다. 최신 정보나 외부 공개 근거가 필요하면 decision을 web_search, web_open, web_find 중 하나로 선택하고 input에 최소 공개 검색어·HTTPS URL·페이지 내부 검색어만 기록하며 answer는 빈 문자열로 둔다. 후속 질문의 검색어는 최근 사용자 발화를 반영한 자립형 문구로 만들되 모델 답변·첨부 내용·인증정보·개인정보는 넣지 않는다. 웹 도구가 필요하지 않으면 decision은 answer로 하고 answer에 최종 답변을 기록하며 input은 빈 문자열로 둔다."
     } else {
@@ -53,6 +84,7 @@ pub(in crate::app::tui_adapter) fn decide_request(
     );
     let prompt_context = super::super::prompt_context::ConversationPromptContext::build(
         history,
+        tool_activities,
         user_request,
         context_limit_tokens,
         GenerationIntent::StructuredRouteAndAnswer,
@@ -60,12 +92,24 @@ pub(in crate::app::tui_adapter) fn decide_request(
     let prompt = prompt_context
         .assemble(&instructions, "", user_request, "응답:")?
         .text;
-    let candidate = crate::app::inference_adapter::answer::generate_structured_candidate_for_user(
-        &prompt,
-        user_request,
-        GenerationIntent::StructuredRouteAndAnswer,
-        crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
-    )?;
+    let candidate = match cancellation {
+        Some(cancellation) => crate::app::inference_adapter::answer::generate_structured_candidate_for_user_with_cancel(
+            &prompt,
+            user_request,
+            GenerationIntent::StructuredRouteAndAnswer,
+            crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
+            cancellation,
+        )?,
+        None => crate::app::inference_adapter::answer::generate_structured_candidate_for_user(
+            &prompt,
+            user_request,
+            GenerationIntent::StructuredRouteAndAnswer,
+            crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
+        )?,
+    };
+    if let Some(cancellation) = cancellation {
+        cancellation.check()?;
+    }
     decide_generated_candidate(
         candidate,
         user_request,
@@ -82,50 +126,46 @@ pub(super) fn decide_generated_candidate(
     web_enabled: bool,
     allow_direct_answer: bool,
 ) -> Result<RequestDecision, AppError> {
-    if web_enabled {
-        if let Some(tool) =
-            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
-                user_request,
-                prior_user_requests,
-            )
-        {
-            return Ok(RequestDecision::WebTool(tool));
-        }
-    }
     match crate::runtime_core::agent::parse_turn_decision(&candidate.visible, allow_direct_answer) {
         Ok(crate::runtime_core::agent::AgentTurnDecision::Answer(answer)) => {
-            return crate::app::inference_adapter::answer::finish_candidate(
+            crate::app::inference_adapter::answer::finish_candidate(
                 crate::app::inference_adapter::answer::GeneratedCandidate {
                     response_language: candidate.response_language,
                     visible: answer,
                 },
             )
-            .map(RequestDecision::Answer);
+            .map(RequestDecision::Answer)
         }
         Ok(crate::runtime_core::agent::AgentTurnDecision::Tool(tool)) if web_enabled => {
             if let Some(decision) =
                 request_decision_from_agent_tool(tool, user_request, prior_user_requests)
             {
-                return Ok(decision);
+                Ok(decision)
+            } else {
+                Ok(freshness_recovery(user_request, prior_user_requests)
+                    .map(RequestDecision::WebTool)
+                    .unwrap_or(RequestDecision::ContinueLocal))
             }
         }
         Ok(crate::runtime_core::agent::AgentTurnDecision::Tool(_))
         | Ok(crate::runtime_core::agent::AgentTurnDecision::ContinueLocal) => {
-            return Ok(RequestDecision::ContinueLocal);
+            Ok(RequestDecision::ContinueLocal)
         }
-        Err(_) => {}
+        Err(_) if web_enabled => Ok(freshness_recovery(user_request, prior_user_requests)
+            .map(RequestDecision::WebTool)
+            .unwrap_or(RequestDecision::ContinueLocal)),
+        Err(_) => Ok(RequestDecision::ContinueLocal),
     }
-    if web_enabled {
-        if let Some(tool) =
-            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
-                user_request,
-                prior_user_requests,
-            )
-        {
-            return Ok(RequestDecision::WebTool(tool));
-        }
-    }
-    Ok(RequestDecision::ContinueLocal)
+}
+
+fn freshness_recovery(
+    user_request: &str,
+    prior_user_requests: &[&str],
+) -> Option<crate::app::web_search_adapter::WebToolRoute> {
+    crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
+        user_request,
+        prior_user_requests,
+    )
 }
 
 pub(super) fn request_decision_from_agent_tool(

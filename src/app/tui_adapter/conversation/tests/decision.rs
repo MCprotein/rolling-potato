@@ -58,7 +58,31 @@ fn structured_model_turn_routes_tools_and_visible_answers_without_text_protocols
 }
 
 #[test]
-fn required_external_grounding_overrides_a_small_model_direct_answer() {
+fn valid_model_tool_choice_wins_before_the_grounding_safety_fallback() {
+    let candidate = crate::app::inference_adapter::answer::GeneratedCandidate {
+        response_language: ResponseLanguage::KoreanDefault,
+        visible:
+            r#"{"decision":"web_open","input":"https://blog.example.net/rust-release","answer":""}"#
+                .to_string(),
+    };
+
+    assert_eq!(
+        decide_generated_candidate(
+            candidate,
+            "현재 Rust stable 정보를 https://blog.example.net/rust-release 에서 확인해줘",
+            &[],
+            true,
+            true,
+        )
+        .unwrap(),
+        RequestDecision::WebTool(crate::app::web_search_adapter::WebToolRoute::Open {
+            url: "https://blog.example.net/rust-release".to_string(),
+        })
+    );
+}
+
+#[test]
+fn valid_model_answer_is_never_overridden_by_freshness_recovery() {
     for request in [
         "2026년 월드컵 우승국가 어디냐",
         "gemma vs qwen 성능 비교해봐",
@@ -68,13 +92,9 @@ fn required_external_grounding_overrides_a_small_model_direct_answer() {
             response_language: ResponseLanguage::KoreanDefault,
             visible: r#"{"decision":"answer","input":"","answer":"근거 없는 답변"}"#.to_string(),
         };
-        assert!(
-            matches!(
-                decide_generated_candidate(candidate, request, &[], true, true).unwrap(),
-                RequestDecision::WebTool(
-                    crate::app::web_search_adapter::WebToolRoute::Search { .. }
-                )
-            ),
+        assert_eq!(
+            decide_generated_candidate(candidate, request, &[], true, true).unwrap(),
+            RequestDecision::Answer("근거 없는 답변".to_string()),
             "{request}"
         );
     }
@@ -94,6 +114,32 @@ fn required_external_grounding_overrides_a_small_model_direct_answer() {
         .unwrap(),
         RequestDecision::Answer("오프라인 비교".to_string())
     );
+}
+
+#[test]
+fn malformed_or_invalid_model_tool_output_uses_freshness_recovery() {
+    for visible in [
+        "구조화되지 않은 답변",
+        r#"{"decision":"web_search","input":"","answer":""}"#,
+    ] {
+        let candidate = crate::app::inference_adapter::answer::GeneratedCandidate {
+            response_language: ResponseLanguage::KoreanDefault,
+            visible: visible.to_string(),
+        };
+        assert!(matches!(
+            decide_generated_candidate(
+                candidate,
+                "2026년 월드컵 우승국가 어디냐",
+                &[],
+                true,
+                true,
+            )
+            .unwrap(),
+            RequestDecision::WebTool(
+                crate::app::web_search_adapter::WebToolRoute::Search { .. }
+            )
+        ));
+    }
 }
 
 #[test]

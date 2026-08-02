@@ -124,6 +124,18 @@ impl TerminalIo for NativeTerminal {
         Ok(())
     }
 
+    fn begin_request_cancel_capture(&mut self) -> Result<(), TerminalFault> {
+        platform::begin_request_cancel_capture()
+    }
+
+    fn request_cancelled(&mut self) -> Result<bool, TerminalFault> {
+        Ok(platform::request_cancelled())
+    }
+
+    fn end_request_cancel_capture(&mut self) {
+        platform::end_request_cancel_capture();
+    }
+
     fn supports_ansi_layout(&self) -> bool {
         io::stdout().is_terminal()
             && std::env::var_os("TERM").as_deref() != Some(std::ffi::OsStr::new("dumb"))

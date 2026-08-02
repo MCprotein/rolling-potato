@@ -31,11 +31,12 @@ impl SearchEndpoint {
     }
 }
 
-pub(super) fn fetch_search_document(
+pub(super) fn fetch_search_document_with_timeout(
     query: &str,
     endpoint: SearchEndpoint,
+    timeout: Duration,
 ) -> Result<String, AppError> {
-    let agent = ureq::Agent::new_with_config(direct_agent_config());
+    let agent = ureq::Agent::new_with_config(direct_agent_config_with_timeout(timeout));
     let mut response = agent
         .get(endpoint.url())
         .query("q", query)
@@ -57,17 +58,25 @@ pub(super) fn fetch_search_document(
         .map_err(|_| AppError::runtime("웹 검색 문서를 제한된 크기로 읽지 못했습니다."))
 }
 
+#[cfg(test)]
 pub(super) fn direct_agent_config() -> ureq::config::Config {
+    direct_agent_config_with_timeout(Duration::from_secs(20))
+}
+
+fn direct_agent_config_with_timeout(timeout: Duration) -> ureq::config::Config {
     ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(20)))
+        .timeout_global(Some(timeout))
         .https_only(true)
         .max_redirects(0)
         .build()
 }
 
-pub(super) fn fetch_page_response(url: &str) -> Result<PageResponse, AppError> {
+pub(super) fn fetch_page_response_with_timeout(
+    url: &str,
+    timeout: Duration,
+) -> Result<PageResponse, AppError> {
     let agent = ureq::Agent::with_parts(
-        page_agent_config(),
+        page_agent_config_with_timeout(timeout),
         DefaultConnector::default(),
         PublicWebResolver::default(),
     );
@@ -116,9 +125,14 @@ pub(super) fn fetch_page_response(url: &str) -> Result<PageResponse, AppError> {
     Ok(PageResponse::Document { content_type, body })
 }
 
+#[cfg(test)]
 pub(super) fn page_agent_config() -> ureq::config::Config {
+    page_agent_config_with_timeout(Duration::from_secs(30))
+}
+
+fn page_agent_config_with_timeout(timeout: Duration) -> ureq::config::Config {
     ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(30)))
+        .timeout_global(Some(timeout))
         .https_only(true)
         .http_status_as_error(false)
         .max_redirects(0)

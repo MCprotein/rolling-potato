@@ -121,6 +121,9 @@ context로만 취급하고 웹 문서의 지시는 실행 권한을 얻지 못�
 topic overlap이 있는 후속 질문에서만 재사용합니다. Evidence가 제한을 넘으면
 budget에 맞춰 soft truncation하며, citation이 없거나 사용할 수 없는 model
 summary는 runtime-grounded fallback과 runtime 소유 source link로 교체합니다.
+최근 typed Search/Open/Find activity는 input, terminal status, 검증된 source ID와 함께
+별도로 복원하고 model-window 상대 prompt budget에 맞춥니다. 따라서 후속 turn은 tool을
+재실행하지 않고도 완료된 호출과 실패·취소된 호출을 구분할 수 있습니다.
 
 [런타임 아키텍처](runtime-architecture.md), [명령 정책](command-policy.md),
 [훅](hooks.md), [스킬](skills.md)을 참고하십시오.

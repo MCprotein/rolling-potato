@@ -27,7 +27,7 @@ const COMMANDS: &[TerminalSuggestion] = &[
     },
     TerminalSuggestion {
         command: "/attach <경로>",
-        description: "로컬 이미지·텍스트 파일 첨부",
+        description: "로컬 파일 첨부 · clear로 대기 첨부 비우기",
     },
     TerminalSuggestion {
         command: "/update",

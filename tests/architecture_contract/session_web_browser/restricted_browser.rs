@@ -31,11 +31,15 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         fs::read_to_string("src/app/tui_adapter/conversation/presentation.rs").unwrap();
     let conversation_reply =
         fs::read_to_string("src/app/tui_adapter/conversation/reply.rs").unwrap();
+    let conversation_reply_prompt =
+        fs::read_to_string("src/app/tui_adapter/conversation/reply/prompt.rs").unwrap();
     let conversation_tests =
         fs::read_to_string("src/app/tui_adapter/conversation/tests/mod.rs").unwrap();
     let conversation_decision_tests =
         fs::read_to_string("src/app/tui_adapter/conversation/tests/decision.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let tui_request_routing =
+        fs::read_to_string("src/app/tui_adapter/runtime/request/routing.rs").unwrap();
 
     assert!(adapters.contains("pub(crate) mod browser;"));
     assert!(runtime.contains("pub(crate) mod browser;"));
@@ -71,6 +75,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         "src/app/tui_adapter/conversation/local_facts.rs",
         "src/app/tui_adapter/conversation/presentation.rs",
         "src/app/tui_adapter/conversation/reply.rs",
+        "src/app/tui_adapter/conversation/reply/prompt.rs",
         "src/app/tui_adapter/conversation/tests/decision.rs",
         "src/app/tui_adapter/conversation/tests/local_facts.rs",
         "src/app/tui_adapter/conversation/tests/mod.rs",
@@ -157,7 +162,11 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(conversation_decision.contains("generate_structured_candidate_for_user"));
     assert!(conversation_decision.contains("TURN_DECISION_JSON_SCHEMA"));
     assert!(conversation_decision.contains("deterministic_browser_fallback"));
-    assert!(tui_request.contains("RequestDecision::BrowserTool"));
+    assert!(tui_request.lines().any(|line| line == "mod routing;"));
+    assert!(tui_request_routing.contains("RequestDecision::BrowserTool"));
+    assert!(conversation_reply.lines().any(|line| line == "mod prompt;"));
+    assert!(conversation_reply_prompt.contains("fn assemble_plain_prompt("));
+    assert!(conversation_reply_prompt.contains("fn assemble_vision_prompt("));
 
     assert!(facade.lines().count() < 25);
     assert!(actions.lines().count() < 350);
@@ -182,6 +191,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(conversation_local_facts.lines().count() < 300);
     assert!(conversation_presentation.lines().count() < 125);
     assert!(conversation_reply.lines().count() < 125);
+    assert!(conversation_reply_prompt.lines().count() < 100);
     assert!(conversation_tests.lines().count() < 20);
     for (path, line_budget) in [
         (

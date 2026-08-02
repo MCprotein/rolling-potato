@@ -16878,6 +16878,321 @@
           ]
         }
       ]
+    },
+    {
+      "path": "docs/ko/v0.55-product-parity-plan.md",
+      "slices": [
+        {
+          "responsibility": "Korean v0.55 product parity execution plan",
+          "target": "docs/ko/v0.55-product-parity-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/v0.55-product-parity-plan.md",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/v0.55-product-parity-plan.md",
+      "slices": [
+        {
+          "responsibility": "English v0.55 product parity execution plan",
+          "target": "docs/v0.55-product-parity-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/v0.55-product-parity-plan.md",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/browser_policy.rs",
+      "slices": [
+        {
+          "responsibility": "browser navigation URL and public DNS policy",
+          "target": "src/adapters/web_search/browser_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search/browser_policy.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/support.rs",
+      "slices": [
+        {
+          "responsibility": "backend formatting timing identity and vision readiness helpers",
+          "target": "src/app/inference_adapter/backend/support.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/support.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/vision.rs",
+      "slices": [
+        {
+          "responsibility": "backend vision readiness and projector binding regressions",
+          "target": "src/app/inference_adapter/backend/tests/vision.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/tests/vision.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/reply/prompt.rs",
+      "slices": [
+        {
+          "responsibility": "conversation reply prompt assembly",
+          "target": "src/app/tui_adapter/conversation/reply/prompt.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/reply/prompt.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/port.rs",
+      "slices": [
+        {
+          "responsibility": "production TUI runtime port implementation",
+          "target": "src/app/tui_adapter/runtime/port.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/port.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/routing.rs",
+      "slices": [
+        {
+          "responsibility": "TUI request route selection and deterministic recovery",
+          "target": "src/app/tui_adapter/runtime/request/routing.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/routing.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/context.rs",
+      "slices": [
+        {
+          "responsibility": "TUI request context and history preparation",
+          "target": "src/app/tui_adapter/runtime/request/support/context.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/context.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/tests.rs",
+      "slices": [
+        {
+          "responsibility": "TUI request support regression facade",
+          "target": "src/app/tui_adapter/runtime/request/support/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/tests.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
+      "slices": [
+        {
+          "responsibility": "TUI web research trace persistence regressions",
+          "target": "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/tests/single_step.rs",
+      "slices": [
+        {
+          "responsibility": "TUI single-step tool execution regressions",
+          "target": "src/app/tui_adapter/runtime/request/support/tests/single_step.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/tests/single_step.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+      "slices": [
+        {
+          "responsibility": "TUI web execution orchestration and trace persistence",
+          "target": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/event_codec/tool_activity.rs",
+      "slices": [
+        {
+          "responsibility": "session memory tool activity event codec",
+          "target": "src/app/tui_adapter/session_memory/event_codec/tool_activity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory/event_codec/tool_activity.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/recording.rs",
+      "slices": [
+        {
+          "responsibility": "session exchange failure and tool activity recording",
+          "target": "src/app/tui_adapter/session_memory/recording.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory/recording.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/tests/tool_activity.rs",
+      "slices": [
+        {
+          "responsibility": "session memory tool activity persistence regressions",
+          "target": "src/app/tui_adapter/session_memory/tests/tool_activity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory/tests/tool_activity.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/tool_activity.rs",
+      "slices": [
+        {
+          "responsibility": "session memory tool activity value objects",
+          "target": "src/app/tui_adapter/session_memory/tool_activity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory/tool_activity.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow/cached_answer.rs",
+      "slices": [
+        {
+          "responsibility": "cached web research answer rendering",
+          "target": "src/app/web_search_adapter/research_flow/cached_answer.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research_flow/cached_answer.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow/network_call.rs",
+      "slices": [
+        {
+          "responsibility": "bounded web network worker pool and cancellation",
+          "target": "src/app/web_search_adapter/research_flow/network_call.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research_flow/network_call.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/cancellation.rs",
+      "slices": [
+        {
+          "responsibility": "inference request cancellation token",
+          "target": "src/runtime_core/inference/cancellation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/cancellation.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/progress.rs",
+      "slices": [
+        {
+          "responsibility": "TUI request progress value objects and reporting",
+          "target": "src/surfaces/tui/runtime_bridge/progress.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge/progress.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -23110,6 +23425,132 @@
       "path": "tests/architecture_contract/observability_policy/ontology.rs",
       "responsibilities": [
         "ontology runtime owner and dependency architecture contracts"
+      ]
+    },
+    {
+      "path": "docs/ko/v0.55-product-parity-plan.md",
+      "responsibilities": [
+        "Korean v0.55 product parity execution plan"
+      ]
+    },
+    {
+      "path": "docs/v0.55-product-parity-plan.md",
+      "responsibilities": [
+        "English v0.55 product parity execution plan"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/browser_policy.rs",
+      "responsibilities": [
+        "browser navigation URL and public DNS policy"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/support.rs",
+      "responsibilities": [
+        "backend formatting timing identity and vision readiness helpers"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests/vision.rs",
+      "responsibilities": [
+        "backend vision readiness and projector binding regressions"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/reply/prompt.rs",
+      "responsibilities": [
+        "conversation reply prompt assembly"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/port.rs",
+      "responsibilities": [
+        "production TUI runtime port implementation"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/routing.rs",
+      "responsibilities": [
+        "TUI request route selection and deterministic recovery"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/context.rs",
+      "responsibilities": [
+        "TUI request context and history preparation"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/tests.rs",
+      "responsibilities": [
+        "TUI request support regression facade"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
+      "responsibilities": [
+        "TUI web research trace persistence regressions"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/tests/single_step.rs",
+      "responsibilities": [
+        "TUI single-step tool execution regressions"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+      "responsibilities": [
+        "TUI web execution orchestration and trace persistence"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/event_codec/tool_activity.rs",
+      "responsibilities": [
+        "session memory tool activity event codec"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/recording.rs",
+      "responsibilities": [
+        "session exchange failure and tool activity recording"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/tests/tool_activity.rs",
+      "responsibilities": [
+        "session memory tool activity persistence regressions"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/tool_activity.rs",
+      "responsibilities": [
+        "session memory tool activity value objects"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow/cached_answer.rs",
+      "responsibilities": [
+        "cached web research answer rendering"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow/network_call.rs",
+      "responsibilities": [
+        "bounded web network worker pool and cancellation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/cancellation.rs",
+      "responsibilities": [
+        "inference request cancellation token"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge/progress.rs",
+      "responsibilities": [
+        "TUI request progress value objects and reporting"
       ]
     }
   ]

@@ -24,16 +24,25 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
         .ok_or_else(|| AppError::usage("선택한 웹 출처가 현재 세션에 없습니다."))?;
     if !source.opened {
         let request = "선택한 웹 출처를 열고 요약해줘";
+        let cancellation =
+            crate::runtime_core::inference::cancellation::RequestCancellationToken::default();
         let observation = super::super::web_tools::observe(
             &mut WebResearchSession::default(),
             pages,
             WebToolRoute::Open { url: source.url },
-            request,
-            "",
-            "",
-            Duration::ZERO,
+            super::super::web_tools::WebTurnContext {
+                request,
+                local_context: "",
+                conversation_context: "",
+                elapsed: Duration::ZERO,
+                progress:
+                    &crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter::default(),
+                cancellation: &cancellation,
+            },
+            &mut Vec::new(),
         )?;
-        return Ok(super::super::web_tools::answer(observation, request).response);
+        return super::super::web_tools::answer(observation, request, &cancellation)
+            .map(|execution| execution.response);
     }
     pages.select(source_id);
     let page = pages

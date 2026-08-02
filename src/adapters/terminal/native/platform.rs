@@ -11,4 +11,7 @@ mod imp;
 mod imp;
 
 pub(super) use capability::LIVE_INPUT;
-pub(super) use imp::{choose, dimensions, read_input_with_suggestions, read_secret};
+pub(super) use imp::{
+    begin_request_cancel_capture, choose, dimensions, end_request_cancel_capture,
+    read_input_with_suggestions, read_secret, request_cancelled,
+};

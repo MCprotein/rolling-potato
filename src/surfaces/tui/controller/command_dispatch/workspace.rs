@@ -23,7 +23,13 @@ pub(super) fn dispatch_workspace(
             LoopControl::Continue
         }
         ["/attach"] => {
-            state.notice = "사용법: /attach <로컬 파일 경로>".to_string();
+            state.notice =
+                "사용법: /attach <로컬 파일 경로>\n첨부 비우기: /attach clear".to_string();
+            LoopControl::Continue
+        }
+        ["/attach", "clear"] => {
+            state.clear_attachments();
+            state.notice = "대기 중인 첨부를 모두 제거했습니다.".to_string();
             LoopControl::Continue
         }
         ["/attach", path @ ..] => {

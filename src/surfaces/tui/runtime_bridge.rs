@@ -1,6 +1,7 @@
 mod conversation;
 mod intent;
 mod model;
+mod progress;
 mod read;
 mod selection;
 mod status;
@@ -11,6 +12,7 @@ pub(crate) use conversation::{
 };
 pub(crate) use intent::{new_tui_intent_id, OneShotSecret, TuiGateKind, TuiIntent};
 pub(crate) use model::{TuiModelOption, TuiModelReadiness};
+pub(crate) use progress::{TuiRequestProgress, TuiRequestProgressReporter};
 pub(crate) use read::{
     TuiFreshness, TuiReadAuthority, TuiReadBudget, TuiReadContinuation, TuiReadPage, TuiReadRequest,
 };

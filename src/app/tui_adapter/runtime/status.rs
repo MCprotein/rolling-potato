@@ -11,12 +11,20 @@ pub(super) fn estimate_context_tokens(
     let limit = crate::app::inference_adapter::model::configured_context_length().ok()?;
     let input =
         super::super::attachment::compose_request(request, attachments, Some(limit)).ok()?;
-    let history = if adapter.fresh_session_pending {
-        Vec::new()
+    let (history, tool_activities) = if adapter.fresh_session_pending {
+        (Vec::new(), Vec::new())
     } else {
-        adapter.conversation_memory().ok()?.turns().to_vec()
+        let memory = adapter.conversation_memory().ok()?;
+        (memory.turns().to_vec(), memory.tool_activities().to_vec())
     };
-    super::super::conversation::estimate_context_tokens(request, &input, &history, limit).ok()
+    super::super::conversation::estimate_context_tokens(
+        request,
+        &input,
+        &history,
+        &tool_activities,
+        limit,
+    )
+    .ok()
 }
 
 pub(super) fn read(adapter: &mut TuiRuntimeAdapter) -> Result<TuiStatusSnapshot, AppError> {
@@ -67,13 +75,19 @@ pub(super) fn read(adapter: &mut TuiRuntimeAdapter) -> Result<TuiStatusSnapshot,
     } else {
         match context_limit_tokens {
             Some(limit) => {
-                let history = adapter.conversation_memory()?.turns().to_vec();
-                (!history.is_empty())
+                let memory = adapter.conversation_memory()?;
+                let history = memory.turns().to_vec();
+                let tool_activities = memory.tool_activities().to_vec();
+                (!history.is_empty() || !tool_activities.is_empty())
                     .then(|| {
                         let input =
                             super::super::attachment::compose_request("", &[], Some(limit)).ok()?;
                         super::super::conversation::estimate_context_tokens(
-                            "", &input, &history, limit,
+                            "",
+                            &input,
+                            &history,
+                            &tool_activities,
+                            limit,
                         )
                         .ok()
                     })

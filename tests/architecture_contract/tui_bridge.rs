@@ -150,6 +150,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     let tui_report_tests = "src/app/tui_adapter/report_tests.rs";
     let tui_model_switch = "src/app/tui_adapter/model_switch.rs";
     let tui_runtime = "src/app/tui_adapter/runtime.rs";
+    let tui_runtime_port = "src/app/tui_adapter/runtime/port.rs";
     let tui_runtime_backend = "src/app/tui_adapter/runtime/backend.rs";
     assert!(Path::new(tui_adapter).is_file());
     assert!(Path::new(tui_tests).is_file());
@@ -168,6 +169,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(Path::new(tui_report_tests).is_file());
     assert!(Path::new(tui_model_switch).is_file());
     assert!(Path::new(tui_runtime).is_file());
+    assert!(Path::new(tui_runtime_port).is_file());
     assert!(Path::new(tui_runtime_backend).is_file());
     assert!(!Path::new("src/tui.rs").exists());
     assert!(!Path::new("src/tui").exists());
@@ -479,7 +481,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     let tui_regression_sources = tui_test_children.join("\n");
     let tui_report_test_source = fs::read_to_string(tui_report_tests).unwrap();
     let model_switch = fs::read_to_string(tui_model_switch).unwrap();
-    let interactive_runtime = fs::read_to_string(tui_runtime).unwrap();
+    let interactive_runtime = fs::read_to_string(tui_runtime_port).unwrap();
     let report_composition =
         fs::read_to_string("src/app/tui_adapter/report_composition.rs").unwrap();
     assert!(tui_test_source.contains("surfaces::tui::view_model"));

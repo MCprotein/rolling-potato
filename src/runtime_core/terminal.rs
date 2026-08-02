@@ -149,6 +149,16 @@ pub(crate) trait TerminalIo {
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault>;
     fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault>;
 
+    fn begin_request_cancel_capture(&mut self) -> Result<(), TerminalFault> {
+        Ok(())
+    }
+
+    fn request_cancelled(&mut self) -> Result<bool, TerminalFault> {
+        Ok(false)
+    }
+
+    fn end_request_cancel_capture(&mut self) {}
+
     fn choose(
         &mut self,
         title: &str,
