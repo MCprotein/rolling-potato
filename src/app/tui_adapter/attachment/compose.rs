@@ -57,14 +57,12 @@ fn text_input_budget(
         AppError::blocked(
             "텍스트 첨부를 사용하려면 선택한 모델의 context length를 먼저 확인해야 합니다.",
         )
-    })? as usize;
-    let reserved = RESPONSE_RESERVE_TOKENS + RUNTIME_PROMPT_RESERVE_TOKENS;
-    if limit <= reserved {
-        return Err(AppError::blocked(format!(
-            "선택한 모델의 context length가 텍스트 첨부를 처리하기에 너무 작습니다.\n- context: {limit} tokens\n- 응답·런타임 예약: {reserved} tokens"
-        )));
-    }
-    Ok(Some(limit - reserved))
+    })?;
+    let output_reserve = GenerationPolicyProfileV1::default()
+        .prompt_output_reserve(limit)
+        .map_err(|_| AppError::blocked("첨부 prompt generation capacity 부족"))?;
+    let budget = PromptBudget::for_context_limit(limit as usize, output_reserve as usize)?;
+    Ok(Some(budget.input_limit_tokens))
 }
 
 fn ensure_text_budget(

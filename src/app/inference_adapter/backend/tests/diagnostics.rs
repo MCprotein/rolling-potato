@@ -18,8 +18,16 @@ fn health_check_report_is_diagnostic_not_process_start() {
 }
 
 #[test]
-fn model_id_comes_from_model_file_stem() {
-    let model_id = model_id_from_path(Path::new("/tmp/Qwen3.5-4B-Q4_K_M.gguf"));
+fn unregistered_model_identity_uses_artifact_hash_not_file_name() {
+    let record = BackendSidecarRecord {
+        model_sha256: "f".repeat(64),
+        model_path: PathBuf::from("/tmp/Qwen3.5-4B-Q4_K_M.gguf"),
+        ..generation_test_sidecar()
+    };
+    let model_id = model_identity(&record);
 
-    assert_eq!(model_id, "Qwen3.5-4B-Q4_K_M");
+    assert_eq!(
+        model_id,
+        format!("unregistered-artifact:{}", "f".repeat(64))
+    );
 }

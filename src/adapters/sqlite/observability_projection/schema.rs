@@ -3,8 +3,8 @@ use rusqlite::{params, Connection};
 use super::{now_ms, sql_error, to_i64};
 use crate::foundation::error::AppError;
 
-const MIGRATION_VERSION: i64 = 6;
-const MIGRATION_DESCRIPTION: &str = "v0_32_durable_conversation_resume";
+const MIGRATION_VERSION: i64 = 7;
+const MIGRATION_DESCRIPTION: &str = "v0_54_benchmark_generation_evidence";
 
 pub(super) fn migrate(connection: &Connection) -> Result<(), AppError> {
     connection
@@ -202,6 +202,10 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), AppError> {
                 fixture_sha256 TEXT NOT NULL DEFAULT '',
                 prompt_artifact_sha256 TEXT,
                 prompt_chars INTEGER,
+                evidence_schema_version INTEGER,
+                generation_status TEXT,
+                finish_reason TEXT,
+                generation_profile_fingerprint TEXT,
                 claim_state TEXT NOT NULL DEFAULT 'not-comparable',
                 score REAL,
                 score_unit TEXT,
@@ -255,6 +259,20 @@ pub(super) fn migrate(connection: &Connection) -> Result<(), AppError> {
         "TEXT",
     )?;
     ensure_column(connection, "benchmark_runs", "prompt_chars", "INTEGER")?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "evidence_schema_version",
+        "INTEGER",
+    )?;
+    ensure_column(connection, "benchmark_runs", "generation_status", "TEXT")?;
+    ensure_column(connection, "benchmark_runs", "finish_reason", "TEXT")?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "generation_profile_fingerprint",
+        "TEXT",
+    )?;
     ensure_column(
         connection,
         "benchmark_runs",

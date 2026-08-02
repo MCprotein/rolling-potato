@@ -1,14 +1,13 @@
 use crate::app::context_adapter::{ContextPack, ResumeContext};
 use crate::app::extensions_adapter::skill;
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::generation_policy::GenerationPolicyProfileV1;
 use crate::runtime_core::knowledge::context::{
     assemble_agent_prompt, AgentPromptBudget, AgentPromptParts,
 };
 use crate::runtime_core::patch::intent::{
     display_bool, display_list, ActionCandidate, IntentDecision,
 };
-
-const AGENT_OUTPUT_RESERVE_TOKENS: usize = 256;
 
 pub(super) fn agent_loop_prompt(
     request: &str,
@@ -78,9 +77,12 @@ pub(super) fn agent_loop_prompt_for_context(
         skill_instruction_section
     );
     let response_cue = "위 runtime 계약을 지키고, MODEL ACTION 줄을 반드시 마지막에 기록합니다.";
+    let output_reserve_tokens = GenerationPolicyProfileV1::default()
+        .prompt_output_reserve(context_limit_tokens)
+        .map_err(|_| AppError::blocked("agent prompt generation capacity 부족"))?;
     let budget = AgentPromptBudget::for_context_limit(
         context_limit_tokens as usize,
-        AGENT_OUTPUT_RESERVE_TOKENS,
+        output_reserve_tokens as usize,
     )?;
     assemble_agent_prompt(
         budget,

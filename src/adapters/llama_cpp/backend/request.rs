@@ -1,14 +1,17 @@
 //! OpenAI-compatible chat request serialization.
 
-use std::path::Path;
-
 use crate::foundation::error::AppError;
 use crate::foundation::serialization::{self, escape_string_content, Value};
+#[cfg(test)]
+use crate::runtime_core::inference::backend::BackendChatSampling;
 use crate::runtime_core::inference::backend::{
-    BackendChatInput, BackendChatSampling, BackendResponseFormat,
+    BackendChatInput, BackendChatRuntimeProfile, BackendResponseFormat,
 };
 
 const MAX_JSON_SCHEMA_REPETITION: u128 = 1_999;
+const KOREAN_SYSTEM_PROMPT: &str = "기본 답변은 자연스러운 한국어로 작성하고, 코드·수식·URL·고유명사는 필요한 원문 표기를 유지합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
+const USER_SELECTED_LANGUAGE_SYSTEM_PROMPT: &str =
+    "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
 pub(super) const JSON_SCHEMA_REPETITION_KEYS: [&str; 6] = [
     "minLength",
     "maxLength",
@@ -20,46 +23,45 @@ pub(super) const JSON_SCHEMA_REPETITION_KEYS: [&str; 6] = [
 
 #[cfg(test)]
 pub(crate) fn chat_request_body(
-    model_path: &Path,
     prompt: &str,
     max_tokens: u32,
     sampling: &BackendChatSampling,
+    disable_thinking_via_template: bool,
     stream: bool,
 ) -> String {
+    let runtime_profile = BackendChatRuntimeProfile {
+        sampling_profile_version: "request-test-v1".to_string(),
+        sampling: Some(*sampling),
+        disable_thinking_via_template,
+        thinking_mode: if disable_thinking_via_template {
+            "test-disabled".to_string()
+        } else {
+            "test-model-default".to_string()
+        },
+        thinking_source: "test-source".to_string(),
+    };
     chat_request_body_for_input(
-        model_path,
         &BackendChatInput::text_for_user(prompt, prompt),
         max_tokens,
-        sampling,
+        &runtime_profile,
         stream,
     )
     .expect("plain text chat request must be serializable")
 }
 
 pub(crate) fn chat_request_body_for_input(
-    model_path: &Path,
     input: &BackendChatInput,
     max_tokens: u32,
-    sampling: &BackendChatSampling,
+    runtime_profile: &BackendChatRuntimeProfile,
     stream: bool,
 ) -> Result<String, AppError> {
     validate_response_schema(input)?;
-    let system_prompt = if input.response_language.allows_non_korean() {
-        "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
+    let system_prompt = system_prompt(input);
+    let template_options = if runtime_profile.disable_thinking_via_template {
+        ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
     } else {
-        "기본 답변은 자연스러운 한국어로 작성하고, 코드·수식·URL·고유명사는 필요한 원문 표기를 유지합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
+        ""
     };
-    let model_id = model_path
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or("unknown-model");
-    let normalized_model_id = model_id.to_ascii_lowercase();
-    let template_options =
-        if normalized_model_id.starts_with("qwen") || normalized_model_id.starts_with("gemma-4") {
-            ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
-        } else {
-            ""
-        };
     let stream_options = if stream {
         ",\"stream\":true,\"stream_options\":{\"include_usage\":true}"
     } else {
@@ -71,6 +73,15 @@ pub(crate) fn chat_request_body_for_input(
             format!(",\"response_format\":{{\"type\":\"json_object\",\"schema\":{schema}}}")
         }
     };
+    let sampling_options = runtime_profile
+        .sampling
+        .map(|sampling| {
+            format!(
+                ",\"temperature\":{},\"top_p\":{}",
+                sampling.temperature, sampling.top_p
+            )
+        })
+        .unwrap_or_default();
     let user_content = if input.images.is_empty() {
         format!("\"{}\"", escape_string_content(&input.text))
     } else {
@@ -91,16 +102,23 @@ pub(crate) fn chat_request_body_for_input(
         format!("[{}]", parts.join(","))
     };
     Ok(format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":{}}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}{}}}",
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":{}}}],\"max_tokens\":{}{}{}{}{}}}",
         escape_string_content(system_prompt),
         user_content,
         max_tokens,
-        sampling.temperature,
-        sampling.top_p,
+        sampling_options,
         template_options,
         response_format,
         stream_options
     ))
+}
+
+fn system_prompt(input: &BackendChatInput) -> &'static str {
+    if input.response_language.allows_non_korean() {
+        USER_SELECTED_LANGUAGE_SYSTEM_PROMPT
+    } else {
+        KOREAN_SYSTEM_PROMPT
+    }
 }
 
 fn validate_response_schema(input: &BackendChatInput) -> Result<(), AppError> {

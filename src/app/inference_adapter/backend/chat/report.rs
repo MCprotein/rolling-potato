@@ -4,33 +4,10 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{BackendChatInput, BackendChatRun};
 use crate::runtime_core::reporting::korean_guard;
 
+use super::super::generation_gateway::GenerationTokenRequest;
 use super::super::resource_sampling::{display_optional_f64, display_optional_u64_unknown};
 use super::super::{display_optional_u128, display_optional_u32};
 use super::execution::chat_input_with_options;
-
-const QWEN_NON_THINKING_SOURCE: &str =
-    "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode";
-const GEMMA_NON_THINKING_SOURCE: &str = "https://ai.google.dev/gemma/docs/capabilities/thinking";
-
-fn non_thinking_policy(model_id: &str) -> (&'static str, &'static str) {
-    let model_id = model_id.to_ascii_lowercase();
-    if model_id.starts_with("gemma-4") {
-        return (
-            "disabled via chat_template_kwargs.enable_thinking=false",
-            GEMMA_NON_THINKING_SOURCE,
-        );
-    }
-    if model_id.starts_with("qwen") {
-        return (
-            "disabled via chat_template_kwargs.enable_thinking=false",
-            QWEN_NON_THINKING_SOURCE,
-        );
-    }
-    (
-        "best-effort system instruction",
-        "model-specific source 없음",
-    )
-}
 
 pub fn chat_report(
     prompt: &str,
@@ -40,7 +17,7 @@ pub fn chat_report(
     let input = BackendChatInput::text_for_user(prompt, prompt);
     let run = chat_input_with_options(
         &input,
-        max_tokens,
+        GenerationTokenRequest::interactive_or_explicit(max_tokens),
         false,
         timeout_ms,
         || Ok(false),
@@ -69,7 +46,7 @@ pub fn chat_stream_report(
         .map_err(|err| AppError::runtime(format!("streaming output flush 실패: {err}")))?;
     let run = chat_input_with_options(
         &input,
-        max_tokens,
+        GenerationTokenRequest::interactive_or_explicit(max_tokens),
         true,
         timeout_ms,
         || Ok(false),
@@ -122,15 +99,16 @@ pub fn chat_stream_report(
 }
 
 fn format_chat_run(run: &BackendChatRun, include_response: bool) -> String {
-    let (thinking_mode, non_thinking_source) = non_thinking_policy(&run.model_id);
     let mut report = format!(
-        "backend chat{}\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- transport: server-sent events\n- streaming display: {}\n- thinking mode: {}\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- first token latency ms: {}\n- elapsed ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- ledger event: {}",
+        "backend chat{}\n- status: {}\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- transport: server-sent events\n- streaming display: {}\n- sampling profile: {}\n- thinking mode: {}\n- thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- first token latency ms: {}\n- elapsed ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- ledger event: {}",
         if include_response { "" } else { " summary" },
+        run.generation_status.lifecycle_label(),
         run.backend_id,
         run.pid,
         run.streaming_display,
-        thinking_mode,
-        non_thinking_source,
+        run.sampling_profile_version,
+        run.thinking_mode,
+        run.thinking_source,
         run.model_id,
         run.model_path.display(),
         display_optional_u32(run.ctx_size),
@@ -167,7 +145,9 @@ fn format_chat_run(run: &BackendChatRun, include_response: bool) -> String {
 #[cfg(test)]
 mod report_tests {
     use super::*;
-
+    use crate::runtime_core::inference::backend::{
+        BackendGenerationIncompleteReason, BackendGenerationStatus,
+    };
     #[test]
     fn chat_report_format_preserves_diagnostics_and_response_boundary() {
         let run = BackendChatRun::test_fixture();
@@ -181,5 +161,14 @@ mod report_tests {
         assert!(summary.starts_with("backend chat summary\n- status: completed"));
         assert!(!summary.contains("- response:"));
         assert!(!summary.contains("hello"));
+    }
+    #[test]
+    fn incomplete_generation_is_not_reported_as_completed() {
+        let mut run = BackendChatRun::test_fixture();
+        run.generation_status =
+            BackendGenerationStatus::Incomplete(BackendGenerationIncompleteReason::TokenLimit);
+        let report = format_chat_run(&run, false);
+        assert!(report.starts_with("backend chat summary\n- status: incomplete"));
+        assert!(!report.contains("- status: completed"));
     }
 }

@@ -8,10 +8,14 @@ use super::TuiRuntimePort;
 pub(super) fn model_options_notice(options: &[TuiModelOption]) -> String {
     let mut lines = vec!["사용 가능한 모델".to_string()];
     for option in options {
-        let recommendation = if option.recommended { " | 권장" } else { "" };
+        let recommendation = if option.evaluation_recommended {
+            " | 평가 권장"
+        } else {
+            ""
+        };
         let current = if option.current { " | 현재" } else { "" };
         lines.push(format!(
-            "- {} | {} | {} | context {} | RAM {} | {}{}{}\n  vision: {}\n  근거: {}",
+            "- {} | {} | {} | context {} | RAM {} | {}{}{}\n  준비 상태: {}\n  vision: {}\n  근거: {}",
             option.id,
             option.quantization,
             option.model_artifact_label(),
@@ -23,6 +27,7 @@ pub(super) fn model_options_notice(options: &[TuiModelOption]) -> String {
             option.license,
             current,
             recommendation,
+            option.readiness.label(),
             option.vision_artifact_label(),
             option.note,
         ));
@@ -39,9 +44,13 @@ pub(super) fn choose_model(
         .iter()
         .map(|option| TerminalChoice {
             value: option.id.clone(),
-            label: option.display_name.clone(),
+            label: if option.evaluation_recommended {
+                format!("{} · 평가 권장", option.display_name)
+            } else {
+                option.display_name.clone()
+            },
             description: format!(
-                "id {} · {} · {} · context {} · RAM {} · {} · {} · {}",
+                "id {} · {} · {} · context {} · RAM {} · {} · {} · {} · {}",
                 option.id,
                 option.quantization,
                 option.model_artifact_label(),
@@ -51,11 +60,12 @@ pub(super) fn choose_model(
                     .unwrap_or_else(|| "미확정".to_string()),
                 option.ram,
                 option.license,
+                option.readiness.label(),
                 option.vision_artifact_label(),
                 option.note
             ),
             current: option.current,
-            recommended: option.recommended,
+            recommended: false,
         })
         .collect::<Vec<_>>();
     terminal
@@ -85,14 +95,23 @@ pub(super) fn apply_model_choice(
         TerminalChoice {
             value: "apply".to_string(),
             label: if selected.model_cached {
-                "기존 모델로 전환".to_string()
+                if selected.readiness.is_runtime_ready() {
+                    "기존 모델로 전환".to_string()
+                } else {
+                    "기존 모델로 평가 전환".to_string()
+                }
             } else {
-                "다운로드하고 적용".to_string()
+                if selected.readiness.is_runtime_ready() {
+                    "다운로드하고 적용".to_string()
+                } else {
+                    "평가용으로 다운로드하고 적용".to_string()
+                }
             },
             description: format!(
-                "{} · {} · SHA-256 검증 후 기본 모델로 전환",
+                "{} · {} · {} · SHA-256 검증 후 기본 모델로 전환",
                 selected.display_name,
-                selected.model_artifact_label()
+                selected.model_artifact_label(),
+                selected.readiness.label()
             ),
             current: false,
             recommended: true,

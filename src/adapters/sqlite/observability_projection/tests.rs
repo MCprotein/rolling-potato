@@ -119,4 +119,5 @@ fn ledger_projection_rows(connection: &Connection) -> Vec<LedgerProjectionRow> {
 
 include!("tests/recovery.rs");
 include!("tests/projection.rs");
+include!("tests/schema.rs");
 include!("tests/storage.rs");

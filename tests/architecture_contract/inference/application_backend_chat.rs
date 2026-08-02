@@ -3,12 +3,14 @@ use super::*;
 pub(super) fn assert_backend_chat_owners(backend_adapter: &str) {
     let chat_path = "src/app/inference_adapter/backend/chat.rs";
     let execution_path = "src/app/inference_adapter/backend/chat/execution.rs";
+    let failure_path = "src/app/inference_adapter/backend/chat/failure.rs";
     let interruption_path = "src/app/inference_adapter/backend/chat/interruption.rs";
     let readiness_path = "src/app/inference_adapter/backend/chat/readiness.rs";
     let report_path = "src/app/inference_adapter/backend/chat/report.rs";
     for path in [
         chat_path,
         execution_path,
+        failure_path,
         interruption_path,
         readiness_path,
         report_path,
@@ -18,6 +20,7 @@ pub(super) fn assert_backend_chat_owners(backend_adapter: &str) {
 
     let chat = fs::read_to_string(chat_path).unwrap();
     let execution = fs::read_to_string(execution_path).unwrap();
+    let failure = fs::read_to_string(failure_path).unwrap();
     let interruption = fs::read_to_string(interruption_path).unwrap();
     let readiness = fs::read_to_string(readiness_path).unwrap();
     let report = fs::read_to_string(report_path).unwrap();
@@ -26,7 +29,13 @@ pub(super) fn assert_backend_chat_owners(backend_adapter: &str) {
         backend_adapter.lines().any(|line| line == "mod chat;"),
         "inference backend adapter does not register its chat owner"
     );
-    for owner in ["execution", "interruption", "readiness", "report"] {
+    for owner in [
+        "execution",
+        "failure",
+        "interruption",
+        "readiness",
+        "report",
+    ] {
         assert!(
             chat.lines().any(|line| line == format!("mod {owner};")),
             "backend chat facade does not register {owner}"
@@ -66,6 +75,16 @@ pub(super) fn assert_backend_chat_owners(backend_adapter: &str) {
         "execution",
     );
     assert_moved_responsibilities(
+        &failure,
+        &chat,
+        &[
+            "pub(super) fn finish_preflight_failure(",
+            "pub(super) fn finish_stream_failure(",
+            "pub(super) fn resource_governor_blocked(",
+        ],
+        "failure",
+    );
+    assert_moved_responsibilities(
         &interruption,
         &chat,
         &[
@@ -77,6 +96,7 @@ pub(super) fn assert_backend_chat_owners(backend_adapter: &str) {
 
     assert!(chat.lines().count() < 125);
     assert!(execution.lines().count() < 400);
+    assert!(failure.lines().count() < 225);
     assert!(interruption.lines().count() < 225);
     assert!(readiness.lines().count() < 75);
     assert!(report.lines().count() < 200);

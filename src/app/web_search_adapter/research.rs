@@ -7,8 +7,10 @@ pub(crate) use fallback::deterministic_freshness_fallback;
 pub(crate) use fallback::deterministic_freshness_fallback_for_context;
 pub(crate) use session::WebResearchSession;
 #[cfg(test)]
+use types::WebResearchBudget;
+#[cfg(test)]
 pub(crate) use types::{FailedInputAction, WebResearchLimit, WebResearchTerminal};
-pub(crate) use types::{WebResearchAdmission, WebResearchBudget, WebResearchStep};
+pub(crate) use types::{WebResearchAdmission, WebResearchStep};
 
 #[cfg(test)]
 #[path = "research/tests.rs"]

@@ -76,12 +76,12 @@ fn team_lane_decision_allows_sequential_fallback_and_blocks() {
 fn context_model_governor_clamps_and_hints_without_model_claims() {
     let normal_small =
         context_model_governor_decision(ResourcePressure::Normal, 6000, 8192, ModelTier::Small);
-    assert_eq!(normal_small.context_action, ContextGovernorAction::Clamped);
     assert_eq!(
-        normal_small.effective_context_tokens,
-        Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS)
+        normal_small.context_action,
+        ContextGovernorAction::Unchanged
     );
-    assert_eq!(normal_small.model_hint, ModelRouteHint::Escalate);
+    assert_eq!(normal_small.effective_context_tokens, Some(6000));
+    assert_eq!(normal_small.model_hint, ModelRouteHint::Keep);
 
     let degraded_large =
         context_model_governor_decision(ResourcePressure::Degraded, 8000, 8192, ModelTier::Large);
@@ -111,6 +111,7 @@ fn context_model_governor_clamps_and_hints_without_model_claims() {
 fn optimization_policy_uses_local_metrics_and_benchmark_evidence() {
     let healthy = optimization_policy_decision(OptimizationPolicyInput {
         pressure: ResourcePressure::Normal,
+        context_limit_tokens: Some(131_072),
         model_runs: 2,
         measured_benchmark_runs: 1,
         failed_benchmark_runs: 0,
@@ -119,15 +120,13 @@ fn optimization_policy_uses_local_metrics_and_benchmark_evidence() {
         avg_tokens_per_second: Some(25.0),
     });
     assert_eq!(healthy.status, OptimizationPolicyStatus::Recommend);
-    assert_eq!(
-        healthy.recommended_context_tokens,
-        Some(NORMAL_CONTEXT_BUDGET_TOKENS)
-    );
+    assert_eq!(healthy.recommended_context_tokens, Some(131_072));
     assert_eq!(healthy.recommended_lanes, DEFAULT_TEAM_REQUESTED_LANES);
     assert_eq!(healthy.model_hint, ModelRouteHint::Keep);
 
     let failed_benchmark = optimization_policy_decision(OptimizationPolicyInput {
         pressure: ResourcePressure::Normal,
+        context_limit_tokens: Some(131_072),
         model_runs: 2,
         measured_benchmark_runs: 2,
         failed_benchmark_runs: 1,
@@ -144,6 +143,7 @@ fn optimization_policy_uses_local_metrics_and_benchmark_evidence() {
 
     let no_evidence = optimization_policy_decision(OptimizationPolicyInput {
         pressure: ResourcePressure::Normal,
+        context_limit_tokens: None,
         model_runs: 0,
         measured_benchmark_runs: 0,
         failed_benchmark_runs: 0,
@@ -156,9 +156,11 @@ fn optimization_policy_uses_local_metrics_and_benchmark_evidence() {
         OptimizationPolicyStatus::InsufficientEvidence
     );
     assert_eq!(no_evidence.recommended_lanes, 1);
+    assert_eq!(no_evidence.recommended_context_tokens, None);
 
     let critical = optimization_policy_decision(OptimizationPolicyInput {
         pressure: ResourcePressure::Critical,
+        context_limit_tokens: Some(131_072),
         model_runs: 2,
         measured_benchmark_runs: 1,
         failed_benchmark_runs: 0,

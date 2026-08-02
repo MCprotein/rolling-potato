@@ -188,6 +188,7 @@ pub struct MonitorProjectionSnapshot {
 pub struct PerformanceBaseline {
     pub store: StoreStatus,
     pub model_runs: usize,
+    pub latest_context_limit_tokens: Option<u32>,
     pub token_records: i64,
     pub resource_samples: usize,
     pub total_prompt_tokens: i64,
@@ -234,6 +235,10 @@ pub struct BenchmarkRunMetric {
     pub fixture_sha256: String,
     pub prompt_artifact_sha256: Option<String>,
     pub prompt_chars: Option<u32>,
+    pub evidence_schema_version: Option<u32>,
+    pub generation_status: Option<BenchmarkGenerationStatus>,
+    pub finish_reason: Option<String>,
+    pub generation_profile_fingerprint: Option<String>,
     pub claim_state: String,
     pub score: Option<f64>,
     pub score_unit: Option<String>,
@@ -267,6 +272,10 @@ pub struct BenchmarkRunReport {
     pub fixture_sha256: String,
     pub prompt_artifact_sha256: Option<String>,
     pub prompt_chars: Option<u32>,
+    pub evidence_schema_version: Option<u32>,
+    pub generation_status: Option<BenchmarkGenerationStatus>,
+    pub finish_reason: Option<String>,
+    pub generation_profile_fingerprint: Option<String>,
     pub claim_state: String,
     pub score: Option<f64>,
     pub score_unit: Option<String>,
@@ -287,6 +296,26 @@ pub struct BenchmarkRunReport {
     pub reproducibility_manifest: String,
     pub redacted_report: String,
     pub recorded_at_ms: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkGenerationStatus {
+    Complete,
+}
+
+impl BenchmarkGenerationStatus {
+    pub(crate) fn storage_label(self) -> &'static str {
+        match self {
+            Self::Complete => "complete",
+        }
+    }
+
+    pub(crate) fn from_storage_label(value: &str) -> Option<Self> {
+        match value {
+            "complete" => Some(Self::Complete),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

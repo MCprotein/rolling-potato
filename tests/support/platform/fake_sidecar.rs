@@ -44,7 +44,7 @@ fn handle(mut stream: TcpStream) {
             break index + 4;
         }
     };
-    let (is_get, content_length) = {
+    let (is_get, is_input_tokens, content_length) = {
         let headers = String::from_utf8_lossy(&request[..header_end]);
         let content_length = headers
             .lines()
@@ -52,7 +52,11 @@ fn handle(mut stream: TcpStream) {
             .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
             .and_then(|(_, value)| value.trim().parse::<usize>().ok())
             .unwrap_or(0);
-        (headers.starts_with("GET "), content_length)
+        (
+            headers.starts_with("GET "),
+            headers.starts_with("POST /v1/chat/completions/input_tokens "),
+            content_length,
+        )
     };
     while request.len().saturating_sub(header_end) < content_length {
         let Ok(read) = stream.read(&mut buffer) else {
@@ -89,7 +93,12 @@ fn handle(mut stream: TcpStream) {
 
     if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_MARKER") {
         if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
-            let _ = marker.write_all(b"request\n");
+            let request_kind = if is_input_tokens {
+                b"input_tokens\n".as_slice()
+            } else {
+                b"generation\n".as_slice()
+            };
+            let _ = marker.write_all(request_kind);
         }
     }
     if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_SIZE_MARKER") {
@@ -98,6 +107,20 @@ fn handle(mut stream: TcpStream) {
             let _ = writeln!(marker, "{body_bytes}");
         }
     }
+
+    if is_input_tokens {
+        let body = b"{\"object\":\"response.input_tokens\",\"input_tokens\":10}";
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        let _ = stream.write_all(response.as_bytes());
+        let _ = stream.write_all(body);
+        return;
+    }
+
+    // Body inspection belongs to the model generation request. Token preflight payloads use a
+    // different response contract and must not be mistaken for structured model decisions.
     if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_BODY_MARKER") {
         if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
             let _ = marker.write_all(request_body);

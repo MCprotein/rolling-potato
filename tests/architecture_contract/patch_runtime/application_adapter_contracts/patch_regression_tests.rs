@@ -15,6 +15,7 @@ fn assert_patch_regression_test_contracts(patch_facade: &str) {
     let patch_verification_tests = fs::read_to_string(patch_test_modules[5]).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
+    let patch_backend_preflight = fs::read_to_string("tests/patch/backend_preflight.rs").unwrap();
     let patch_backend_runtime = fs::read_to_string("tests/patch/backend_runtime.rs").unwrap();
     let patch_concurrency = fs::read_to_string("tests/patch/concurrency.rs").unwrap();
     let patch_safety = fs::read_to_string("tests/patch/patch_safety.rs").unwrap();
@@ -87,6 +88,7 @@ fn assert_patch_regression_test_contracts(patch_facade: &str) {
         "patch integration harness is not a thin compatibility entrypoint"
     );
     for module in [
+        "mod backend_preflight;",
         "mod backend_runtime;",
         "mod concurrency;",
         "mod patch_safety;",
@@ -108,6 +110,12 @@ fn assert_patch_regression_test_contracts(patch_facade: &str) {
         );
     }
     for (owner, source, marker, limit) in [
+        (
+            "tests/patch/backend_preflight.rs",
+            &patch_backend_preflight,
+            "fn backend_cancel_interrupts_stalled_input_token_preflight",
+            225,
+        ),
         (
             "tests/patch/backend_runtime.rs",
             &patch_backend_runtime,

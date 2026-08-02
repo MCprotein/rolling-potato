@@ -18,13 +18,13 @@ use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 #[cfg(test)]
 use crate::runtime_core::inference::backend::lifecycle::BackendGenerationRecord;
-#[cfg(test)]
 use crate::runtime_core::inference::backend::lifecycle::BackendSidecarRecord;
 #[cfg(test)]
 use crate::runtime_core::inference::backend::lifecycle::{
     parse_generation_record, render_generation_record,
 };
 use crate::runtime_core::inference::backend::BackendAdapter;
+use crate::runtime_core::inference::model::manifest::model_id_for_artifact_hash;
 use llama_backend::LlamaCppAdapter;
 #[cfg(test)]
 use llama_backend::{
@@ -37,18 +37,18 @@ use llama_install::{
 };
 #[cfg(test)]
 use llama_install::{release_artifact_for, BackendArchiveKind};
-
 mod chat;
+mod generation_gateway;
 mod generation_state;
 mod installation;
 mod resource_sampling;
 mod runtime_snapshot;
 mod sidecar;
-pub(crate) use chat::chat_once_with_input;
 pub use chat::{
     cancel_generation_report, chat_once, chat_once_bounded, chat_once_bounded_with_cancel,
     chat_report, chat_stream_report, preflight_chat_ready,
 };
+pub(crate) use chat::{chat_once_for_intent, chat_once_with_input_for_intent};
 #[cfg(test)]
 use generation_state::{
     begin_active_generation, generation_cancel_requested, write_generation_terminal_record,
@@ -94,12 +94,10 @@ fn display_optional_u128(value: Option<u128>) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
-fn model_id_from_path(path: &Path) -> String {
-    path.file_stem()
-        .and_then(|name| name.to_str())
-        .filter(|name| !name.trim().is_empty())
-        .unwrap_or("unknown-model")
-        .to_string()
+fn model_identity(record: &BackendSidecarRecord) -> String {
+    model_id_for_artifact_hash(&record.model_sha256)
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("unregistered-artifact:{}", record.model_sha256))
 }
 
 fn display_vec(values: &[String]) -> String {

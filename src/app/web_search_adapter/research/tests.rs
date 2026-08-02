@@ -31,7 +31,6 @@ fn default_budget_matches_the_v050_contract() {
     assert_eq!(budget.max_network_requests, 6);
     assert_eq!(budget.max_evidence_bytes, 8 * 1024);
     assert_eq!(budget.max_elapsed, Duration::from_secs(45));
-    assert_eq!(budget.final_answer_tokens(), 768);
 }
 
 #[test]

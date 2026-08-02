@@ -49,7 +49,6 @@ pub(crate) struct WebEvidenceObservation {
     pub(crate) fallback: Option<String>,
     pub(crate) sources: Vec<WebSourceEvidence>,
     pub(crate) grounding: Vec<WebGroundingEvidence>,
-    pub(crate) max_tokens: u32,
 }
 
 pub(crate) struct WebAnswerInput<'a> {
@@ -94,7 +93,6 @@ pub(crate) fn answer_observation(
             let generated = generate_observation_answer(
                 &observation.prompt,
                 user_request,
-                observation.max_tokens,
                 &observation.sources,
             );
             WebAnswerResult {
@@ -130,7 +128,6 @@ pub(super) fn web_answer_language_policy(query: &str) -> &'static str {
 fn generate_observation_answer(
     prompt: &str,
     user_request: &str,
-    max_tokens: u32,
     sources: &[WebSourceEvidence],
 ) -> Option<String> {
     #[cfg(test)]
@@ -140,7 +137,7 @@ fn generate_observation_answer(
     let candidate = crate::app::inference_adapter::answer::generate_structured_candidate_for_user(
         prompt,
         user_request,
-        max_tokens,
+        crate::runtime_core::inference::generation_policy::GenerationIntent::GroundedWebAnswer,
         answer_contract::GROUNDED_ANSWER_JSON_SCHEMA,
     )
     .ok()?;

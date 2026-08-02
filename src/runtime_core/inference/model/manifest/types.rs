@@ -15,7 +15,7 @@ impl CandidateStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SourceClaim {
     pub(crate) claim: &'static str,
     pub(crate) source: &'static str,
@@ -46,6 +46,38 @@ pub(crate) struct ModelArtifactDescriptor {
     pub(crate) size_bytes: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ModelSamplingProfile {
+    pub(crate) profile_version: &'static str,
+    pub(crate) temperature: f64,
+    pub(crate) top_p: f64,
+    pub(crate) source: SourceClaim,
+}
+
+impl ModelSamplingProfile {
+    pub(crate) fn ledger_label(self) -> String {
+        format!("temperature-{}_top-p-{}", self.temperature, self.top_p)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ModelThinkingControl {
+    ModelDefault,
+    ChatTemplateEnableThinkingFalse { source: SourceClaim },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ModelGenerationProfile {
+    pub(crate) sampling: Option<ModelSamplingProfile>,
+    pub(crate) thinking_control: ModelThinkingControl,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ModelSetupProfile {
+    pub(crate) recommended: bool,
+    pub(crate) adoption: SourceClaim,
+}
+
 #[derive(Debug)]
 pub(crate) struct ModelManifestEntry {
     pub(crate) id: &'static str,
@@ -68,6 +100,8 @@ pub(crate) struct ModelManifestEntry {
     pub(crate) context_length: Option<u32>,
     pub(crate) recommended_ram_gb: Option<u32>,
     pub(crate) backend_compatibility: Option<SourceClaim>,
+    pub(crate) generation_profile: Option<ModelGenerationProfile>,
+    pub(crate) setup_profile: Option<ModelSetupProfile>,
     pub(crate) benchmark: BenchmarkClaim,
     pub(crate) install_blockers: &'static [&'static str],
 }

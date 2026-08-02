@@ -1,3 +1,24 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TuiModelReadiness {
+    StaticVerified,
+    LocalPromotionReady,
+    EvaluationOnly,
+}
+
+impl TuiModelReadiness {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::StaticVerified => "manifest 검증 완료",
+            Self::LocalPromotionReady => "이 호스트 실사용 검증 완료",
+            Self::EvaluationOnly => "평가 전용 · 실사용 검증 미완료",
+        }
+    }
+
+    pub(crate) fn is_runtime_ready(self) -> bool {
+        matches!(self, Self::StaticVerified | Self::LocalPromotionReady)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TuiModelOption {
     pub(crate) id: String,
@@ -12,7 +33,8 @@ pub(crate) struct TuiModelOption {
     pub(crate) license: String,
     pub(crate) note: String,
     pub(crate) current: bool,
-    pub(crate) recommended: bool,
+    pub(crate) evaluation_recommended: bool,
+    pub(crate) readiness: TuiModelReadiness,
 }
 
 impl TuiModelOption {

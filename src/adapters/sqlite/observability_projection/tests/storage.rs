@@ -171,6 +171,10 @@ fn record_benchmark_run_projects_report_rows() {
         fixture_sha256: "sha256-test".to_string(),
         prompt_artifact_sha256: Some("prompt-sha256-test".to_string()),
         prompt_chars: Some(42),
+        evidence_schema_version: Some(1),
+        generation_status: Some(BenchmarkGenerationStatus::Complete),
+        finish_reason: Some("stop".to_string()),
+        generation_profile_fingerprint: Some("profile-sha256-test".to_string()),
         claim_state: "measured-locally".to_string(),
         score: Some(3.0),
         score_unit: Some("0-3-local-product-score".to_string()),
@@ -209,6 +213,16 @@ fn record_benchmark_run_projects_report_rows() {
     assert_eq!(reports[0].session_id, "session-test");
     assert_eq!(reports[0].model_run_id.as_deref(), Some("model-run-test"));
     assert_eq!(reports[0].fixture_id, "fixture-test");
+    assert_eq!(reports[0].evidence_schema_version, Some(1));
+    assert_eq!(
+        reports[0].generation_status,
+        Some(BenchmarkGenerationStatus::Complete)
+    );
+    assert_eq!(reports[0].finish_reason.as_deref(), Some("stop"));
+    assert_eq!(
+        reports[0].generation_profile_fingerprint.as_deref(),
+        Some("profile-sha256-test")
+    );
     assert_eq!(reports[0].claim_state, "measured-locally");
     assert_eq!(reports[0].score, Some(3.0));
     assert_eq!(reports[0].local_pass, Some(true));
@@ -426,6 +440,10 @@ fn optimization_policy_reads_metrics_and_measured_benchmark_evidence() {
         fixture_sha256: "sha256-test".to_string(),
         prompt_artifact_sha256: Some("prompt-sha256-test".to_string()),
         prompt_chars: Some(42),
+        evidence_schema_version: Some(1),
+        generation_status: Some(BenchmarkGenerationStatus::Complete),
+        finish_reason: Some("stop".to_string()),
+        generation_profile_fingerprint: Some("profile-sha256-test".to_string()),
         claim_state: "measured-locally".to_string(),
         score: Some(3.0),
         score_unit: Some("0-3-local-product-score".to_string()),
@@ -470,10 +488,7 @@ fn optimization_policy_reads_metrics_and_measured_benchmark_evidence() {
         policy.decision.status,
         resource::OptimizationPolicyStatus::Recommend
     );
-    assert_eq!(
-        policy.decision.recommended_context_tokens,
-        Some(resource::NORMAL_CONTEXT_BUDGET_TOKENS)
-    );
+    assert_eq!(policy.decision.recommended_context_tokens, Some(4096));
     assert_eq!(
         policy.decision.recommended_lanes,
         resource::DEFAULT_TEAM_REQUESTED_LANES

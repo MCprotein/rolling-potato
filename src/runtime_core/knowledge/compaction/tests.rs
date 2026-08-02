@@ -157,9 +157,12 @@ fn checkpoint_normalization_keeps_the_newest_bounded_items() {
 fn token_truncation_honors_korean_byte_and_character_bounds() {
     let text = "한글 컨텍스트 ".repeat(2_000);
 
+    let head_and_tail = truncate_head_and_tail_to_tokens(&text, 128);
     let head = truncate_head_to_tokens(&text, 128);
     let tail = truncate_tail_to_estimated_tokens(&text, 128);
 
+    assert!(estimate_tokens(&head_and_tail) <= 128);
+    assert!(head_and_tail.contains("[compacted]"));
     assert!(estimate_tokens(&head) <= 128);
     assert!(estimate_tokens(&tail) <= 128);
     assert!(head.ends_with("[compacted]\n"));

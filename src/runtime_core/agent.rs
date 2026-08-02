@@ -7,7 +7,6 @@ use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 
 const MAX_TOOL_INPUT_CHARS: usize = 512;
-const MAX_ANSWER_CHARS: usize = 16 * 1024;
 const DECISION_CONTEXT: &str = "agent turn decision";
 
 pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","web_search","web_open","web_find","local_task"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
@@ -45,7 +44,7 @@ pub(crate) fn parse_turn_decision(
     let input = strict_json::string(&object, "input", DECISION_CONTEXT)?;
     let answer = strict_json::string(&object, "answer", DECISION_CONTEXT)?;
     ensure_bounded(&input, MAX_TOOL_INPUT_CHARS, "input")?;
-    ensure_bounded(&answer, MAX_ANSWER_CHARS, "answer")?;
+    ensure_visible_answer(&answer)?;
 
     match decision.as_str() {
         "answer" if allow_direct_answer && !answer.trim().is_empty() => {
@@ -79,6 +78,18 @@ fn ensure_bounded(value: &str, max_chars: usize, field: &str) -> Result<(), AppE
         return Err(AppError::blocked(format!(
             "agent turn decision 차단\n- 이유: {field}가 허용 범위를 벗어났습니다."
         )));
+    }
+    Ok(())
+}
+
+fn ensure_visible_answer(value: &str) -> Result<(), AppError> {
+    if value
+        .chars()
+        .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+    {
+        return Err(AppError::blocked(
+            "agent turn decision 차단\n- 이유: answer에 표시할 수 없는 control character가 있습니다.",
+        ));
     }
     Ok(())
 }
@@ -141,13 +152,21 @@ mod tests {
             "x".repeat(MAX_TOOL_INPUT_CHARS + 1)
         );
         assert!(parse_turn_decision(&oversized, true).is_err());
-
-        let oversized_answer = format!(
-            r#"{{"decision":"answer","input":"","answer":"{}"}}"#,
-            "x".repeat(MAX_ANSWER_CHARS + 1)
-        );
-        assert!(parse_turn_decision(&oversized_answer, true).is_err());
         assert!(TURN_DECISION_JSON_SCHEMA.contains(r#""answer":{"type":"string"}"#));
         assert!(!TURN_DECISION_JSON_SCHEMA.contains(r#""answer":{"type":"string","maxLength":"#));
+    }
+
+    #[test]
+    fn visible_answer_length_is_owned_by_generation_and_protocol_capacity() {
+        let answer = format!("긴 답변 시작\n{}\n긴 답변 끝", "가".repeat(32 * 1024));
+        let candidate = format!(
+            r#"{{"decision":"answer","input":"","answer":"{}"}}"#,
+            answer.replace('\n', r"\n")
+        );
+
+        assert_eq!(
+            parse_turn_decision(&candidate, true).unwrap(),
+            AgentTurnDecision::Answer(answer)
+        );
     }
 }

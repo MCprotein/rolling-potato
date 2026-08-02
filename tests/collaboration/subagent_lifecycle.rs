@@ -147,13 +147,10 @@ fn cli_subagent_lifecycle_is_bounded_deterministic_and_secret_safe() {
         evidence_count
     );
 
-    assert_eq!(
-        fs::read_to_string(&fixture.requests)
-            .unwrap()
-            .lines()
-            .count(),
-        3
-    );
+    let requests = fs::read_to_string(&fixture.requests).unwrap();
+    assert_eq!(requests.lines().count(), 6);
+    assert_eq!(requests.lines().filter(|line| *line == "input_tokens").count(), 3);
+    assert_eq!(requests.lines().filter(|line| *line == "generation").count(), 3);
     assert_tree_omits(&fixture.project.join(".rpotato"), RAW_TASK.as_bytes());
     assert_tree_omits(&fixture.data.join("state"), RAW_TASK.as_bytes());
     assert_tree_omits(&fixture.project.join(".rpotato"), MODEL_SECRET.as_bytes());

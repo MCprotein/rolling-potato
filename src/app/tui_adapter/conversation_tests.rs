@@ -204,7 +204,8 @@ fn model_option(id: &str, display_name: &str, current: bool, recommended: bool) 
         license: "Apache-2.0".to_string(),
         note: "test model".to_string(),
         current,
-        recommended,
+        evaluation_recommended: recommended,
+        readiness: crate::surfaces::tui::runtime_bridge::TuiModelReadiness::EvaluationOnly,
     }
 }
 

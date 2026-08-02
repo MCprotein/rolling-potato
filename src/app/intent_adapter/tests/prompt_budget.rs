@@ -95,7 +95,11 @@ fn agent_loop_prompt_bounds_resume_and_sources_to_the_active_runtime_window() {
         &manifest,
     )
     .unwrap();
-    let budget = AgentPromptBudget::for_context_limit(1_024, 256).unwrap();
+    let output_reserve =
+        crate::runtime_core::inference::generation_policy::GenerationPolicyProfileV1::default()
+            .prompt_output_reserve(1_024)
+            .unwrap();
+    let budget = AgentPromptBudget::for_context_limit(1_024, output_reserve as usize).unwrap();
 
     assert!(
         crate::runtime_core::knowledge::compaction::estimate_tokens(&prompt)

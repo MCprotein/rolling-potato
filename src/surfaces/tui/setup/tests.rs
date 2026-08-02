@@ -140,7 +140,7 @@ fn setup_reuses_a_cached_model_without_claiming_a_new_download() {
     run_setup(&mut terminal, &mut runtime).unwrap();
 
     let output = terminal.frames.concat();
-    assert!(output.contains("기존 모델로 시작"));
+    assert!(output.contains("기존 모델로 평가 시작"));
     assert!(output.contains("기존 모델 cache를 SHA-256 검증"));
     assert!(!output.contains("[2/3] 모델을 다운로드"));
 }
@@ -158,7 +158,7 @@ fn setup_confirmation_defaults_to_cancel_without_install_side_effects() {
     let output = terminal.frames.concat();
     assert!(output.contains("설치 확인"));
     assert!(output.contains("1. 취소"));
-    assert!(output.contains("2. 설치하고 시작"));
+    assert!(output.contains("2. 평가용으로 설치하고 시작"));
     assert!(output.contains("설정을 취소했습니다"));
     assert!(runtime.calls.is_empty());
 }
@@ -208,7 +208,8 @@ fn sample_options() -> Vec<TuiModelOption> {
             license: "Apache-2.0".to_string(),
             note: "실험적".to_string(),
             current: false,
-            recommended: false,
+            evaluation_recommended: false,
+            readiness: crate::surfaces::tui::runtime_bridge::TuiModelReadiness::EvaluationOnly,
         },
         TuiModelOption {
             id: "gemma-4-e4b".to_string(),
@@ -223,7 +224,23 @@ fn sample_options() -> Vec<TuiModelOption> {
             license: "Apache-2.0".to_string(),
             note: "local smoke".to_string(),
             current: false,
-            recommended: true,
+            evaluation_recommended: true,
+            readiness: crate::surfaces::tui::runtime_bridge::TuiModelReadiness::EvaluationOnly,
         },
     ]
+}
+
+#[test]
+fn setup_labels_evaluation_recommendation_separately_from_runtime_readiness() {
+    let options = sample_options();
+    let screen = render_setup_screen(&options, false);
+    let choices = model_choices(&options);
+    let confirmation = confirmation_choices(&options[1]);
+
+    assert!(screen.contains("Gemma 4B [평가 권장]"));
+    assert!(screen.contains("상태: 평가 전용 · 실사용 검증 미완료"));
+    assert!(choices[1].label.contains("평가 권장"));
+    assert!(!choices[1].recommended);
+    assert_eq!(confirmation[1].label, "평가용으로 설치하고 시작");
+    assert!(confirmation[1].description.contains("실사용 검증 미완료"));
 }

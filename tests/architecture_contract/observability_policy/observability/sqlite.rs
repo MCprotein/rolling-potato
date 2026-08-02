@@ -16,6 +16,7 @@ pub(super) fn assert_sqlite_observability_projection() {
         "src/adapters/sqlite/observability_projection/tests/projection.rs";
     let sqlite_recovery_tests_path =
         "src/adapters/sqlite/observability_projection/tests/recovery.rs";
+    let sqlite_schema_tests_path = "src/adapters/sqlite/observability_projection/tests/schema.rs";
     let sqlite_storage_tests_path = "src/adapters/sqlite/observability_projection/tests/storage.rs";
     for path in [
         metrics_path,
@@ -30,6 +31,7 @@ pub(super) fn assert_sqlite_observability_projection() {
         sqlite_tests_path,
         sqlite_projection_tests_path,
         sqlite_recovery_tests_path,
+        sqlite_schema_tests_path,
         sqlite_storage_tests_path,
     ] {
         assert!(Path::new(path).is_file(), "missing SQLite owner: {path}");
@@ -46,6 +48,7 @@ pub(super) fn assert_sqlite_observability_projection() {
     let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
     let sqlite_projection_tests = fs::read_to_string(sqlite_projection_tests_path).unwrap();
     let sqlite_recovery_tests = fs::read_to_string(sqlite_recovery_tests_path).unwrap();
+    let sqlite_schema_tests = fs::read_to_string(sqlite_schema_tests_path).unwrap();
     let sqlite_storage_tests = fs::read_to_string(sqlite_storage_tests_path).unwrap();
     let projection_port_impl = "impl ObservabilityProjectionPort for SqliteObservabilityProjection";
     assert!(
@@ -306,5 +309,6 @@ pub(super) fn assert_sqlite_observability_projection() {
     );
     assert!(sqlite_projection_tests.lines().count() < 125);
     assert!(sqlite_recovery_tests.lines().count() < 125);
+    assert!(sqlite_schema_tests.lines().count() < 125);
     assert!(sqlite_storage_tests.lines().count() < 500);
 }

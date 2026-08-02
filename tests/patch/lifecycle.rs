@@ -68,6 +68,7 @@ fn fixture(name: &str) -> Fixture {
     )
     .unwrap();
     let calls = root.join("calls.txt");
+    let preflight_calls = root.join("preflight-calls.txt");
     let backend = root.join("fake-llama-server");
     fs::write(
         &backend,
@@ -75,10 +76,8 @@ fn fixture(name: &str) -> Fixture {
             r#"#!/usr/bin/env python3
 import argparse, json, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-p=argparse.ArgumentParser(add_help=False)
-p.add_argument('--port', type=int, required=True)
-p.add_argument('--host', default='127.0.0.1')
-p.add_argument('--model')
+p=argparse.ArgumentParser(add_help=False); p.add_argument('--port', type=int, required=True)
+p.add_argument('--host', default='127.0.0.1'); p.add_argument('--model')
 p.add_argument('--ctx-size')
 a,_=p.parse_known_args()
 class H(BaseHTTPRequestHandler):
@@ -87,6 +86,19 @@ class H(BaseHTTPRequestHandler):
     self.send_response(200); self.end_headers(); self.wfile.write(b'{{"status":"ok"}}')
   def do_POST(self):
     n=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(n))
+    if self.path == '/v1/chat/completions/input_tokens':
+      with open({preflight_calls:?}, 'a') as f: f.write('input_tokens\n')
+      prompt=request.get('messages',[{{}}])[-1].get('content','')
+      if prompt == 'RPOTATO_PREFLIGHT_STALL':
+        self.send_response(200); self.send_header('Content-Type','application/json'); self.end_headers()
+        try:
+          while True:
+            self.wfile.write(b' '); self.wfile.flush(); time.sleep(0.05)
+        except (BrokenPipeError, ConnectionResetError):
+          return
+      body=json.dumps({{"object":"response.input_tokens","input_tokens":10}}).encode()
+      self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+      return
     with open({calls:?}, 'a') as f: f.write('chat\n')
     with open({response:?}) as f: content=f.read()
     if request.get('stream'):
@@ -121,6 +133,7 @@ class H(BaseHTTPRequestHandler):
 ThreadingHTTPServer((a.host,a.port),H).serve_forever()
 "#,
             calls = calls.display().to_string(),
+            preflight_calls = preflight_calls.display().to_string(),
             response = response.display().to_string()
         ),
     )
@@ -135,6 +148,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         backend,
         response,
         calls,
+        preflight_calls,
         port: AtomicU16::new(available_port()),
         _permit: permit,
     }
@@ -147,6 +161,7 @@ struct Fixture {
     backend: PathBuf,
     response: PathBuf,
     calls: PathBuf,
+    preflight_calls: PathBuf,
     port: AtomicU16,
     _permit: FixturePermit,
 }
@@ -402,6 +417,7 @@ fn path_contains_bytes(path: &Path, needle: &[u8]) -> bool {
         .unwrap_or(false)
 }
 
+mod backend_preflight;
 mod backend_runtime;
 mod concurrency;
 mod patch_safety;

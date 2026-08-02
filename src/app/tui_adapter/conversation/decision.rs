@@ -1,8 +1,7 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::ResponseLanguage;
+use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
-
-const DECISION_MAX_TOKENS: u32 = 512;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::app::tui_adapter) enum RequestDecision {
@@ -56,7 +55,7 @@ pub(in crate::app::tui_adapter) fn decide_request(
         history,
         user_request,
         context_limit_tokens,
-        DECISION_MAX_TOKENS,
+        GenerationIntent::StructuredRouteAndAnswer,
     )?;
     let prompt = prompt_context
         .assemble(&instructions, "", user_request, "응답:")?
@@ -64,7 +63,7 @@ pub(in crate::app::tui_adapter) fn decide_request(
     let candidate = crate::app::inference_adapter::answer::generate_structured_candidate_for_user(
         &prompt,
         user_request,
-        DECISION_MAX_TOKENS,
+        GenerationIntent::StructuredRouteAndAnswer,
         crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
     )?;
     decide_generated_candidate(

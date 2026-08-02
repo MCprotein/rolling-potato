@@ -27,3 +27,31 @@ fn quantization_lookup_tracks_source_backed_manifest_hashes() {
     );
     assert_eq!(quantization_for_artifact_hash(&"f".repeat(64)), None);
 }
+
+#[test]
+fn installable_artifacts_bind_generation_behavior_by_exact_hash() {
+    for candidate in CANDIDATES
+        .iter()
+        .filter(|candidate| candidate.sha256.is_some())
+    {
+        let hash = candidate.sha256.unwrap();
+        let (resolved, profile) = generation_profile_for_artifact_hash(hash)
+            .expect("source-backed artifact must own an exact generation profile");
+
+        assert_eq!(resolved.id, candidate.id);
+        if let Some(sampling) = profile.sampling {
+            assert!(!sampling.profile_version.trim().is_empty());
+            assert!(sampling.temperature.is_finite());
+            assert!(sampling.top_p.is_finite());
+            assert!(sampling.source.source.starts_with("https://"));
+            assert_eq!(sampling.source.status, "confirmed");
+        }
+        match profile.thinking_control {
+            ModelThinkingControl::ModelDefault => {}
+            ModelThinkingControl::ChatTemplateEnableThinkingFalse { source } => {
+                assert!(source.source.starts_with("https://"));
+                assert_eq!(source.status, "confirmed");
+            }
+        }
+    }
+}

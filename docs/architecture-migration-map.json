@@ -2232,6 +2232,22 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/tests/schema.rs",
+      "slices": [
+        {
+          "responsibility": "observability schema migration compatibility regressions",
+          "target": "src/adapters/sqlite/observability_projection/tests/schema.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/tests/schema.rs",
+            "src/adapters/sqlite/observability_projection/schema.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/observability_projection/tests/storage.rs",
       "slices": [
         {
@@ -2828,6 +2844,7 @@
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/chat.rs",
             "src/app/inference_adapter/backend/chat/execution.rs",
+            "src/app/inference_adapter/backend/chat/failure.rs",
             "src/app/inference_adapter/backend/chat/interruption.rs",
             "src/app/inference_adapter/backend/chat/readiness.rs",
             "src/app/inference_adapter/backend/chat/report.rs",
@@ -2850,6 +2867,55 @@
             "src/adapters/llama_cpp/stream/tests.rs",
             "tests/inference/backend_lifecycle.rs",
             "tests/architecture_contract/inference/application_backend.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/failure.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat preflight, transport, and resource-admission failure finalization",
+          "target": "src/app/inference_adapter/backend/chat/failure.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/failure.rs",
+            "tests/patch/backend_preflight.rs",
+            "tests/architecture_contract/inference/application_backend_chat.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/preflight.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat timeout, vision readiness, and exact input-token preflight",
+          "target": "src/app/inference_adapter/backend/chat/preflight.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/preflight.rs",
+            "src/adapters/llama_cpp/backend/input_tokens.rs",
+            "src/adapters/llama_cpp/stream/bounded_json.rs",
+            "tests/architecture_contract/inference/application_backend_chat.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+      "slices": [
+        {
+          "responsibility": "exact artifact runtime generation profile resolution",
+          "target": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+            "src/runtime_core/inference/model/manifest/profiles.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
       ]
@@ -2918,6 +2984,38 @@
             "src/app/inference_adapter/backend/generation_state.rs",
             "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway.rs",
+      "slices": [
+        {
+          "responsibility": "model-aware generation intent, capacity, and completion gateway",
+          "target": "src/app/inference_adapter/backend/generation_gateway.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/generation_gateway.rs",
+            "src/runtime_core/inference/generation_policy/mod.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway/tests.rs",
+      "slices": [
+        {
+          "responsibility": "model-aware generation capacity regression tests",
+          "target": "src/app/inference_adapter/backend/generation_gateway/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/generation_gateway.rs",
+            "src/app/inference_adapter/backend/generation_gateway/tests.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
       ]
@@ -3177,6 +3275,23 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/backend/input_tokens.rs",
+      "slices": [
+        {
+          "responsibility": "pinned llama.cpp exact chat input-token request and response contract",
+          "target": "src/adapters/llama_cpp/backend/input_tokens.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs",
+            "src/adapters/llama_cpp/backend/input_tokens.rs",
+            "src/adapters/llama_cpp/backend/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/backend/request.rs",
       "slices": [
         {
@@ -3414,6 +3529,39 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/stream/bounded_json.rs",
+      "slices": [
+        {
+          "responsibility": "bounded cancellable JSON transport for llama.cpp capability preflights",
+          "target": "src/adapters/llama_cpp/stream/bounded_json.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/bounded_json.rs",
+            "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+      "slices": [
+        {
+          "responsibility": "bounded JSON transport and error-sanitization regression tests",
+          "target": "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream/bounded_json.rs",
+            "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/stream/protocol.rs",
       "slices": [
         {
@@ -3442,6 +3590,22 @@
             "src/adapters/llama_cpp/stream/protocol.rs",
             "src/adapters/llama_cpp/stream/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/finish_tests.rs",
+      "slices": [
+        {
+          "responsibility": "stream finish-reason completeness regression tests",
+          "target": "src/adapters/llama_cpp/stream/finish_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream/finish_tests.rs",
+            "src/adapters/llama_cpp/stream.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
       ]
@@ -3478,6 +3642,22 @@
             "src/runtime_core/inference/benchmark.rs",
             "src/adapters/filesystem/benchmark_artifact.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+      "slices": [
+        {
+          "responsibility": "incomplete benchmark generation evidence regression tests",
+          "target": "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+            "tests/architecture_contract/adapter_boundaries/application/benchmark.rs"
           ]
         }
       ]
@@ -5209,10 +5389,28 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/promotion_tests.rs",
+      "slices": [
+        {
+          "responsibility": "model promotion and benchmark evidence regression tests",
+          "target": "src/app/inference_adapter/model/promotion_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/evidence.rs",
+            "src/app/inference_adapter/model/promotion_tests.rs",
+            "src/runtime_core/inference/model/promotion.rs",
+            "tests/architecture_contract/inference/application_model.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/tests.rs",
       "slices": [
         {
-          "responsibility": "model manifest, evaluation, promotion, registry, and cleanup regression tests",
+          "responsibility": "model manifest, evaluation, registry, and cleanup regression tests",
           "target": "src/app/inference_adapter/model/tests.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5352,6 +5550,22 @@
             "src/runtime_core/inference/model/manifest.rs",
             "src/runtime_core/inference/model/manifest/types.rs",
             "src/runtime_core/inference/model/manifest/validation.rs",
+            "src/runtime_core/inference/model/manifest/tests.rs",
+            "tests/architecture_contract/inference/model_manifest.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/profiles.rs",
+      "slices": [
+        {
+          "responsibility": "source-backed artifact generation and setup profiles",
+          "target": "src/runtime_core/inference/model/manifest/profiles.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/manifest/profiles.rs",
             "src/runtime_core/inference/model/manifest/tests.rs",
             "tests/architecture_contract/inference/model_manifest.rs"
           ]
@@ -6780,6 +6994,38 @@
             "src/adapters/process/resource.rs",
             "src/app/inference_adapter/backend/resource_sampling.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/mod.rs",
+      "slices": [
+        {
+          "responsibility": "model-window-aware generation capacity policy",
+          "target": "src/runtime_core/inference/generation_policy/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/generation_policy/mod.rs",
+            "src/runtime_core/inference/generation_policy/tests.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/tests.rs",
+      "slices": [
+        {
+          "responsibility": "generation capacity monotonicity and incident regression tests",
+          "target": "src/runtime_core/inference/generation_policy/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/generation_policy/tests.rs",
+            "src/runtime_core/inference/generation_policy/mod.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
           ]
         }
       ]
@@ -12855,6 +13101,22 @@
       ]
     },
     {
+      "path": "tests/patch/backend_preflight.rs",
+      "slices": [
+        {
+          "responsibility": "backend token-preflight cancellation, timeout, routing, and single-flight contracts",
+          "target": "tests/patch/backend_preflight.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/backend_preflight.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts/patch_regression_tests.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/patch/backend_runtime.rs",
       "slices": [
         {
@@ -14527,6 +14789,21 @@
           "evidence": [
             "tests/architecture_contract/inference.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/generation_policy.rs",
+      "slices": [
+        {
+          "responsibility": "model-aware generation ownership and hardcoded-cap architecture contracts",
+          "target": "tests/architecture_contract/inference/generation_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/generation_policy.rs",
+            "tests/architecture_contract/inference.rs"
           ]
         }
       ]
@@ -17475,6 +17752,12 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/tests/schema.rs",
+      "responsibilities": [
+        "observability schema migration compatibility regressions"
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/observability_projection/tests/storage.rs",
       "responsibilities": [
         "model, resource, and benchmark observability storage regressions"
@@ -17691,6 +17974,24 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/backend/chat/failure.rs",
+      "responsibilities": [
+        "backend chat preflight, transport, and resource-admission failure finalization"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/preflight.rs",
+      "responsibilities": [
+        "backend chat timeout, vision readiness, and exact input-token preflight"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/runtime_profile.rs",
+      "responsibilities": [
+        "exact artifact runtime generation profile resolution"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend/chat/interruption.rs",
       "responsibilities": [
         "backend chat timeout, cancellation, and interrupted-generation evidence"
@@ -17712,6 +18013,18 @@
       "path": "src/app/inference_adapter/backend/generation_state.rs",
       "responsibilities": [
         "backend generation admission, cancellation, and terminal state coordination"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway.rs",
+      "responsibilities": [
+        "model-aware generation intent, capacity, and completion gateway"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_gateway/tests.rs",
+      "responsibilities": [
+        "model-aware generation capacity regression tests"
       ]
     },
     {
@@ -17811,6 +18124,12 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/backend/input_tokens.rs",
+      "responsibilities": [
+        "pinned llama.cpp exact chat input-token request and response contract"
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/backend/request.rs",
       "responsibilities": [
         "OpenAI-compatible llama.cpp chat request serialization"
@@ -17901,6 +18220,18 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/stream/bounded_json.rs",
+      "responsibilities": [
+        "bounded cancellable JSON transport for llama.cpp capability preflights"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/bounded_json/tests.rs",
+      "responsibilities": [
+        "bounded JSON transport and error-sanitization regression tests"
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/stream/protocol.rs",
       "responsibilities": [
         "bounded HTTP chunked decoding, SSE event decoding, and reasoning-trace filtering"
@@ -17913,6 +18244,12 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/stream/finish_tests.rs",
+      "responsibilities": [
+        "stream finish-reason completeness regression tests"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/benchmark.rs",
       "responsibilities": [
         "benchmark concrete integration adapter"
@@ -17922,6 +18259,12 @@
       "path": "src/app/inference_adapter/benchmark/tests.rs",
       "responsibilities": [
         "benchmark validation, recording, executable scoring, parser rejection, and canonical adoption regression tests"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests/incomplete.rs",
+      "responsibilities": [
+        "incomplete benchmark generation evidence regression tests"
       ]
     },
     {
@@ -18545,9 +18888,15 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/promotion_tests.rs",
+      "responsibilities": [
+        "model promotion and benchmark evidence regression tests"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/tests.rs",
       "responsibilities": [
-        "model manifest, evaluation, promotion, registry, and cleanup regression tests"
+        "model manifest, evaluation, registry, and cleanup regression tests"
       ]
     },
     {
@@ -18596,6 +18945,12 @@
       "path": "src/runtime_core/inference/model/manifest.rs",
       "responsibilities": [
         "model manifest catalog facade, source claims, and candidate counts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/profiles.rs",
+      "responsibilities": [
+        "source-backed artifact generation and setup profiles"
       ]
     },
     {
@@ -19088,6 +19443,18 @@
       "path": "src/runtime_core/inference/resource.rs",
       "responsibilities": [
         "resource pressure classification and chat, context, model, optimization, and lane governor policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/mod.rs",
+      "responsibilities": [
+        "model-window-aware generation capacity policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/generation_policy/tests.rs",
+      "responsibilities": [
+        "generation capacity monotonicity and incident regression tests"
       ]
     },
     {
@@ -21237,6 +21604,12 @@
       ]
     },
     {
+      "path": "tests/patch/backend_preflight.rs",
+      "responsibilities": [
+        "backend token-preflight cancellation, timeout, routing, and single-flight contracts"
+      ]
+    },
+    {
       "path": "tests/patch/backend_runtime.rs",
       "responsibilities": [
         "backend cancellation, streaming, and redaction lifecycle contracts"
@@ -21921,6 +22294,12 @@
       "path": "tests/architecture_contract/inference.rs",
       "responsibilities": [
         "inference domain, runtime, adapter, protocol, and selection architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/generation_policy.rs",
+      "responsibilities": [
+        "model-aware generation ownership and hardcoded-cap architecture contracts"
       ]
     },
     {

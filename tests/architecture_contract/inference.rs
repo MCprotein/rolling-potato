@@ -3,6 +3,7 @@ use super::*;
 mod application_backend_chat;
 include!("inference/application_backend.rs");
 include!("inference/application_model.rs");
+include!("inference/generation_policy.rs");
 include!("inference/model_codec.rs");
 include!("inference/model_manifest.rs");
 include!("inference/runtime_owners.rs");
@@ -12,6 +13,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let owners = [
         "application_backend",
         "application_model",
+        "generation_policy",
         "model_codec",
         "model_manifest",
         "runtime_owners",
@@ -28,7 +30,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "inference architecture owner regrew beyond its boundary: {owner_path}"
         );
     }
-    assert!(facade.lines().count() < 40, "inference facade too large");
+    assert!(facade.lines().count() < 45, "inference facade too large");
     assert_runtime_inference_owners();
     assert_application_backend_owners();
     assert_application_model_owners();

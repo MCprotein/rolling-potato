@@ -3,8 +3,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout as paths;
-use crate::runtime_core::inference::backend::BackendChatSampling;
+use crate::runtime_core::inference::backend::{
+    BackendChatSampling, BackendGenerationIncompleteReason, BackendGenerationStatus,
+};
 use crate::runtime_core::inference::benchmark::ADOPTION_EXACT_RESPONSE;
+
+#[path = "tests/incomplete.rs"]
+mod incomplete;
 
 #[test]
 fn validates_fixture_metadata() {
@@ -98,6 +103,10 @@ fn executable_run_records_local_score_without_prompt_text() {
     assert!(report.contains("claim state: measured-locally"));
     assert!(report.contains("score: 3/3"));
     assert!(export.contains("\"claim_state\":\"measured-locally\""));
+    assert!(export.contains("\"evidence_schema_version\":1"));
+    assert!(export.contains("\"generation_status\":\"complete\""));
+    assert!(export.contains("\"finish_reason\":\"stop\""));
+    assert!(export.contains("\"generation_profile_fingerprint\":\""));
     assert!(export.contains("\"score\":3.000000"));
     assert!(export.contains("\"model_run_id\":\"model-run-backend-chat-event\""));
     assert!(export.contains("\"expected_matches\":1"));
@@ -291,10 +300,15 @@ fn fake_chat_run(response: &str) -> BackendChatRun {
         response_chars: response.chars().count(),
         requested_max_tokens: 16,
         effective_max_tokens: 16,
-        sampling: BackendChatSampling {
+        sampling: Some(BackendChatSampling {
             temperature: 0.1,
             top_p: 0.8,
-        },
+        }),
+        sampling_profile_version: "test-sampling-v1".to_string(),
+        thinking_mode: "test-mode".to_string(),
+        thinking_source: "test-source".to_string(),
+        generation_status:
+            crate::runtime_core::inference::backend::BackendGenerationStatus::Complete,
         finish_reason: "stop".to_string(),
         guard_status: "pass",
         prompt_tokens: Some(8),
@@ -372,7 +386,25 @@ fn canonical_model_adoption_fixture_is_valid() {
         "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4".to_string();
     run.requested_max_tokens = benchmark_policy::ADOPTION_MAX_TOKENS;
     run.effective_max_tokens = benchmark_policy::ADOPTION_MAX_TOKENS;
+    run.sampling = None;
+    run.sampling_profile_version = "model-default".to_string();
+    run.thinking_mode = "disabled via source-backed chat template option".to_string();
+    run.thinking_source =
+        "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode".to_string();
     benchmark_policy::validate_canonical_adoption_run(&fixture, &run).unwrap();
+    let expected_profile =
+        crate::runtime_core::inference::model::manifest::generation_profile_for_artifact_hash(
+            &run.model_artifact_hash,
+        )
+        .unwrap()
+        .1;
+    assert_eq!(
+        benchmark_policy::generation_profile_fingerprint_for_run(&run),
+        benchmark_policy::expected_generation_profile_fingerprint(
+            &run.model_artifact_hash,
+            expected_profile
+        )
+    );
     let manifest = executable_reproducibility_manifest_json(
         &fixture,
         &prompt,

@@ -1,13 +1,17 @@
+#[path = "manifest/profiles.rs"]
+mod profiles;
 #[path = "manifest/types.rs"]
 mod types;
 #[path = "manifest/validation.rs"]
 mod validation;
 
+use profiles::{GEMMA_4B_GENERATION, GEMMA_4B_SETUP, QWEN_4B_GENERATION, QWEN_4B_SETUP};
 #[allow(unused_imports)]
 pub(crate) use types::*;
 pub(crate) use validation::{
-    find_candidate, quantization_for_artifact_hash, source_backed_artifact,
-    source_backed_artifact_blockers, source_backed_vision_projector, validate_install_ready,
+    find_candidate, generation_profile_for_artifact_hash, model_id_for_artifact_hash,
+    quantization_for_artifact_hash, source_backed_artifact, source_backed_artifact_blockers,
+    source_backed_vision_projector, validate_install_ready,
 };
 
 pub(crate) const STATUS_SCHEMA: &[CandidateStatus] = &[
@@ -67,6 +71,8 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
             checked_at: "2026-07-06",
             status: "source-listed-unverified",
         }),
+        generation_profile: Some(QWEN_4B_GENERATION),
+        setup_profile: Some(QWEN_4B_SETUP),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/Qwen/Qwen3.5-4B#benchmark-results",
             checked_at: "2026-06-29",
@@ -118,6 +124,8 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
             checked_at: "2026-07-06",
             status: "source-listed-unverified",
         }),
+        generation_profile: Some(GEMMA_4B_GENERATION),
+        setup_profile: Some(GEMMA_4B_SETUP),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/google/gemma-4-E4B#benchmark-results",
             checked_at: "2026-06-29",
@@ -157,6 +165,8 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
         context_length: None,
         recommended_ram_gb: None,
         backend_compatibility: None,
+        generation_profile: None,
+        setup_profile: None,
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/Qwen/Qwen3.5-9B#benchmark-results",
             checked_at: "2026-06-29",

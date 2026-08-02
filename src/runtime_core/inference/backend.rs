@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::foundation::error::AppError;
 use crate::foundation::integrity;
+use crate::runtime_core::inference::stream::DecodedFinish;
 
 pub(crate) mod admission;
 pub(crate) mod lifecycle;
@@ -150,7 +151,7 @@ pub(crate) trait BackendAdapter {
     fn default_port(&self) -> u16;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct BackendChatSampling {
     pub(crate) temperature: f64,
     pub(crate) top_p: f64,
@@ -160,6 +161,15 @@ impl BackendChatSampling {
     pub(crate) fn ledger_label(&self) -> String {
         format!("temperature-{}_top-p-{}", self.temperature, self.top_p)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct BackendChatRuntimeProfile {
+    pub(crate) sampling_profile_version: String,
+    pub(crate) sampling: Option<BackendChatSampling>,
+    pub(crate) disable_thinking_via_template: bool,
+    pub(crate) thinking_mode: String,
+    pub(crate) thinking_source: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -175,7 +185,11 @@ pub(crate) struct BackendChatRun {
     pub(crate) response_chars: usize,
     pub(crate) requested_max_tokens: u32,
     pub(crate) effective_max_tokens: u32,
-    pub(crate) sampling: BackendChatSampling,
+    pub(crate) sampling: Option<BackendChatSampling>,
+    pub(crate) sampling_profile_version: String,
+    pub(crate) thinking_mode: String,
+    pub(crate) thinking_source: String,
+    pub(crate) generation_status: BackendGenerationStatus,
     pub(crate) finish_reason: String,
     pub(crate) guard_status: &'static str,
     pub(crate) prompt_tokens: Option<u32>,
@@ -199,6 +213,43 @@ pub(crate) struct BackendChatRun {
     pub(crate) response: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackendGenerationStatus {
+    Complete,
+    Incomplete(BackendGenerationIncompleteReason),
+}
+
+impl BackendGenerationStatus {
+    pub(crate) fn from_decoded_finish(finish: DecodedFinish) -> Self {
+        match finish {
+            DecodedFinish::Stop => Self::Complete,
+            DecodedFinish::Length => {
+                Self::Incomplete(BackendGenerationIncompleteReason::TokenLimit)
+            }
+            DecodedFinish::UnknownOrMissing => {
+                Self::Incomplete(BackendGenerationIncompleteReason::UnknownFinish)
+            }
+        }
+    }
+
+    pub(crate) fn is_complete(self) -> bool {
+        matches!(self, Self::Complete)
+    }
+
+    pub(crate) fn lifecycle_label(self) -> &'static str {
+        match self {
+            Self::Complete => "completed",
+            Self::Incomplete(_) => "incomplete",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackendGenerationIncompleteReason {
+    TokenLimit,
+    UnknownFinish,
+}
+
 #[cfg(test)]
 impl BackendChatRun {
     pub(crate) fn test_fixture() -> Self {
@@ -214,10 +265,14 @@ impl BackendChatRun {
             response_chars: 5,
             requested_max_tokens: 32,
             effective_max_tokens: 16,
-            sampling: BackendChatSampling {
+            sampling: Some(BackendChatSampling {
                 temperature: 0.1,
                 top_p: 0.8,
-            },
+            }),
+            sampling_profile_version: "test-sampling-v1".to_string(),
+            thinking_mode: "test-mode".to_string(),
+            thinking_source: "test-source".to_string(),
+            generation_status: BackendGenerationStatus::Complete,
             finish_reason: "stop".to_string(),
             guard_status: "pass",
             prompt_tokens: Some(4),
@@ -240,6 +295,33 @@ impl BackendChatRun {
             resource_sample_event: "sample-event".to_string(),
             response: "hello".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod generation_status_tests {
+    use super::{BackendGenerationIncompleteReason, BackendGenerationStatus};
+    use crate::runtime_core::inference::stream::DecodedFinish;
+
+    #[test]
+    fn token_limit_finish_is_typed_incomplete_not_complete() {
+        let status = BackendGenerationStatus::from_decoded_finish(DecodedFinish::Length);
+
+        assert_eq!(
+            status,
+            BackendGenerationStatus::Incomplete(BackendGenerationIncompleteReason::TokenLimit)
+        );
+        assert!(!status.is_complete());
+        assert_eq!(status.lifecycle_label(), "incomplete");
+    }
+
+    #[test]
+    fn only_stop_finish_is_complete() {
+        assert!(BackendGenerationStatus::from_decoded_finish(DecodedFinish::Stop).is_complete());
+        assert!(
+            !BackendGenerationStatus::from_decoded_finish(DecodedFinish::UnknownOrMissing)
+                .is_complete()
+        );
     }
 }
 

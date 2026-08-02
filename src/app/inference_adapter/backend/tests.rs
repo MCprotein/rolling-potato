@@ -1,5 +1,6 @@
 use super::*;
 use std::fs;
+use std::path::Path;
 use std::sync::{Arc, Barrier};
 use std::thread;
 

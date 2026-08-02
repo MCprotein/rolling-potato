@@ -10,7 +10,7 @@ pub(crate) use conversation::{
     TuiSessionTransition,
 };
 pub(crate) use intent::{new_tui_intent_id, OneShotSecret, TuiGateKind, TuiIntent};
-pub(crate) use model::TuiModelOption;
+pub(crate) use model::{TuiModelOption, TuiModelReadiness};
 pub(crate) use read::{
     TuiFreshness, TuiReadAuthority, TuiReadBudget, TuiReadContinuation, TuiReadPage, TuiReadRequest,
 };

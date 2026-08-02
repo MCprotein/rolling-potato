@@ -16,6 +16,7 @@ pub(in crate::adapters::sqlite::observability_projection) fn optimization_policy
     let benchmark_evidence = benchmark_evidence_summary(&benchmark_run_reports(ledger)?);
     let decision = resource::optimization_policy_decision(resource::OptimizationPolicyInput {
         pressure: resource_pressure_from_status(&latest_resource_pressure),
+        context_limit_tokens: baseline.latest_context_limit_tokens,
         model_runs: baseline.model_runs,
         measured_benchmark_runs: benchmark_evidence.measured_runs,
         failed_benchmark_runs: benchmark_evidence.failed_runs,
