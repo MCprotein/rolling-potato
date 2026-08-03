@@ -55,19 +55,11 @@ fn sources_command_uses_a_picker_and_changes_the_current_document() {
 #[test]
 fn interactive_web_open_keeps_page_available_for_followup_find() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root = std::env::temp_dir().join(format!(
-        "rpotato-interactive-web-tools-test-{}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&root);
-    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
     std::env::set_var(
         "RPOTATO_TEST_WEB_OPEN_HTML",
         "<html><title>Rust Guide</title><body>Ownership is a Rust feature.</body></html>",
     );
-    std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new([
         "/open https://example.com/guide",
@@ -77,27 +69,20 @@ fn interactive_web_open_keeps_page_available_for_followup_find() {
 
     run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
 
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
     std::env::remove_var("RPOTATO_TEST_SKIP_UPDATE_CHECK");
     std::env::remove_var("RPOTATO_TEST_WEB_OPEN_HTML");
-    let _ = std::fs::remove_dir_all(root);
     let rendered = terminal.frames.join("\n");
-    assert!(rendered.contains("Rust Guide"));
-    assert!(rendered.contains("일치: 1개"));
-    assert!(rendered.contains("Ownership is a Rust feature."));
+    assert!(rendered.contains("Rust Guide"), "{rendered}");
+    assert!(rendered.contains("일치: 1개"), "{rendered}");
+    assert!(
+        rendered.contains("Ownership is a Rust feature."),
+        "{rendered}"
+    );
 }
 
 #[test]
 fn search_results_enter_the_source_picker_and_open_for_followup_find() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root = std::env::temp_dir().join(format!(
-        "rpotato-search-source-picker-test-{}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&root);
-    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
     std::env::set_var(
         "RPOTATO_TEST_WEB_SEARCH_HTML",
@@ -108,7 +93,6 @@ fn search_results_enter_the_source_picker_and_open_for_followup_find() {
         "<html><title>Selected Source</title><main>Verified checksum evidence.</main></html>",
     );
     std::env::set_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL", "1");
-    std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new([
         "/search Rust official release",
@@ -121,8 +105,6 @@ fn search_results_enter_the_source_picker_and_open_for_followup_find() {
     run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
 
     for name in [
-        "RPOTATO_PROJECT_ROOT",
-        "RPOTATO_DATA_HOME",
         "RPOTATO_TEST_SKIP_UPDATE_CHECK",
         "RPOTATO_TEST_WEB_SEARCH_HTML",
         "RPOTATO_TEST_WEB_OPEN_HTML",
@@ -130,14 +112,19 @@ fn search_results_enter_the_source_picker_and_open_for_followup_find() {
     ] {
         std::env::remove_var(name);
     }
-    let _ = std::fs::remove_dir_all(root);
     let rendered = terminal.frames.join("\n");
-    assert!(rendered.contains("Selected Source"));
-    assert!(rendered.contains("일치: 1개"));
-    assert!(rendered.contains("Verified checksum evidence."));
-    assert!(rendered
-        .contains("런타임 단계 · 준비 중 → 검색 중 → 검색 문서 읽는 중 → 문서 안에서 근거 찾는"));
+    assert!(rendered.contains("Selected Source"), "{rendered}");
+    assert!(rendered.contains("일치: 1개"), "{rendered}");
     assert!(
-        rendered.contains("런타임 단계 · 준비 중 → 문서 안에서 근거 찾는 중 → 답변 구성 중 → 완료")
+        rendered.contains("Verified checksum evidence."),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("런타임 단계 · 준비 중 → 검색 중 → 완료"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("런타임 단계 · 준비 중 → 문서 안에서 근거 찾는 중 → 완료"),
+        "{rendered}"
     );
 }

@@ -33,7 +33,7 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
                 history: &[],
                 tool_history: &[],
                 context_limit_tokens:
-                    crate::app::inference_adapter::model::configured_context_length()?,
+                    crate::app::inference_adapter::model::configured_context_length().ok(),
                 started: std::time::Instant::now(),
                 progress:
                     &crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter::default(),

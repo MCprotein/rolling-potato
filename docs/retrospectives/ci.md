@@ -478,3 +478,30 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
   여러 header와 4 KiB를 넘는 request body 회귀를 유지합니다.
 - 공유 worker pool 테스트는 전역 exact delta 대신 해당 test가 소유한 completion
   signal과 deadline을 검증합니다.
+
+## 2026-08-03: 후속 모델 판단 조건이 직접 웹 도구 실행을 차단함
+
+### 증상
+
+- Agent loop 도입 뒤 모델이 아직 선택되지 않은 TUI에서 `/open`, `/search`, `/find`가
+  웹 fixture를 읽기 전에 context length 오류로 중단됐습니다.
+- Targeted agent-loop 테스트는 context를 항상 제공해 이 base capability 회귀를
+  발견하지 못했고, candidate 전체 테스트에서만 기존 conversation journey 두 건이
+  실패했습니다.
+
+### 원인
+
+- 웹 관찰 뒤의 선택적 모델 합성에 필요한 context length를 읽기 전용 웹 도구 자체의
+  필수 입력으로 올렸습니다.
+- 기존 no-model conversation journey가 실제 화면을 assertion 실패에 포함하지 않아
+  CI 로그만으로 선행 차단 지점을 바로 확인하기 어려웠습니다.
+
+### 재발 방지
+
+- 직접 지정한 읽기 전용 웹 도구는 모델 readiness와 분리합니다. Context가 있으면
+  후속 모델 판단을 수행하고, 없으면 런타임이 검증한 출처·페이지·find fallback으로
+  완료합니다.
+- Web tool context는 모델 합성 능력을 `Option`으로 표현하며 임의 기본 token 수를
+  넣지 않습니다.
+- No-model `/open → /find`와 `/search → source 선택 → /find` journey를 유지하고,
+  핵심 화면 assertion에는 렌더 결과를 실패 메시지로 포함합니다.

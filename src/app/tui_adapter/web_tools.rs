@@ -20,7 +20,7 @@ pub(super) struct WebTurnContext<'a> {
     pub(super) request: &'a str,
     pub(super) history: &'a [TuiConversationTurn],
     pub(super) tool_history: &'a [ConversationToolActivity],
-    pub(super) context_limit_tokens: u32,
+    pub(super) context_limit_tokens: Option<u32>,
     pub(super) started: Instant,
     pub(super) progress: &'a TuiRequestProgressReporter,
     pub(super) cancellation: &'a RequestCancellationToken,

@@ -71,12 +71,7 @@ pub(super) fn execute_routed(
             &mut web_research,
             &mut adapter.web_pages,
             route,
-            web_turn_context(
-                context,
-                user_request,
-                required_context_limit(context_limit_tokens)?,
-                web_started,
-            ),
+            web_turn_context(context, user_request, context_limit_tokens, web_started),
             tool_activities,
         );
     }
@@ -127,7 +122,7 @@ pub(super) fn execute_routed(
                 web_turn_context(
                     context,
                     user_request,
-                    required_context_limit(context_limit_tokens)?,
+                    Some(required_context_limit(context_limit_tokens)?),
                     web_started,
                 ),
                 tool_activities,
@@ -157,7 +152,7 @@ pub(super) fn execute_routed(
 fn web_turn_context<'a>(
     request_context: &'a RequestContext<'a>,
     request: &'a str,
-    context_limit_tokens: u32,
+    context_limit_tokens: Option<u32>,
     started: Instant,
 ) -> web_tools::WebTurnContext<'a> {
     web_tools::WebTurnContext {

@@ -53,6 +53,9 @@ pub(super) fn execute(
         let Some(model_context) = observation.model_context() else {
             return finish(research, observation, None);
         };
+        let Some(context_limit_tokens) = context.context_limit_tokens else {
+            return finish(research, observation, None);
+        };
         if agent_loop.begin_follow_up_model_turn().is_err() {
             return finish(research, observation, None);
         }
@@ -70,7 +73,7 @@ pub(super) fn execute(
             user_request: context.request,
             history: context.history,
             tool_activities: &agent_tool_history,
-            context_limit_tokens: context.context_limit_tokens,
+            context_limit_tokens,
             allowed_open_urls: &allowed_open_urls,
             has_current_page: pages.current().is_some(),
             cancellation: context.cancellation,

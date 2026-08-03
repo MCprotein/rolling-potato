@@ -34,7 +34,7 @@ fn search_records_one_typed_activity_without_implicit_open_or_find() {
             request: "Rust stable release를 검색해줘",
             history: &[],
             tool_history: &[],
-            context_limit_tokens: 4_096,
+            context_limit_tokens: Some(4_096),
             started: std::time::Instant::now(),
             progress: &progress,
             cancellation: &cancellation,
