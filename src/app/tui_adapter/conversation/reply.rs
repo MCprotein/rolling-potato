@@ -6,7 +6,7 @@ use crate::surfaces::tui::runtime_bridge::TuiConversationTurn;
 
 use super::super::session_memory::ConversationToolActivity;
 
-mod prompt;
+pub(super) mod prompt;
 
 pub(super) use prompt::language_instruction;
 use prompt::{assemble_plain_prompt, assemble_vision_prompt};

@@ -3,6 +3,7 @@
 mod decision;
 mod local_facts;
 mod presentation;
+mod prompt_policy;
 mod reply;
 
 pub(super) use decision::{decide_request_with_cancel, RequestDecision};

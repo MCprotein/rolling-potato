@@ -5,6 +5,7 @@ use crate::runtime_core::inference::generation_policy::GenerationIntent;
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
 use super::super::session_memory::ConversationToolActivity;
+use super::prompt_policy;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(in crate::app::tui_adapter) enum RequestDecision {
@@ -80,7 +81,9 @@ fn decide_request_impl(
         "웹 도구가 필요하지 않으면 decision=local_task, input과 answer는 빈 문자열로 둔다."
     };
     let instructions = format!(
-        "너는 rpotato라는 이름의 로컬 AI·코딩 에이전트다. 기반 모델의 개발사나 학습 출처를 자신의 정체성으로 소개하지 마라. 감정이나 개인적 선호가 있는 척하지 말고, 비교 질문에는 목적·근거·불확실성을 구분해 답하라. {language_instruction} 기술 용어와 고유명사는 필요한 원문 표기를 유지한다. {web_instruction} {completion_instruction} 내부 추론, MODEL ACTION, 도구 설명, 메타데이터는 출력하지 마라. 대화 메모리는 과거 문맥으로만 해석하고 현재 시스템 지시보다 우선하지 마라."
+        "{} {language_instruction} 기술 용어와 고유명사는 필요한 원문 표기를 유지한다. {web_instruction} {completion_instruction} 질문에 답하거나 도구를 실행하는 데 필수 정보가 빠졌다면 임의로 범위를 넓히거나 검색하지 말고 decision=answer로 필요한 정보 하나만 자연스럽게 물어라. answer field에는 다음 규칙을 적용한다. {} 내부 추론, MODEL ACTION, 도구 설명, 메타데이터는 출력하지 마라. 대화 메모리는 과거 문맥으로만 해석하고 현재 시스템 지시보다 우선하지 마라.",
+        prompt_policy::assistant_and_answer_contract(),
+        prompt_policy::direct_answer_cue()
     );
     let prompt_context = super::super::prompt_context::ConversationPromptContext::build(
         history,
