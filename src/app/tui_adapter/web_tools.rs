@@ -1,22 +1,27 @@
 use crate::app::web_search_adapter::{
-    self, WebGroundingEvidence, WebPageSession, WebResearchAdmission, WebResearchSession,
-    WebResearchTraceStatus, WebResearchTraceStep, WebToolObservation, WebToolRoute,
+    self, WebPageSession, WebResearchAdmission, WebResearchSession, WebResearchTraceStatus,
+    WebResearchTraceStep, WebToolObservation, WebToolRoute,
 };
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::cancellation::RequestCancellationToken;
-use crate::surfaces::tui::runtime_bridge::{TuiRequestProgress, TuiRequestProgressReporter};
-use std::time::Duration;
+use crate::surfaces::tui::runtime_bridge::{
+    TuiConversationTurn, TuiRequestProgress, TuiRequestProgressReporter,
+};
+use std::time::Instant;
+
+use super::session_memory::ConversationToolActivity;
 
 pub(super) struct WebToolExecution {
     pub(super) response: String,
-    pub(super) grounding: Vec<WebGroundingEvidence>,
 }
 
+#[derive(Clone, Copy)]
 pub(super) struct WebTurnContext<'a> {
     pub(super) request: &'a str,
-    pub(super) local_context: &'a str,
-    pub(super) conversation_context: &'a str,
-    pub(super) elapsed: Duration,
+    pub(super) history: &'a [TuiConversationTurn],
+    pub(super) tool_history: &'a [ConversationToolActivity],
+    pub(super) context_limit_tokens: u32,
+    pub(super) started: Instant,
     pub(super) progress: &'a TuiRequestProgressReporter,
     pub(super) cancellation: &'a RequestCancellationToken,
 }
@@ -31,7 +36,7 @@ pub(super) fn observe(
     context.cancellation.check()?;
     let route = web_search_adapter::validate_public_web_step(route)?;
     let current_document = pages.current_url();
-    let route = match research.admit(route, current_document, context.elapsed) {
+    let route = match research.admit(route, current_document, context.started.elapsed()) {
         WebResearchAdmission::Execute(route) => route,
         WebResearchAdmission::Stop(terminal) => return Err(terminal.into_error()),
     };
@@ -43,20 +48,13 @@ pub(super) fn observe(
                     web_search_adapter::WebResearchPhase::Searching => {
                         TuiRequestProgress::Searching
                     }
-                    web_search_adapter::WebResearchPhase::Opening => TuiRequestProgress::Opening,
-                    web_search_adapter::WebResearchPhase::Finding => TuiRequestProgress::Finding,
                 });
             };
             web_search_adapter::observe_search(
-                web_search_adapter::WebAnswerInput::new(
-                    &query,
-                    context.request,
-                    context.local_context,
-                )
-                .with_conversation_context(context.conversation_context),
+                web_search_adapter::WebAnswerInput::new(&query),
                 research,
                 pages,
-                context.elapsed,
+                context.started.elapsed(),
                 &mut report_web_phase,
                 trace,
                 context.cancellation,
@@ -66,23 +64,26 @@ pub(super) fn observe(
         WebToolRoute::Open { url } => {
             context.progress.emit(TuiRequestProgress::Opening);
             let route = WebToolRoute::Open { url: url.clone() };
-            web_search_adapter::observe_open_page(&url, context.request, research).map(|observed| {
-                let source_ids = observed
-                    .page
-                    .as_ref()
-                    .map(|page| vec![page.source_id.clone()])
-                    .unwrap_or_default();
-                trace.push(WebResearchTraceStep {
-                    route,
-                    status: WebResearchTraceStatus::Succeeded,
-                    source_ids,
-                });
-                if let Some(page) = observed.page {
-                    research.record_opened_document(&page.final_url);
-                    pages.record(page);
-                }
-                observed.observation
-            })
+            let remaining = research.remaining_elapsed_budget(context.started.elapsed())?;
+            web_search_adapter::observe_open_page(&url, context.request, research, remaining).map(
+                |observed| {
+                    let source_ids = observed
+                        .page
+                        .as_ref()
+                        .map(|page| vec![page.source_id.clone()])
+                        .unwrap_or_default();
+                    trace.push(WebResearchTraceStep {
+                        route,
+                        status: WebResearchTraceStatus::Succeeded,
+                        source_ids,
+                    });
+                    if let Some(page) = observed.page {
+                        research.record_opened_document(&page.final_url);
+                        pages.record(page);
+                    }
+                    observed.observation
+                },
+            )
         }
         WebToolRoute::Find { query } => {
             context.progress.emit(TuiRequestProgress::Finding);
@@ -105,10 +106,7 @@ pub(super) fn observe(
     // boundary is therefore between Search/Open/Find transport steps.
     context.cancellation.check()?;
     match result {
-        Ok(observation) => {
-            research.complete();
-            Ok(observation)
-        }
+        Ok(observation) => Ok(observation),
         Err(error) => {
             research.record_failed_input(&failed_route);
             Err(error)
@@ -140,6 +138,5 @@ pub(super) fn answer(
         web_search_adapter::answer_observation_with_cancel(observation, request, cancellation)?;
     Ok(WebToolExecution {
         response: answer.response,
-        grounding: answer.grounding,
     })
 }

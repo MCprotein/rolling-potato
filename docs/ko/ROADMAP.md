@@ -205,6 +205,7 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | --- | --- | --- |
 | v0.54.0 | v0.55.0에 통합 | 제품 고정 생성 상한을 제거하고 활성 모델 context에서 요청 budget을 계산하며, 길이 제한으로 끝난 미완결 출력을 거절하고 sampling·vision 동작을 출처가 있는 model profile과 정확한 artifact에 연결한 내부 구현 이정표입니다. 별도 릴리스로 게시하지 않았습니다. |
 | v0.55.0 | Released | Typed memory와 resume, 모델이 선택하는 제한된 Search→Open→Find→Answer 조사, 표시되는 진행 상태와 활성 취소, 확장된 Markdown과 입력 보존 scroll, 첨부 복구, 분리된 model/projector cache 준비 상태, 제한된 network worker, native-terminal 회귀 테스트와 opt-in 관리형 실제 모델 smoke를 포함하는 신뢰 가능한 기본 터미널 여정 |
+| v0.55.1 | Candidate | 검증된 각 웹 단계 뒤 model→tool→observation 재판단을 반복하되, runtime 소유 출처 결합, 관찰에서 발견한 URL·현재 page만 허용하는 admission, 동일 호출 거절, 도구 3회·후속 model turn 3회 상한을 적용하는 보정 patch |
 
 ## 배포 경계
 

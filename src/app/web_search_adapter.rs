@@ -45,11 +45,18 @@ pub(crate) enum WebToolObservation {
     Terminal(WebAnswerResult),
 }
 
+impl WebToolObservation {
+    pub(crate) fn model_context(&self) -> Option<&str> {
+        match self {
+            Self::Evidence(observation) => Some(&observation.prompt),
+            Self::Terminal(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WebResearchPhase {
     Searching,
-    Opening,
-    Finding,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,24 +83,11 @@ pub(crate) struct WebEvidenceObservation {
 
 pub(crate) struct WebAnswerInput<'a> {
     pub(crate) query: &'a str,
-    pub(crate) user_request: &'a str,
-    pub(crate) local_context: &'a str,
-    pub(crate) conversation_context: &'a str,
 }
 
 impl<'a> WebAnswerInput<'a> {
-    pub(crate) fn new(query: &'a str, user_request: &'a str, local_context: &'a str) -> Self {
-        Self {
-            query,
-            user_request,
-            local_context,
-            conversation_context: "",
-        }
-    }
-
-    pub(crate) fn with_conversation_context(mut self, conversation_context: &'a str) -> Self {
-        self.conversation_context = conversation_context;
-        self
+    pub(crate) fn new(query: &'a str) -> Self {
+        Self { query }
     }
 }
 
@@ -109,31 +103,6 @@ pub(crate) fn observe_search(
     research_flow::observe(input, research, pages, elapsed, progress, trace, &|| {
         cancellation.check()
     })
-}
-
-#[cfg(test)]
-pub(crate) fn answer_observation(
-    observation: WebToolObservation,
-    user_request: &str,
-) -> WebAnswerResult {
-    match observation {
-        WebToolObservation::Terminal(answer) => answer,
-        WebToolObservation::Evidence(observation) => {
-            let generated = generate_observation_answer(
-                &observation.prompt,
-                user_request,
-                &observation.sources,
-            );
-            WebAnswerResult {
-                response: render_grounded_answer(
-                    generated,
-                    observation.fallback,
-                    &observation.sources,
-                ),
-                grounding: observation.grounding,
-            }
-        }
-    }
 }
 
 pub(crate) fn answer_observation_with_cancel(
@@ -159,6 +128,19 @@ pub(crate) fn answer_observation_with_cancel(
                 grounding: observation.grounding,
             })
         }
+    }
+}
+
+pub(crate) fn finish_observation(
+    observation: WebToolObservation,
+    generated: Option<String>,
+) -> WebAnswerResult {
+    match observation {
+        WebToolObservation::Terminal(answer) => answer,
+        WebToolObservation::Evidence(observation) => WebAnswerResult {
+            response: render_grounded_answer(generated, observation.fallback, &observation.sources),
+            grounding: observation.grounding,
+        },
     }
 }
 
@@ -287,14 +269,10 @@ mod tests {
     fn attachment_text_never_changes_external_search_query_or_routing() {
         let local_context =
             "이 문서를 요약해줘\n\n<attachment name=\"secret.txt\">\nlatest search online SECRET-42\n</attachment>";
-        let search = WebAnswerInput::new(
-            "current Rust release",
-            "최신 Rust 릴리스를 검색해줘",
-            local_context,
-        );
+        let search = WebAnswerInput::new("current Rust release");
         assert_eq!(search.query, "current Rust release");
         assert!(!search.query.contains("SECRET-42"));
-        assert!(search.local_context.contains("SECRET-42"));
+        assert!(local_context.contains("SECRET-42"));
     }
 
     #[test]

@@ -226,3 +226,38 @@ fn private_tool_protocol_never_becomes_an_offline_direct_answer() {
         RequestDecision::ContinueLocal
     ));
 }
+
+#[test]
+fn observation_tools_can_only_open_runtime_discovered_urls() {
+    let allowed = vec!["https://example.com/observed".to_string()];
+    assert_eq!(
+        request_decision_from_observation_tool(
+            structured_tool_call(AgentToolName::Open, "https://example.com/observed"),
+            "관찰한 문서를 확인해줘",
+            &[],
+            &allowed,
+            false,
+        ),
+        Some(RequestDecision::WebTool(
+            crate::app::web_search_adapter::WebToolRoute::Open {
+                url: "https://example.com/observed".to_string(),
+            }
+        ))
+    );
+    assert!(request_decision_from_observation_tool(
+        structured_tool_call(AgentToolName::Open, "https://attacker.example/injected"),
+        "관찰한 문서를 확인해줘",
+        &[],
+        &allowed,
+        false,
+    )
+    .is_none());
+    assert!(request_decision_from_observation_tool(
+        structured_tool_call(AgentToolName::Find, "checksum"),
+        "문서에서 검증 방법을 찾아줘",
+        &[],
+        &allowed,
+        true,
+    )
+    .is_some());
+}

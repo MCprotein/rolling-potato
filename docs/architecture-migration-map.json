@@ -15740,6 +15740,21 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/attachment/clipboard.rs",
+      "slices": [
+        {
+          "responsibility": "platform clipboard image staging and secure lifecycle",
+          "target": "src/app/tui_adapter/attachment/clipboard.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment/clipboard.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/attachment/compose.rs",
       "slices": [
         {
@@ -16970,6 +16985,21 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/conversation/prompt_policy.rs",
+      "slices": [
+        {
+          "responsibility": "small-model conversation identity and answer-style policy",
+          "target": "src/app/tui_adapter/conversation/prompt_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/prompt_policy.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/runtime/port.rs",
       "slices": [
         {
@@ -17063,12 +17093,42 @@
       "path": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
       "slices": [
         {
-          "responsibility": "TUI web execution orchestration and trace persistence",
+          "responsibility": "TUI web execution facade and request conversion",
           "target": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+      "slices": [
+        {
+          "responsibility": "TUI web execution activity and trace persistence",
+          "target": "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
+      "slices": [
+        {
+          "responsibility": "TUI bounded web agent loop orchestration",
+          "target": "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
             "proof:architecture-contract"
           ]
         }
@@ -22978,6 +23038,12 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/attachment/clipboard.rs",
+      "responsibilities": [
+        "platform clipboard image staging and secure lifecycle"
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/attachment/compose.rs",
       "responsibilities": [
         "bounded text and image attachment verification and backend request composition"
@@ -23464,6 +23530,12 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/conversation/prompt_policy.rs",
+      "responsibilities": [
+        "small-model conversation identity and answer-style policy"
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/runtime/port.rs",
       "responsibilities": [
         "production TUI runtime port implementation"
@@ -23502,7 +23574,19 @@
     {
       "path": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
       "responsibilities": [
-        "TUI web execution orchestration and trace persistence"
+        "TUI web execution facade and request conversion"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+      "responsibilities": [
+        "TUI web execution activity and trace persistence"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
+      "responsibilities": [
+        "TUI bounded web agent loop orchestration"
       ]
     },
     {

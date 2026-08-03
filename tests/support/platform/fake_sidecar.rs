@@ -1,8 +1,12 @@
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
+
+static STRUCTURED_RESPONSE_INDEX: AtomicUsize = AtomicUsize::new(0);
+const RESPONSE_SEPARATOR: &str = "\n---RPOTATO-RESPONSE---\n";
 
 fn main() {
     let args = std::env::args().collect::<Vec<_>>();
@@ -48,9 +52,12 @@ fn handle(mut stream: TcpStream) {
         let headers = String::from_utf8_lossy(&request[..header_end]);
         let content_length = headers
             .lines()
-            .find_map(|line| line.split_once(':'))
-            .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
-            .and_then(|(_, value)| value.trim().parse::<usize>().ok())
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("content-length")
+                    .then(|| value.trim().parse::<usize>().ok())
+                    .flatten()
+            })
             .unwrap_or(0);
         (
             headers.starts_with("GET "),
@@ -128,15 +135,7 @@ fn handle(mut stream: TcpStream) {
         }
     }
 
-    let response_path = response_fixture_path(request_body);
-    if let Some(path) = response_path {
-        let content = match std::fs::read_to_string(&path) {
-            Ok(content) => content,
-            Err(error) => {
-                eprintln!("fake sidecar response read failed: {path}: {error}");
-                return;
-            }
-        };
+    if let Some(content) = response_fixture(request_body) {
         if content.trim() == "__RPOTATO_STALL__" {
             stall_stream(&mut stream);
             return;
@@ -198,8 +197,21 @@ fn stall_stream(stream: &mut TcpStream) {
     }
 }
 
-fn response_fixture_path(request_body: &[u8]) -> Option<String> {
+fn response_fixture(request_body: &[u8]) -> Option<String> {
     let structured = find_bytes(request_body, b"\"response_format\"").is_some();
+    if structured {
+        if let Ok(path) = std::env::var("RPOTATO_FAKE_STRUCTURED_RESPONSE_SEQUENCE_FILE") {
+            let content = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+                panic!("fake sidecar response sequence read failed: {path}: {error}")
+            });
+            let responses = content.split(RESPONSE_SEPARATOR).collect::<Vec<_>>();
+            let index = STRUCTURED_RESPONSE_INDEX.fetch_add(1, Ordering::SeqCst);
+            return responses
+                .get(index)
+                .or_else(|| responses.last())
+                .map(|response| response.to_string());
+        }
+    }
     let selected = if structured {
         "RPOTATO_FAKE_STRUCTURED_RESPONSE_FILE"
     } else {
@@ -208,6 +220,13 @@ fn response_fixture_path(request_body: &[u8]) -> Option<String> {
     std::env::var(selected)
         .ok()
         .or_else(|| std::env::var("RPOTATO_FAKE_RESPONSE_FILE").ok())
+        .and_then(|path| match std::fs::read_to_string(&path) {
+            Ok(content) => Some(content),
+            Err(error) => {
+                eprintln!("fake sidecar response read failed: {path}: {error}");
+                None
+            }
+        })
 }
 
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {

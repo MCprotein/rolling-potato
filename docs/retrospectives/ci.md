@@ -445,3 +445,36 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
 - 이미지 붙여넣기는 slash command dispatch보다 먼저 분류하고, 비어 있는 bracketed
   paste와 명시적 clipboard shortcut은 OS clipboard adapter를 거치며 입력 draft를
   보존합니다.
+
+## 2026-08-03: 단발성 fake sidecar가 반복형 agent loop를 검증하지 못함
+
+### 증상
+
+- 단일 structured response fixture는 첫 도구 선택만 검증해, observation 뒤 모델이
+  다음 도구 또는 답변을 선택하는 실제 반복 경로가 없어도 테스트가 통과했습니다.
+- 다중 turn fixture를 추가하자 `Content-Length`가 아닌 첫 colon header를 길이로
+  오인해 큰 observation request를 빈 body로 처리했습니다.
+- 병렬 web adapter 테스트는 공유 worker pool의 전역 제출 수를 exact delta로 비교해
+  다른 테스트의 정상 작업에도 간헐적으로 실패했습니다.
+
+### 원인
+
+- Fake sidecar의 응답 모델이 one request/one response에 고정되어 production의
+  model→tool→observation lifecycle을 표현하지 못했습니다.
+- HTTP header parser와 worker 상한 검증이 각각 실제 header 이름과 test-local 완료
+  신호가 아니라 우연한 순서와 공유 전역 counter에 의존했습니다.
+
+### 재발 방지
+
+- 반복형 agent 기능은 순서가 있는 structured response fixture로 production terminal
+  경계를 통과하며 model request 수, observation envelope과 현재 typed tool activity를
+  함께 검증합니다.
+- 하나의 논리 tool route가 다른 tool을 내부 실행하지 못하도록 Search 결과 뒤 model
+  request를 먼저 관찰하고, Search→Open→Find→Answer 각 단계 사이에 직전 observation만
+  전달되는 production PTY 회귀를 유지합니다.
+- 반복 호출 상한은 직전 호출이 아니라 현재 turn의 전체 `(tool, normalized input)`
+  이력을 기준으로 하며, 시간 상한은 매 admission 시 turn 시작 시각에서 다시 계산합니다.
+- Fake HTTP parser는 header 이름을 case-insensitive exact match한 뒤 body 길이를 읽고,
+  여러 header와 4 KiB를 넘는 request body 회귀를 유지합니다.
+- 공유 worker pool 테스트는 전역 exact delta 대신 해당 test가 소유한 completion
+  signal과 deadline을 검증합니다.

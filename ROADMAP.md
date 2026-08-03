@@ -207,6 +207,7 @@ evidence.
 | --- | --- | --- |
 | v0.54.0 | Integrated into v0.55.0 | Internal implementation milestone that removed fixed product generation caps, derived request budgets from the active model context, rejected incomplete length-finished output, and bound sampling and vision behavior to source-backed model profiles and exact artifacts. It was not published as a separate release. |
 | v0.55.0 | Released | Reliable default-terminal journeys for typed memory and resume, model-selected bounded Search→Open→Find→Answer research, visible progress and active cancellation, richer Markdown and draft-preserving scroll, attachment recovery, separate model/projector cache readiness, bounded network workers, native-terminal regression coverage, and an opt-in managed real-model smoke. |
+| v0.55.1 | Candidate | Iterative model→tool→observation replanning after every verified web step, with runtime-owned source binding, discovered-URL/current-page admission, repeated-call rejection, and explicit three-tool/three-follow-up-turn limits. |
 
 ## Distribution Boundary
 

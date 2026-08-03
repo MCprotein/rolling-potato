@@ -6,7 +6,7 @@ use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 use crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter;
 
 #[test]
-fn automatic_search_records_ordered_search_open_find_trace() {
+fn search_records_one_typed_activity_without_implicit_open_or_find() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     std::env::set_var(
         "RPOTATO_TEST_WEB_SEARCH_HTML",
@@ -32,9 +32,10 @@ fn automatic_search_records_ordered_search_open_find_trace() {
         },
         web_tools::WebTurnContext {
             request: "Rust stable release를 검색해줘",
-            local_context: "",
-            conversation_context: "",
-            elapsed: std::time::Duration::ZERO,
+            history: &[],
+            tool_history: &[],
+            context_limit_tokens: 4_096,
+            started: std::time::Instant::now(),
             progress: &progress,
             cancellation: &cancellation,
         },
@@ -49,15 +50,8 @@ fn automatic_search_records_ordered_search_open_find_trace() {
     ] {
         std::env::remove_var(name);
     }
-    assert_eq!(activities.len(), 3, "{activities:?}");
+    assert_eq!(activities.len(), 1, "{activities:?}");
     assert_eq!(activities[0].tool, ConversationToolName::Search);
-    assert_eq!(activities[1].tool, ConversationToolName::Open);
-    assert_eq!(activities[2].tool, ConversationToolName::Find);
-    assert!(activities
-        .iter()
-        .all(|activity| activity.status == ConversationToolStatus::Succeeded));
-    let source_id = activities[0].source_ids.first().expect("search source id");
-    assert!(activities.iter().all(|activity| {
-        activity.source_ids.first() == Some(source_id) && activity.source_ids.len() == 1
-    }));
+    assert_eq!(activities[0].status, ConversationToolStatus::Succeeded);
+    assert_eq!(activities[0].source_ids.len(), 1);
 }

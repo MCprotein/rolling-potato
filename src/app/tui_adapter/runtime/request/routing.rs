@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crate::app::tui_adapter::session_memory::ConversationToolActivity;
 use crate::app::tui_adapter::{attachment, conversation, web_tools, TuiRuntimeAdapter};
-use crate::app::web_search_adapter::{self, WebToolRoute};
+use crate::app::web_search_adapter;
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::TuiRequestProgress;
 
@@ -67,12 +67,6 @@ pub(super) fn execute_routed(
         )
     });
     if let Some(route) = immediate_web_route {
-        let conversation_context = match &route {
-            WebToolRoute::Search { .. } => {
-                web_conversation_context(history, tool_history, user_request, context_limit_tokens)?
-            }
-            _ => String::new(),
-        };
         return execute_web_turn(
             &mut web_research,
             &mut adapter.web_pages,
@@ -80,8 +74,7 @@ pub(super) fn execute_routed(
             web_turn_context(
                 context,
                 user_request,
-                local_context,
-                &conversation_context,
+                required_context_limit(context_limit_tokens)?,
                 web_started,
             ),
             tool_activities,
@@ -127,12 +120,6 @@ pub(super) fn execute_routed(
             return crate::app::browser_adapter::search_form(tool).map(plain_execution);
         }
         conversation::RequestDecision::WebTool(tool) => {
-            let conversation_context = web_conversation_context(
-                history,
-                tool_history,
-                user_request,
-                context_limit_tokens,
-            )?;
             return execute_web_turn(
                 &mut web_research,
                 &mut adapter.web_pages,
@@ -140,8 +127,7 @@ pub(super) fn execute_routed(
                 web_turn_context(
                     context,
                     user_request,
-                    local_context,
-                    &conversation_context,
+                    required_context_limit(context_limit_tokens)?,
                     web_started,
                 ),
                 tool_activities,
@@ -171,15 +157,15 @@ pub(super) fn execute_routed(
 fn web_turn_context<'a>(
     request_context: &'a RequestContext<'a>,
     request: &'a str,
-    local_context: &'a str,
-    conversation_context: &'a str,
+    context_limit_tokens: u32,
     started: Instant,
 ) -> web_tools::WebTurnContext<'a> {
     web_tools::WebTurnContext {
         request,
-        local_context,
-        conversation_context,
-        elapsed: started.elapsed(),
+        history: request_context.history,
+        tool_history: request_context.tool_history,
+        context_limit_tokens,
+        started,
         progress: request_context.progress,
         cancellation: request_context.cancellation,
     }

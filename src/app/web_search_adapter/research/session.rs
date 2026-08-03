@@ -159,6 +159,7 @@ impl WebResearchSession {
         bounded
     }
 
+    #[cfg(test)]
     pub(crate) fn has_evidence_capacity(&self) -> bool {
         self.terminal.is_none() && self.evidence_bytes < self.budget.max_evidence_bytes
     }

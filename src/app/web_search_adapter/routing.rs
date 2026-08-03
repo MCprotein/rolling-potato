@@ -13,7 +13,7 @@ pub(super) use grounding_policy::{requires_external_grounding, strengthen_search
 pub(crate) use page_intent::route_current_page_find;
 pub(crate) use protocol::route_tool_request;
 pub(crate) use query::contextualize_search_input;
-pub(super) use text::{best_query_term, overlap_score};
+pub(super) use text::overlap_score;
 pub(crate) use web_policy::web_disabled;
 
 pub(crate) fn validate_public_web_step(step: WebResearchStep) -> Result<WebResearchStep, AppError> {

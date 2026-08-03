@@ -6,7 +6,10 @@ mod presentation;
 mod prompt_policy;
 mod reply;
 
-pub(super) use decision::{decide_request_with_cancel, RequestDecision};
+pub(super) use decision::{
+    decide_request_with_cancel, decide_web_observation_with_cancel, RequestDecision,
+    WebObservationDecisionContext,
+};
 pub(super) use local_facts::{is_conversational_request, local_reply};
 pub(super) use presentation::{ensure_public_answer, present_agent_report};
 pub(super) use reply::{
@@ -19,7 +22,7 @@ pub(super) use decision::decide_request;
 #[cfg(test)]
 use decision::{
     decide_generated_candidate, recent_user_requests, request_decision_from_agent_tool,
-    structured_tool_call,
+    request_decision_from_observation_tool, structured_tool_call,
 };
 #[cfg(test)]
 use presentation::contains_private_tool_protocol;

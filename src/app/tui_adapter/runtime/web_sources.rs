@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::app::web_search_adapter::{WebPageSession, WebResearchSession, WebToolRoute};
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::TuiWebSourceOption;
@@ -32,9 +30,11 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
             WebToolRoute::Open { url: source.url },
             super::super::web_tools::WebTurnContext {
                 request,
-                local_context: "",
-                conversation_context: "",
-                elapsed: Duration::ZERO,
+                history: &[],
+                tool_history: &[],
+                context_limit_tokens:
+                    crate::app::inference_adapter::model::configured_context_length()?,
+                started: std::time::Instant::now(),
                 progress:
                     &crate::surfaces::tui::runtime_bridge::TuiRequestProgressReporter::default(),
                 cancellation: &cancellation,
