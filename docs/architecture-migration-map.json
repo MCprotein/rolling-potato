@@ -14367,13 +14367,29 @@
       "path": "src/app/tui_adapter/conversation/decision.rs",
       "slices": [
         {
-          "responsibility": "conversation turn decision and browser or web tool routing",
+          "responsibility": "initial conversation turn decision and browser or web tool routing",
           "target": "src/app/tui_adapter/conversation/decision.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter/conversation/decision.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/decision/web_observation.rs",
+      "slices": [
+        {
+          "responsibility": "web observation prompt, follow-up decision, and runtime-authorized tool routing",
+          "target": "src/app/tui_adapter/conversation/decision/web_observation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/tests/decision.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs",
+            "tests/surfaces/native_terminal/web.rs"
           ]
         }
       ]
@@ -15637,6 +15653,22 @@
           "state": "complete",
           "evidence": [
             "tests/surfaces/native_terminal/web.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/web_recovery.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal malformed, repeated-tool, and resumed web activity recovery journeys",
+          "target": "tests/surfaces/native_terminal/web_recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/web_recovery.rs",
             "tests/surfaces.rs",
             "tests/architecture_contract.rs"
           ]
@@ -22506,7 +22538,13 @@
     {
       "path": "src/app/tui_adapter/conversation/decision.rs",
       "responsibilities": [
-        "conversation turn decision and browser or web tool routing"
+        "initial conversation turn decision and browser or web tool routing"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/decision/web_observation.rs",
+      "responsibilities": [
+        "web observation prompt, follow-up decision, and runtime-authorized tool routing"
       ]
     },
     {
@@ -22999,6 +23037,12 @@
       "path": "tests/surfaces/native_terminal/web.rs",
       "responsibilities": [
         "native terminal structured web search, open, and find journeys"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/web_recovery.rs",
+      "responsibilities": [
+        "native terminal malformed, repeated-tool, and resumed web activity recovery journeys"
       ]
     },
     {

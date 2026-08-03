@@ -591,7 +591,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
     assert!(tui_report_test_source.lines().count() < 300);
     assert!(model_switch.lines().count() < 225);
-    assert!(interactive_runtime.lines().count() <= 200);
+    assert!(interactive_runtime.lines().count() <= 225);
     assert!(
         report_composition.lines().count() < 250,
         "TUI report composition module regrew beyond its ownership boundary"

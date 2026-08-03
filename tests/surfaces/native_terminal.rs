@@ -101,5 +101,7 @@ mod interaction;
 mod lifecycle;
 #[path = "native_terminal/web.rs"]
 mod web;
+#[path = "native_terminal/web_recovery.rs"]
+mod web_recovery;
 
 use adapter_matrix::{assert_clean_restart, assert_tree_unchanged};

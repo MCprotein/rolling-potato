@@ -36,6 +36,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
     .unwrap();
     let tui_conversation_decision =
         fs::read_to_string("src/app/tui_adapter/conversation/decision.rs").unwrap();
+    let tui_conversation_web_observation = fs::read_to_string(
+        "src/app/tui_adapter/conversation/decision/web_observation.rs",
+    )
+    .unwrap();
     let web_tools = fs::read_to_string("src/app/tui_adapter/web_tools.rs").unwrap();
     let page_open =
         fs::read_to_string("src/app/web_search_adapter/page_tools/open.rs").unwrap();
@@ -196,7 +200,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_request_web_loop.contains("decide_web_observation_with_cancel"));
     assert!(tui_request_web_loop.contains("finish_observation"));
     assert!(!tui_request_web_loop.contains("web_tools::answer"));
-    assert!(tui_conversation_decision.contains("request_decision_from_observation_tool"));
+    assert!(tui_conversation_decision.contains("mod web_observation;"));
+    assert!(tui_conversation_web_observation
+        .contains("request_decision_from_observation_tool"));
     assert!(tui_request_context.contains("fn required_context_limit("));
     assert!(!web_tools.contains("route_tool_request"));
     assert!(web_tools.contains("remaining_elapsed_budget(context.started.elapsed())"));
