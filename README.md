@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.53.0` |
+| Current release | `v0.55.0` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -224,7 +224,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.53.0` release is an active pre-1.0 runtime, not only a
+The `v0.55.0` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -252,6 +252,11 @@ The v0.53.0 release makes volatile questions enter a generic, runtime-owned
 grounding path before a small model can answer from stale memory, and splits
 the runtime, TUI, persistence, model, web, and test responsibilities into
 bounded owners without changing the public command surface.
+The v0.55.0 release removes fixed product generation caps in favor of the
+active model profile and hardens complete terminal journeys for memory and
+resume, bounded web research, progress and cancellation, Markdown and scroll,
+attachments, and lazy vision readiness. The unpublished v0.54.0 implementation
+milestone is included in v0.55.0 rather than presented as a separate release.
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -303,11 +308,14 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.53.0` includes bounded web research,
+The published release history through `v0.55.0` includes bounded web research,
 restricted browser search-form support, a reliable interactive TUI, and
 grounded conversation continuity across follow-ups and resumed sessions. Web
 tools use schema-constrained turn decisions, generic freshness routing, and
 runtime-owned observations while preserving the local coding-agent workflow.
+Generation and context budgets follow the active model profile instead of a
+small fixed product cap, and terminal progress, cancellation, Markdown, scroll,
+attachments, and lazy vision states have native-terminal regression coverage.
 See
 [ROADMAP.md](ROADMAP.md) and the
 [v0.50 delivery plan](docs/v0.50-web-research-browser-plan.md).

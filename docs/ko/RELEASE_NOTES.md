@@ -12,6 +12,38 @@
 - [v0.10–v0.19](releases/v0.10-v0.19.md)
 - [v0.1–v0.9](releases/v0.1-v0.9.md)
 
+## v0.55.0 - 모델 기반 생성과 신뢰 가능한 터미널 여정
+
+릴리즈 날짜: 2026-08-03
+
+이 minor 릴리즈는 공개하지 않은 v0.54.0 모델 기반 생성 이정표와 v0.55.0
+터미널 완성도 작업을 합칩니다. 작은 제품 고정 생성 상한을 제거하고 기본 TUI
+사용자 여정 전체를 강화하지만, 비교 대상 제품과 동등하다고 주장하지 않습니다.
+
+### 포함한 것
+
+- 생성, 첨부, 압축, 웹, agent와 TUI budget을 제품 고정 상한 대신 활성 모델의
+  context와 남은 capacity에서 계산
+- 정상 `stop`만 완결 답변으로 인정하고 `length`와 알 수 없는 finish를 미완결로 처리
+- 정상 typed model 판단을 보존하고 잘못된 소형 모델 출력에만 제한된 복구 적용
+- 후속 질문과 `/resume`에서 이전 작업을 다시 실행하지 않고 typed web activity 복원
+- 순서가 있는 source evidence와 고정 용량 network worker pool을 사용하는 취소 가능한
+  Search→Open→Find→Answer 조사
+- 요청 단계·경과 시간, 활성 `Ctrl+C` 취소, 확장된 Markdown, 입력 내용을 보존하는
+  scroll과 실패 요청 첨부 복구
+- cache된 language model과 lazy vision projector 준비 상태를 분리하고 활성 backend에
+  연결된 projector 검증
+- native-terminal 회귀 사용자 여정과 별도 opt-in 관리형 실제 모델 smoke
+
+### 호환성과 경계
+
+- 기존 command, 저장 session, model cache와 GitHub Releases 전용 배포는 호환됩니다.
+- 기본 CI는 production 경계를 지나는 결정적 동작을 검증합니다. Opt-in 실제 모델
+  smoke는 의도적으로 범위가 좁으며 광범위한 모델 품질·하드웨어 호환성이나 Codex,
+  Claude Code, OpenCode와의 동등성을 증명하지 않습니다.
+- 제한 없는 tool orchestration, remote plugin source, MCP와 외부 app 연동은 지원
+  범위 밖에 있습니다.
+
 ## v0.53.0 - 제한된 런타임 아키텍처와 자동 근거 수집
 
 릴리즈 날짜: 2026-07-29

@@ -12,6 +12,45 @@ This index keeps the current release train concise. Historical notes are preserv
 - [v0.10–v0.19](docs/releases/v0.10-v0.19.md)
 - [v0.1–v0.9](docs/releases/v0.1-v0.9.md)
 
+## v0.55.0 - Model-Aware Generation and Reliable Terminal Journeys
+
+Release date: 2026-08-03
+
+This minor release combines the unpublished v0.54.0 model-aware generation
+milestone with the v0.55.0 terminal-parity work. It removes small fixed product
+generation caps and hardens the complete default TUI journey without claiming
+equivalence to the reference products.
+
+### Included
+
+- Derives generation, attachment, compaction, web, agent, and TUI budgets from
+  the active model context and remaining capacity instead of fixed product caps.
+- Treats `length` and unknown generation finishes as incomplete, while accepting
+  only a normal stop as a complete model answer.
+- Preserves valid typed model decisions and uses bounded recovery only for
+  malformed small-model output.
+- Persists typed web activity across follow-ups and `/resume` without replaying
+  uncertain prior work.
+- Runs bounded, cancellable Search→Open→Find→Answer research with ordered source
+  evidence and a fixed-capacity managed network worker pool.
+- Shows request phase and elapsed time, supports active `Ctrl+C` cancellation,
+  renders richer Markdown, preserves composer drafts while scrolling, and keeps
+  failed-request attachments recoverable.
+- Separates cached language-model artifacts from lazy vision-projector readiness
+  and verifies the projector bound to the active backend.
+- Adds native-terminal regression journeys and a separately opt-in managed
+  real-model smoke.
+
+### Compatibility and boundaries
+
+- Existing commands, stored sessions, model caches, and GitHub-only distribution
+  remain compatible.
+- The default CI proves deterministic production-boundary behavior; the opt-in
+  real-model smoke is intentionally narrow and does not establish broad model
+  quality, hardware compatibility, or parity with Codex, Claude Code, or OpenCode.
+- Unrestricted tool orchestration, remote plugin sources, MCP, and external app
+  integration remain outside the supported product boundary.
+
 ## v0.53.0 - Bounded Runtime Architecture and Autonomous Grounding
 
 Release date: 2026-07-29

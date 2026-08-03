@@ -201,6 +201,13 @@ evidence.
 | --- | --- | --- |
 | v0.53.0 | Released | Generic freshness-driven web grounding before direct small-model answers; runtime-owned evidence attribution and fallback answers; strict explicit-resume artifact validation; current-model facts from runtime configuration; and bounded responsibility owners across TUI, context, persistence, inference, install, web, workflow, collaboration, CLI, tests, release notes, and retrospectives |
 
+### Model-aware generation and terminal parity (`v0.54.0`-`v0.55.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.54.0 | Integrated into v0.55.0 | Internal implementation milestone that removed fixed product generation caps, derived request budgets from the active model context, rejected incomplete length-finished output, and bound sampling and vision behavior to source-backed model profiles and exact artifacts. It was not published as a separate release. |
+| v0.55.0 | Released | Reliable default-terminal journeys for typed memory and resume, model-selected bounded Search→Open→Find→Answer research, visible progress and active cancellation, richer Markdown and draft-preserving scroll, attachment recovery, separate model/projector cache readiness, bounded network workers, native-terminal regression coverage, and an opt-in managed real-model smoke. |
+
 ## Distribution Boundary
 
 GitHub Releases in this repository is the only supported download and

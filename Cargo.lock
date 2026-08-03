@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "rpotato"
-version = "0.53.0"
+version = "0.55.0"
 dependencies = [
  "flate2",
  "rusqlite",

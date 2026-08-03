@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.53.0` |
+| 현재 릴리즈 | `v0.55.0` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -228,6 +228,10 @@ v0.52.1 patch는 JSON schema repetition bound를 pinned grammar compiler에서
 v0.53.0 릴리즈는 최신성이 필요한 질문을 소형 모델의 오래된 기억보다 먼저
 generic runtime grounding 경로로 보내며, public command를 바꾸지 않고 runtime,
 TUI, persistence, model, web과 test 책임을 bounded owner로 분리합니다.
+v0.55.0 릴리즈는 제품 고정 생성 상한을 활성 model profile 기반 budget으로
+교체하고, memory·resume, 제한된 웹 조사, 진행·취소, Markdown·scroll, 첨부와
+lazy vision 준비 상태를 포함한 기본 터미널 사용자 여정을 강화합니다. 공개하지
+않은 v0.54.0 구현 이정표는 별도 릴리스로 표현하지 않고 v0.55.0에 포함합니다.
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에
@@ -277,11 +281,13 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.53.0`까지의 release history에는 로컬 coding-agent workflow를
+게시된 `v0.55.0`까지의 release history에는 로컬 coding-agent workflow를
 유지하는 제한된 웹 연구, browser search-form 지원, 신뢰할 수 있는 대화형
 TUI와 후속 질문·resume session까지 이어지는 근거 기반 대화 연속성이
 포함됩니다. Web tool은 schema로 제한된 turn 결정, generic freshness routing과
-runtime-owned observation을 사용합니다.
+runtime-owned observation을 사용합니다. 생성·context budget은 작은 제품 고정값
+대신 활성 model profile을 따르며, 진행·취소, Markdown·scroll, 첨부와 lazy vision
+상태를 native-terminal 회귀 테스트로 보호합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)와
 [v0.50 구현 계획](docs/ko/v0.50-web-research-browser-plan.md)을 참고하십시오.
 
