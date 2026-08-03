@@ -12,6 +12,21 @@ This index keeps the current release train concise. Historical notes are preserv
 - [v0.10–v0.19](docs/releases/v0.10-v0.19.md)
 - [v0.1–v0.9](docs/releases/v0.1-v0.9.md)
 
+## v0.55.1 Candidate - Iterative Web Tool Replanning
+
+Status: unpublished candidate
+
+- Re-enters the structured model decision after every validated web observation
+  so Search, Open, Find, and Answer can form a real bounded loop.
+- Returns only search-result evidence from Search; Open and Find never run
+  implicitly and each requires a separate model decision.
+- Admits Open only for runtime-discovered HTTPS URLs and Find only against the
+  current page; model output cannot widen network authority.
+- Stops repeated identical calls and enforces three tool calls plus three
+  follow-up model turns, then falls back to the last source-bound observation.
+- Covers Search→Open→Find→Answer plus malformed and repeated-call safe exits
+  through the production terminal path with a sequential fake-sidecar fixture.
+
 ## v0.55.0 - Model-Aware Generation and Reliable Terminal Journeys
 
 Release date: 2026-08-03

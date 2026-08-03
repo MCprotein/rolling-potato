@@ -5,7 +5,7 @@
 ### Source Of Truth
 
 - Status: Active
-- Last refreshed: 2026-07-27
+- Last refreshed: 2026-08-03
 - Primary product surface: no-argument `rpotato` TUI; subcommand CLI for automation and diagnostics; optional local static HTML report
 - Evidence reviewed:
   - `README.md`
@@ -176,6 +176,7 @@
 - Any action that reads or mutates conversation context, including `/compact`, commits the pending fresh session first and never targets the previous durable session implicitly.
 - The welcome frame and the first notice or conversation row are separated by one blank row. The `/help` footer must never visually merge with an update notice; terminals at 10 rows or less may collapse this decorative gap to preserve the composer.
 - Ordinary input appears as a user turn before dispatch. The visible result appears as an assistant turn. Errors are a distinct red `×` turn, never a green assistant reply, and are excluded from later model memory.
+- Small-model answer policy is proportional rather than template-driven: short questions receive short direct answers, evaluations start with the named subject and include one concrete strength and limitation, and capability questions start with whether the action is possible before conditions or detail.
 - Detailed revisions, hashes, ledger counts, projection freshness, workflow fields, and monitor tables are available only through explicit status/diagnostic views.
 - On first run, the same terminal flow lists source-backed model choices and shows model ID/version, quantization, download size, context limit, RAM status, license, and recommendation evidence before confirmation.
 - The managed backend is installed or reused automatically. The default path never asks the user for a `llama.cpp` executable or GGUF filesystem path.
@@ -191,11 +192,11 @@
 - Interactive confirmations use the same picker primitive with a safe cancel choice selected by default. The TUI never asks the user to type `yes`; plain or redirected terminals use the numbered choice fallback.
 - `/update` opens an `업데이트 / 취소` confirmation picker, and choosing either option must not leave confirmation text in the conversation composer.
 - The composer supports common terminal editing keys: Left/Right, Home/End, `Ctrl+A`/`Ctrl+E`, Option/Alt+Left/Right word movement, Command/Meta+Left/Right line movement when the terminal reports those sequences, and word/line deletion shortcuts.
-- Bracketed paste is handled atomically. An explicitly pasted existing image or text-file path is represented as an attachment badge and is never interpreted as a slash command merely because an absolute path begins with `/`. Clipboard-created paths tolerate terminal-added quotes, `file://`, escaped spaces, and invisible boundary characters before classification and capture.
+- Bracketed paste is handled atomically. An explicitly pasted existing image or text-file path is classified before every slash-command dispatcher, represented as an attachment badge, and never interpreted as a slash command merely because an absolute path begins with `/`. Clipboard-created paths tolerate terminal-added quotes, `file://`, escaped spaces, invisible boundary characters, and leaked bracketed-paste wrappers before classification and capture. On macOS an empty image paste or `Ctrl+V` reads PNG data from the system clipboard through the built-in platform bridge, captures it into session storage, and preserves any composer draft.
 - Attachment intake validates file type, regular-file status, size, and bounded count. Ephemeral clipboard files are captured before dispatch. Unsupported model/backend capabilities are explained before inference rather than silently sending a filesystem path as text.
 - Explicit search wording and freshness-sensitive questions use the read-only web-search adapter unless the user requests offline/no-browse behavior. Small-model tool requests tolerate harmless case and whitespace variations of the private `WEB TOOL`/`WEB INPUT` protocol, but protocol text is never shown as an assistant answer. Short conversational follow-ups such as “뭔데” or “하고 있는 거야?” never become search queries solely because the model echoed them in a tool-shaped response.
 - Assistant turns render a bounded Markdown subset instead of exposing presentation markers literally: headings, emphasis, lists, inline code, and fenced code are terminal-safe. Unknown Markdown remains readable plain text and embedded ANSI/control sequences are sanitized before styling.
-- Conversation history opens at the newest turn. `PageUp`/`PageDown` and mouse wheel move through bounded transcript pages, `/more` and `/back` remain keyboard/text fallbacks, and the viewport shows its current position without destroying composer input. Mouse hover/click interactions remain optional; wheel input is part of the keyboard-equivalent scroll contract.
+- Conversation history opens at the newest turn. `PageUp`/`PageDown` move through bounded transcript pages, `/more` and `/back` remain text fallbacks, and the viewport shows its current position without destroying composer input. The default TUI does not enable terminal mouse-reporting modes, so ordinary drag selection and terminal-native scrollback remain available without a modifier key.
 - A request that has not completed shows a non-flashing spinner, elapsed time, and phase text. The indicator refreshes independently of the blocking model call and disappears on success or error.
 - Attached ANSI terminals may use semantic color and cursor positioning. Redirected output, `TERM=dumb`, and `NO_COLOR` remain plain, stable text.
 
@@ -252,6 +253,7 @@
 ### Content Voice
 
 - Tone: short, practical Korean for user-facing runtime/TUI copy
+- Conversation answers scale to the request: greetings, preferences, and short factual questions receive a direct natural answer; evidence headings and decision structure appear only when they materially help. Do not begin routine answers with generic disclaimers about emotions, subjectivity, or model limitations.
 - Terminology:
   - `model run`
   - `token usage`
@@ -292,7 +294,7 @@
   - TUI smoke tests at 80x24 and wide terminal sizes.
   - The default-frame regression rejects raw ledger/hash/projection fields and proves composer/status ordering.
   - A natural-language greeting regression proves that it is rendered as a conversation and never starts a patch proposal.
-  - Input regressions cover cursor movement, word/line movement and deletion, bracketed paste, palette selection, absolute-path classification (including invisible clipboard suffixes), PageUp/PageDown, mouse wheel, and UTF-8 display-cell behavior.
+  - Input regressions cover cursor movement, word/line movement and deletion, bracketed paste, palette selection, absolute-path classification (including invisible clipboard suffixes and leaked paste wrappers), PageUp/PageDown, absence of default mouse capture, and UTF-8 display-cell behavior.
   - Picker regressions prove keyboard and numbered fallback selection without downloading or switching before confirmation.
   - Confirmation regressions cover update, session selection, patch approval, verification approval, deny, resume, and cancel without any free-form `yes` prompt.
   - Web-search regressions cover Korean verb variants, freshness routing, tolerant small-model tool syntax, protocol non-disclosure, conversational follow-up rejection, explicit offline opt-out, source retention, and bounded provider failure.

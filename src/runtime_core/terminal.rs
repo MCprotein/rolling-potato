@@ -27,6 +27,7 @@ pub(crate) struct TerminalSuggestion {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum TerminalInputEvent {
     Submit(String),
+    PasteClipboardImage,
     ScrollUp,
     ScrollDown,
     End,

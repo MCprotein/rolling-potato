@@ -8,6 +8,8 @@ use crate::foundation::serialization as strict_json;
 
 const MAX_TOOL_INPUT_CHARS: usize = 512;
 const DECISION_CONTEXT: &str = "agent turn decision";
+const MAX_FOLLOW_UP_MODEL_TURNS: u8 = 3;
+const MAX_TOOL_CALLS: u8 = 3;
 
 pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","web_search","web_open","web_find","local_task"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
 
@@ -29,6 +31,49 @@ pub(crate) enum AgentToolName {
     Search,
     Open,
     Find,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentLoopStop {
+    FollowUpTurnBudget,
+    RepeatedToolCall,
+    ToolCallBudget,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct BoundedAgentLoop {
+    follow_up_model_turns: u8,
+    tool_calls: u8,
+    admitted_tool_calls: Vec<AgentToolCall>,
+}
+
+impl BoundedAgentLoop {
+    pub(crate) fn begin_follow_up_model_turn(&mut self) -> Result<(), AgentLoopStop> {
+        if self.follow_up_model_turns >= MAX_FOLLOW_UP_MODEL_TURNS {
+            return Err(AgentLoopStop::FollowUpTurnBudget);
+        }
+        self.follow_up_model_turns += 1;
+        Ok(())
+    }
+
+    pub(crate) fn admit_tool_call(
+        &mut self,
+        tool_call: AgentToolCall,
+    ) -> Result<(), AgentLoopStop> {
+        if self
+            .admitted_tool_calls
+            .iter()
+            .any(|admitted| admitted == &tool_call)
+        {
+            return Err(AgentLoopStop::RepeatedToolCall);
+        }
+        if self.tool_calls >= MAX_TOOL_CALLS {
+            return Err(AgentLoopStop::ToolCallBudget);
+        }
+        self.tool_calls += 1;
+        self.admitted_tool_calls.push(tool_call);
+        Ok(())
+    }
 }
 
 pub(crate) fn parse_turn_decision(
@@ -167,6 +212,65 @@ mod tests {
         assert_eq!(
             parse_turn_decision(&candidate, true).unwrap(),
             AgentTurnDecision::Answer(answer)
+        );
+    }
+
+    #[test]
+    fn bounded_loop_allows_progress_but_stops_repetition_and_runaway_turns() {
+        let search = AgentToolCall {
+            name: AgentToolName::Search,
+            input: "Rust stable".to_string(),
+        };
+        let mut repeated = BoundedAgentLoop::default();
+        assert_eq!(repeated.admit_tool_call(search.clone()), Ok(()));
+        assert_eq!(
+            repeated.admit_tool_call(search),
+            Err(AgentLoopStop::RepeatedToolCall)
+        );
+
+        let mut non_consecutive = BoundedAgentLoop::default();
+        let search = AgentToolCall {
+            name: AgentToolName::Search,
+            input: "Rust stable".to_string(),
+        };
+        assert_eq!(non_consecutive.admit_tool_call(search.clone()), Ok(()));
+        assert_eq!(
+            non_consecutive.admit_tool_call(AgentToolCall {
+                name: AgentToolName::Open,
+                input: "https://example.com/rust".to_string(),
+            }),
+            Ok(())
+        );
+        assert_eq!(
+            non_consecutive.admit_tool_call(search),
+            Err(AgentLoopStop::RepeatedToolCall)
+        );
+
+        let mut turns = BoundedAgentLoop::default();
+        for _ in 0..MAX_FOLLOW_UP_MODEL_TURNS {
+            assert_eq!(turns.begin_follow_up_model_turn(), Ok(()));
+        }
+        assert_eq!(
+            turns.begin_follow_up_model_turn(),
+            Err(AgentLoopStop::FollowUpTurnBudget)
+        );
+
+        let mut tools = BoundedAgentLoop::default();
+        for index in 0..MAX_TOOL_CALLS {
+            assert_eq!(
+                tools.admit_tool_call(AgentToolCall {
+                    name: AgentToolName::Search,
+                    input: format!("query-{index}"),
+                }),
+                Ok(())
+            );
+        }
+        assert_eq!(
+            tools.admit_tool_call(AgentToolCall {
+                name: AgentToolName::Open,
+                input: "https://example.com".to_string(),
+            }),
+            Err(AgentLoopStop::ToolCallBudget)
         );
     }
 }

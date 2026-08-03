@@ -14367,13 +14367,29 @@
       "path": "src/app/tui_adapter/conversation/decision.rs",
       "slices": [
         {
-          "responsibility": "conversation turn decision and browser or web tool routing",
+          "responsibility": "initial conversation turn decision and browser or web tool routing",
           "target": "src/app/tui_adapter/conversation/decision.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter/conversation/decision.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/decision/web_observation.rs",
+      "slices": [
+        {
+          "responsibility": "web observation prompt, follow-up decision, and runtime-authorized tool routing",
+          "target": "src/app/tui_adapter/conversation/decision/web_observation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/tests/decision.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs",
+            "tests/surfaces/native_terminal/web.rs"
           ]
         }
       ]
@@ -15644,6 +15660,22 @@
       ]
     },
     {
+      "path": "tests/surfaces/native_terminal/web_recovery.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal malformed, repeated-tool, and resumed web activity recovery journeys",
+          "target": "tests/surfaces/native_terminal/web_recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/web_recovery.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/conversation_tests/attachment_layout.rs",
       "slices": [
         {
@@ -15735,6 +15767,21 @@
             "src/app/tui_adapter/attachment/capture.rs",
             "src/app/tui_adapter/attachment.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/clipboard.rs",
+      "slices": [
+        {
+          "responsibility": "platform clipboard image staging and secure lifecycle",
+          "target": "src/app/tui_adapter/attachment/clipboard.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment/clipboard.rs",
+            "proof:architecture-contract"
           ]
         }
       ]
@@ -16970,6 +17017,21 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/conversation/prompt_policy.rs",
+      "slices": [
+        {
+          "responsibility": "small-model conversation identity and answer-style policy",
+          "target": "src/app/tui_adapter/conversation/prompt_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/prompt_policy.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/runtime/port.rs",
       "slices": [
         {
@@ -17063,12 +17125,42 @@
       "path": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
       "slices": [
         {
-          "responsibility": "TUI web execution orchestration and trace persistence",
+          "responsibility": "TUI web execution facade and request conversion",
           "target": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+      "slices": [
+        {
+          "responsibility": "TUI web execution activity and trace persistence",
+          "target": "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+            "proof:architecture-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
+      "slices": [
+        {
+          "responsibility": "TUI bounded web agent loop orchestration",
+          "target": "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
             "proof:architecture-contract"
           ]
         }
@@ -22446,7 +22538,13 @@
     {
       "path": "src/app/tui_adapter/conversation/decision.rs",
       "responsibilities": [
-        "conversation turn decision and browser or web tool routing"
+        "initial conversation turn decision and browser or web tool routing"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/decision/web_observation.rs",
+      "responsibilities": [
+        "web observation prompt, follow-up decision, and runtime-authorized tool routing"
       ]
     },
     {
@@ -22942,6 +23040,12 @@
       ]
     },
     {
+      "path": "tests/surfaces/native_terminal/web_recovery.rs",
+      "responsibilities": [
+        "native terminal malformed, repeated-tool, and resumed web activity recovery journeys"
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/conversation_tests/attachment_layout.rs",
       "responsibilities": [
         "conversation attachment retry, error presentation, and responsive layout journeys"
@@ -22975,6 +23079,12 @@
       "path": "src/app/tui_adapter/attachment/capture.rs",
       "responsibilities": [
         "immutable local attachment capture, private storage, and post-copy integrity verification"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/clipboard.rs",
+      "responsibilities": [
+        "platform clipboard image staging and secure lifecycle"
       ]
     },
     {
@@ -23464,6 +23574,12 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/conversation/prompt_policy.rs",
+      "responsibilities": [
+        "small-model conversation identity and answer-style policy"
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/runtime/port.rs",
       "responsibilities": [
         "production TUI runtime port implementation"
@@ -23502,7 +23618,19 @@
     {
       "path": "src/app/tui_adapter/runtime/request/support/web_execution.rs",
       "responsibilities": [
-        "TUI web execution orchestration and trace persistence"
+        "TUI web execution facade and request conversion"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+      "responsibilities": [
+        "TUI web execution activity and trace persistence"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
+      "responsibilities": [
+        "TUI bounded web agent loop orchestration"
       ]
     },
     {

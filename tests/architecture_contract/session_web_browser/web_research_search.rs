@@ -16,6 +16,14 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/tui_adapter/runtime/request/support/web_execution.rs",
     )
     .unwrap();
+    let tui_request_web_activity = fs::read_to_string(
+        "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+    )
+    .unwrap();
+    let tui_request_web_loop = fs::read_to_string(
+        "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
+    )
+    .unwrap();
     let tui_request_support_tests =
         fs::read_to_string("src/app/tui_adapter/runtime/request/support/tests.rs").unwrap();
     let tui_request_single_step = fs::read_to_string(
@@ -26,7 +34,15 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
     )
     .unwrap();
+    let tui_conversation_decision =
+        fs::read_to_string("src/app/tui_adapter/conversation/decision.rs").unwrap();
+    let tui_conversation_web_observation = fs::read_to_string(
+        "src/app/tui_adapter/conversation/decision/web_observation.rs",
+    )
+    .unwrap();
     let web_tools = fs::read_to_string("src/app/tui_adapter/web_tools.rs").unwrap();
+    let page_open =
+        fs::read_to_string("src/app/web_search_adapter/page_tools/open.rs").unwrap();
     let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
     let tui_command_dispatch =
         fs::read_to_string("src/surfaces/tui/controller/command_dispatch.rs").unwrap();
@@ -90,6 +106,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/tui_adapter/runtime/request/support/tests/research_trace.rs",
         "src/app/tui_adapter/runtime/request/support/tests/single_step.rs",
         "src/app/tui_adapter/runtime/request/support/web_execution.rs",
+        "src/app/tui_adapter/runtime/request/support/web_execution/activity.rs",
+        "src/app/tui_adapter/runtime/request/support/web_execution/loop_driver.rs",
         "src/app/tui_adapter/web_tools.rs",
         "src/runtime_core/agent.rs",
         "src/surfaces/tui/controller/command_dispatch/web.rs",
@@ -172,13 +190,26 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_request_support_tests.contains("#[path = \"tests/research_trace.rs\"]"));
     assert!(tui_request_support_tests.contains("#[path = \"tests/single_step.rs\"]"));
     assert!(tui_request_single_step.contains("fn web_turn_records_typed_success_and_blocked_activity("));
-    assert!(tui_request_research_trace.contains("fn automatic_search_records_ordered_search_open_find_trace("));
-    assert!(tui_request_web_execution.contains("web_tools::observe"));
-    assert!(tui_request_web_execution.contains("web_tools::answer"));
+    assert!(tui_request_research_trace
+        .contains("fn search_records_one_typed_activity_without_implicit_open_or_find("));
+    assert!(tui_request_web_execution.contains("mod activity;"));
+    assert!(tui_request_web_execution.contains("mod loop_driver;"));
+    assert!(tui_request_web_execution.contains("loop_driver::execute"));
+    assert!(tui_request_web_activity.contains("web_tools::observe"));
+    assert!(tui_request_web_loop.contains("BoundedAgentLoop"));
+    assert!(tui_request_web_loop.contains("decide_web_observation_with_cancel"));
+    assert!(tui_request_web_loop.contains("finish_observation"));
+    assert!(!tui_request_web_loop.contains("web_tools::answer"));
+    assert!(tui_conversation_decision.contains("mod web_observation;"));
+    assert!(tui_conversation_web_observation
+        .contains("request_decision_from_observation_tool"));
     assert!(tui_request_context.contains("fn required_context_limit("));
     assert!(!web_tools.contains("route_tool_request"));
+    assert!(web_tools.contains("remaining_elapsed_budget(context.started.elapsed())"));
+    assert!(page_open.contains("web_search::open_with_timeout(url, remaining)"));
     assert!(agent_turn.contains("TURN_DECISION_JSON_SCHEMA"));
     assert!(agent_turn.contains("enum AgentTurnDecision"));
+    assert!(agent_turn.contains("struct BoundedAgentLoop"));
     assert!(agent_turn.contains("fn parse_turn_decision("));
     assert!(!agent_turn.contains("WEB TOOL:"));
     assert!(transport.contains("ureq::Agent::with_parts"));
@@ -332,9 +363,13 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(research_flow.lines().any(|line| line == "mod cached_answer;"));
     assert!(research_flow.lines().any(|line| line == "mod network_call;"));
     assert!(research_flow_tests
-        .contains("opened_primary_document_overrides_conflicting_search_snippet"));
-    assert!(research_flow.contains("search.sources.iter().take(3)"));
-    assert!(research_flow.contains("supporting_passages("));
+        .contains("search_observation_discovers_sources_without_opening_them"));
+    assert!(research_flow.contains("record_discovered_sources"));
+    assert!(research_flow.contains("WEB_SEARCH_RESULTS"));
+    assert!(!research_flow.contains("search.sources.iter().take(3)"));
+    assert!(!research_flow.contains("supporting_passages("));
+    assert!(!research_flow.contains("web_search::open"));
+    assert!(!research_flow.contains("web_search::find_in_page"));
     assert!(research_flow.lines().count() < 350);
     assert!(
         fs::read_to_string("src/app/web_search_adapter/research_flow/cached_answer.rs")
@@ -359,9 +394,11 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_request_routing.lines().count() < 225);
     assert!(tui_request_support.lines().count() < 25);
     assert!(tui_request_context.lines().count() < 75);
-    assert!(tui_request_web_execution.lines().count() < 125);
+    assert!(tui_request_web_execution.lines().count() < 75);
+    assert!(tui_request_web_activity.lines().count() < 125);
+    assert!(tui_request_web_loop.lines().count() < 175);
     assert!(tui_request_support_tests.lines().count() < 25);
-    assert!(tui_request_single_step.lines().count() < 125);
+    assert!(tui_request_single_step.lines().count() < 175);
     assert!(tui_request_research_trace.lines().count() < 100);
 }
 

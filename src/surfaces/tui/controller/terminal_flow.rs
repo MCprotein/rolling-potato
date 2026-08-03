@@ -12,6 +12,7 @@ use super::TuiRuntimePort;
 
 pub(super) enum InputAction {
     Command(String),
+    PasteClipboardImage,
     Redraw,
     End,
 }
@@ -27,6 +28,7 @@ pub(super) fn read_input_action(
         .map_err(terminal_fault_error)?
     {
         TerminalInputEvent::Submit(line) => Ok(InputAction::Command(line)),
+        TerminalInputEvent::PasteClipboardImage => Ok(InputAction::PasteClipboardImage),
         TerminalInputEvent::ScrollUp => {
             let page_count = super::super::render::conversation_page_count(state, width, height);
             state.next_notice_page(height, page_count);

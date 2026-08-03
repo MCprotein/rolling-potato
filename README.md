@@ -257,6 +257,13 @@ active model profile and hardens complete terminal journeys for memory and
 resume, bounded web research, progress and cancellation, Markdown and scroll,
 attachments, and lazy vision readiness. The unpublished v0.54.0 implementation
 milestone is included in v0.55.0 rather than presented as a separate release.
+The v0.55.1 candidate corrects the one-follow-up boundary after the first tool
+call. The runtime feeds each validated observation back to the model so it can
+choose another Search, Open, Find, or the final Answer, while enforcing repeated-
+call rejection, three-tool and three-follow-up-turn limits, and a safe fallback
+to the last verified evidence. Search returns only its result-list observation;
+Open and Find require separate model decisions and each counts against the same
+logical tool budget.
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete

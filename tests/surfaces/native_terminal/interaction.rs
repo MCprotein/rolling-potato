@@ -41,7 +41,7 @@ fn slash_opens_command_palette_before_enter() {
     let _live_terminal = LiveTerminalEnvironment::enable();
 
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("›");
+    terminal.wait_for("\u{1b}[?2004h");
     terminal.send("/");
     let palette = terminal.wait_for("/model [id]");
     assert!(palette.contains("모델 확인 및 변경"));
@@ -73,6 +73,17 @@ fn slash_opens_command_palette_before_enter() {
             >= 2,
         "palette dismissal must restore the overwritten conversation rows"
     );
+    for mouse_tracking_sequence in [
+        "\u{1b}[?1000h",
+        "\u{1b}[?1006h",
+        "\u{1b}[?1000l",
+        "\u{1b}[?1006l",
+    ] {
+        assert!(
+            !output.contains(mouse_tracking_sequence),
+            "기본 입력 수명주기 전체에서 터미널의 네이티브 드래그 선택을 가로채면 안 됩니다: {mouse_tracking_sequence:?}"
+        );
+    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -83,7 +94,7 @@ fn page_scroll_preserves_the_live_composer_draft() {
     let _live_terminal = LiveTerminalEnvironment::enable();
 
     let mut terminal = NativePty::spawn(80, 12);
-    terminal.wait_for("›");
+    terminal.wait_for("\u{1b}[?2004h");
     for _ in 1..=8 {
         let mark = terminal.mark();
         submit_visible_command(&mut terminal, "넌 누구야");
@@ -111,7 +122,7 @@ fn bracketed_clipboard_image_path_is_captured_before_slash_command_routing() {
     std::fs::write(&image, b"\x89PNG\r\n\x1a\nfixture").unwrap();
 
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("›");
+    terminal.wait_for("\u{1b}[?2004h");
     let pasted = format!("{}\u{2060}", image.display());
     terminal.send(&format!("\u{1b}[200~{pasted}\u{1b}[201~\r"));
     let output = terminal.wait_for("첨부됨");
@@ -119,6 +130,29 @@ fn bracketed_clipboard_image_path_is_captured_before_slash_command_routing() {
     assert!(!output.contains("알 수 없는 TUI 명령"));
     terminal.send("/attach clear\r");
     terminal.wait_for("대기 중인 첨부를 모두 제거했습니다.");
+    terminal.send("/quit\r");
+    terminal.finish();
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn ctrl_v_reaches_the_tui_instead_of_posix_literal_next() {
+    let fixture = NativeTerminalFixture::new("clipboard-control-v");
+    assert!(fixture.project.is_dir());
+    let _live_terminal = LiveTerminalEnvironment::enable();
+
+    let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("\u{1b}[?2004h");
+    let paste_mark = terminal.mark();
+    terminal.send("\u{0016}");
+    let paste_result = terminal.wait_for_after(paste_mark, "클립보드");
+    assert!(
+        paste_result.contains("클립보드 이미지 첨부됨")
+            || paste_result.contains("클립보드에 읽을 수 있는 PNG 이미지가 없습니다")
+            || paste_result.contains("클립보드 원본 이미지 읽기를 아직 지원하지 않습니다"),
+        "Ctrl+V는 운영체제의 literal-next가 아니라 TUI 이미지 붙여넣기로 처리돼야 합니다."
+    );
+    assert!(!paste_result.contains("^\u{0008}"));
     terminal.send("/quit\r");
     terminal.finish();
 }

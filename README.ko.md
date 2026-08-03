@@ -232,6 +232,12 @@ v0.55.0 릴리즈는 제품 고정 생성 상한을 활성 model profile 기반 
 교체하고, memory·resume, 제한된 웹 조사, 진행·취소, Markdown·scroll, 첨부와
 lazy vision 준비 상태를 포함한 기본 터미널 사용자 여정을 강화합니다. 공개하지
 않은 v0.54.0 구현 이정표는 별도 릴리스로 표현하지 않고 v0.55.0에 포함합니다.
+v0.55.1 candidate는 최초 도구 호출 뒤 한 번만 답변하던 경계를 보정합니다.
+Runtime이 검증한 observation을 모델에 다시 전달해 다음 Search·Open·Find 또는
+최종 Answer를 선택하게 하되, 동일 호출 반복과 3회 도구·후속 model-turn 상한을
+runtime에서 강제하고 실패 시 마지막 검증 근거로 안전하게 답합니다. Search는
+검색 결과 observation만 반환하며, Open과 Find는 각각 별도 model 판단과 동일한
+논리 도구 budget을 거쳐야 합니다.
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에

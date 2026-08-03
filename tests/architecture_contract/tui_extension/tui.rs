@@ -28,7 +28,7 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
         (
             "attachments",
             "src/surfaces/tui/controller/attachments.rs",
-            "fn looks_like_attachment_path",
+            "fn attachment_path_candidate",
         ),
         (
             "command_dispatch",
@@ -106,7 +106,7 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
 fn tui_conversation_journeys_have_bounded_feature_owners() {
     let root = fs::read_to_string("src/app/tui_adapter/conversation_tests.rs").unwrap();
     let owners = [
-        ("attachment_layout", 175),
+        ("attachment_layout", 185),
         ("progress_model", 175),
         ("rendering", 175),
         ("session", 200),

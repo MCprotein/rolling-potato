@@ -28,6 +28,7 @@ const SEARCH_REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 #[cfg(test)]
 const SEARCH_OPERATION_TIMEOUT: Duration = Duration::from_secs(40);
 const PAGE_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+#[cfg(test)]
 const PAGE_OPERATION_TIMEOUT: Duration = Duration::from_secs(30 * (MAX_PAGE_REDIRECTS as u64 + 1));
 
 #[cfg(test)]
@@ -137,6 +138,7 @@ fn evidence_from_documents(
         })
 }
 
+#[cfg(test)]
 pub(crate) fn open(url: &str) -> Result<WebOpenResult, AppError> {
     open_with_timeout(url, PAGE_OPERATION_TIMEOUT)
 }

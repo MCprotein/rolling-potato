@@ -143,18 +143,3 @@ impl Drop for BracketedPasteGuard {
         let _ = write_stdout("\u{001b}[?2004l");
     }
 }
-
-pub(super) struct MouseTrackingGuard;
-
-impl MouseTrackingGuard {
-    pub(super) fn start() -> Result<Self, TerminalFault> {
-        write_stdout("\u{001b}[?1000h\u{001b}[?1006h")?;
-        Ok(Self)
-    }
-}
-
-impl Drop for MouseTrackingGuard {
-    fn drop(&mut self) {
-        let _ = write_stdout("\u{001b}[?1006l\u{001b}[?1000l");
-    }
-}

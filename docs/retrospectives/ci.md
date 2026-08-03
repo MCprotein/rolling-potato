@@ -418,3 +418,90 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
   변경된 owner의 exact contract와 전체 migration-map contract를 커밋 전에 실행합니다.
 - Candidate preflight 실패는 실패한 contract만 재현해 수정하고, 새 HEAD에서만 최종
   preflight를 다시 실행합니다. 같은 HEAD의 전체 preflight는 반복하지 않습니다.
+
+## 2026-08-03: 합성 입력 테스트가 실제 터미널 붙여넣기 계약을 대체함
+
+### 증상
+
+- Controller에 경로 문자열을 직접 넣는 테스트는 통과했지만 macOS 이미지 붙여넣기는
+  임시 PNG 경로가 slash command로 분류되어 실패했습니다.
+- TUI가 mouse-reporting mode를 기본 활성화해 터미널의 일반 드래그 선택도 가로챘습니다.
+- `Ctrl+V`는 raw mode에서 `IEXTEN`이 남아 애플리케이션 이벤트가 아니라 POSIX
+  literal-next 입력으로 처리됐습니다.
+
+### 원인
+
+- 테스트가 terminal escape mode, bracketed-paste provenance, OS clipboard bridge를
+  건너뛰고 controller 이후 상태만 주입했습니다.
+- mouse-wheel 지원과 사용자의 native selection을 별도 기능으로 모델링하지 않았습니다.
+
+### 재발 방지
+
+- 터미널 입력 변경은 controller unit test에 더해 실제 PTY에서 bracketed paste mode가
+  켜진 뒤 정확한 macOS 임시 경로와 `Ctrl+V` byte가 application action에 도달하는지
+  검증합니다.
+- 기본 TUI는 mouse-reporting mode를 켜지 않습니다. 별도 선택 UI가 없는 한 drag
+  selection과 terminal-native scrollback을 보존합니다.
+- 이미지 붙여넣기는 slash command dispatch보다 먼저 분류하고, 비어 있는 bracketed
+  paste와 명시적 clipboard shortcut은 OS clipboard adapter를 거치며 입력 draft를
+  보존합니다.
+
+## 2026-08-03: 단발성 fake sidecar가 반복형 agent loop를 검증하지 못함
+
+### 증상
+
+- 단일 structured response fixture는 첫 도구 선택만 검증해, observation 뒤 모델이
+  다음 도구 또는 답변을 선택하는 실제 반복 경로가 없어도 테스트가 통과했습니다.
+- 다중 turn fixture를 추가하자 `Content-Length`가 아닌 첫 colon header를 길이로
+  오인해 큰 observation request를 빈 body로 처리했습니다.
+- 병렬 web adapter 테스트는 공유 worker pool의 전역 제출 수를 exact delta로 비교해
+  다른 테스트의 정상 작업에도 간헐적으로 실패했습니다.
+
+### 원인
+
+- Fake sidecar의 응답 모델이 one request/one response에 고정되어 production의
+  model→tool→observation lifecycle을 표현하지 못했습니다.
+- HTTP header parser와 worker 상한 검증이 각각 실제 header 이름과 test-local 완료
+  신호가 아니라 우연한 순서와 공유 전역 counter에 의존했습니다.
+
+### 재발 방지
+
+- 반복형 agent 기능은 순서가 있는 structured response fixture로 production terminal
+  경계를 통과하며 model request 수, observation envelope과 현재 typed tool activity를
+  함께 검증합니다.
+- 하나의 논리 tool route가 다른 tool을 내부 실행하지 못하도록 Search 결과 뒤 model
+  request를 먼저 관찰하고, Search→Open→Find→Answer 각 단계 사이에 직전 observation만
+  전달되는 production PTY 회귀를 유지합니다.
+- 반복 호출 상한은 직전 호출이 아니라 현재 turn의 전체 `(tool, normalized input)`
+  이력을 기준으로 하며, 시간 상한은 매 admission 시 turn 시작 시각에서 다시 계산합니다.
+- Fake HTTP parser는 header 이름을 case-insensitive exact match한 뒤 body 길이를 읽고,
+  여러 header와 4 KiB를 넘는 request body 회귀를 유지합니다.
+- 공유 worker pool 테스트는 전역 exact delta 대신 해당 test가 소유한 completion
+  signal과 deadline을 검증합니다.
+
+## 2026-08-03: 후속 모델 판단 조건이 직접 웹 도구 실행을 차단함
+
+### 증상
+
+- Agent loop 도입 뒤 모델이 아직 선택되지 않은 TUI에서 `/open`, `/search`, `/find`가
+  웹 fixture를 읽기 전에 context length 오류로 중단됐습니다.
+- Targeted agent-loop 테스트는 context를 항상 제공해 이 base capability 회귀를
+  발견하지 못했고, candidate 전체 테스트에서만 기존 conversation journey 두 건이
+  실패했습니다.
+
+### 원인
+
+- 웹 관찰 뒤의 선택적 모델 합성에 필요한 context length를 읽기 전용 웹 도구 자체의
+  필수 입력으로 올렸습니다.
+- 기존 no-model conversation journey가 실제 화면을 assertion 실패에 포함하지 않아
+  CI 로그만으로 선행 차단 지점을 바로 확인하기 어려웠습니다.
+
+### 재발 방지
+
+- 직접 지정한 읽기 전용 웹 도구는 모델 readiness와 분리합니다. Context가 있으면
+  후속 모델 판단을 수행하고, 없으면 런타임이 검증한 출처·페이지·find fallback으로
+  완료합니다.
+- Web tool context는 모델 합성 능력을 `Option`으로 표현하며 임의 기본 token 수를
+  넣지 않습니다.
+- No-model `/open → /find`와 `/search → source 선택 → /find` journey를 유지하고,
+  핵심 화면 assertion에는 렌더 결과를 실패 메시지로 포함합니다.

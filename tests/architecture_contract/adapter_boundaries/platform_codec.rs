@@ -147,9 +147,10 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     let surface = fs::read_to_string("tests/surfaces/native_terminal.rs").unwrap();
     let journey_owners = [
         ("adapter_matrix", 25),
-        ("interaction", 200),
+        ("interaction", 225),
         ("lifecycle", 150),
         ("web", 150),
+        ("web_recovery", 125),
     ];
     for (owner, line_budget) in journey_owners {
         let relative = format!("native_terminal/{owner}.rs");

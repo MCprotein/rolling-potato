@@ -44,6 +44,7 @@ pub(crate) trait TuiRuntimePort: Send {
     fn doctor_report(&mut self) -> String;
     fn compact_context(&mut self) -> Result<String, AppError>;
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError>;
+    fn capture_clipboard_image(&mut self) -> Result<TuiAttachment, AppError>;
     fn request_progress_hint(&mut self, _request: &str) -> Option<String> {
         None
     }
@@ -131,6 +132,10 @@ pub(crate) fn run_controller(
 
         let line = match read_input_action(terminal, &mut state, width, height)? {
             InputAction::Command(line) => line,
+            InputAction::PasteClipboardImage => {
+                state.notice = attachments::capture_clipboard_image_notice(runtime, &mut state);
+                continue;
+            }
             InputAction::Redraw => continue,
             InputAction::End => return Ok(()),
         };

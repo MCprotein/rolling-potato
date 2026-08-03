@@ -97,6 +97,14 @@ web tool을 직접 실행하고 제한된 observation을 기록한 뒤, 별도 m
 답변을 만듭니다. 후속 검색 context는 최근 user request에서만 만들며 model text,
 attachment, credential과 무관한 이전 topic은 query에 들어가지 않습니다.
 
+`v0.55.1` candidate는 이 별도 model turn을 제한된 반복형 agent loop로 확장합니다.
+각 검증 observation 뒤 모델이 다음 Search·Open·Find 또는 Answer를 다시 선택하며,
+runtime은 관찰에서 발견한 HTTPS URL과 현재 page만 허용합니다. 동일 호출 반복,
+도구 3회, 후속 model turn 3회가 중단 조건이고, 출력 오류·도구 실패·상한 도달 시
+마지막 검증 근거를 출처와 함께 표시합니다.
+Search 자체는 제한된 검색 결과 목록만 반환합니다. 모델이 그 observation을 보기
+전에 결과를 내부적으로 Open하거나 page 내부 Find를 실행할 수 없습니다.
+
 언어 guard는 한국어 문장과 함께 숫자, 수식, 코드, 경로, URL, 범위가 제한된 기술
 제목을 허용합니다. CJK 누출이나 이어지는 외국어 문장에는 사실을 보존하는 한국어
 재작성 한 번을 시도한 뒤 유효한 한국어 line을 안전하게 투영합니다. 복구가 실패해도

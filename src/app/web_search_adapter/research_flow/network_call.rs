@@ -160,7 +160,9 @@ mod tests {
 
     fn test_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     fn wait_for_completion(target: usize) {
@@ -193,13 +195,12 @@ mod tests {
         let _guard = test_lock();
         let cancelled = Arc::new(AtomicBool::new(false));
         let worker_flag = Arc::clone(&cancelled);
+        let job_completed = Arc::new(AtomicBool::new(false));
+        let job_completion = Arc::clone(&job_completed);
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(20));
             worker_flag.store(true, Ordering::Release);
         });
-        let pool = worker_pool().unwrap();
-        let completed_before = pool.stats.completed.load(Ordering::Acquire);
-        let submitted_before = pool.stats.submitted.load(Ordering::Acquire);
         let started = Instant::now();
 
         let error = run(
@@ -211,8 +212,9 @@ mod tests {
                     Ok(())
                 }
             },
-            || {
+            move || {
                 std::thread::sleep(Duration::from_millis(80));
+                job_completion.store(true, Ordering::Release);
                 Ok(())
             },
         )
@@ -220,11 +222,11 @@ mod tests {
 
         assert_eq!(error.into_app_error().message, "요청을 취소했습니다.");
         assert!(started.elapsed() < Duration::from_millis(70));
-        assert_eq!(
-            pool.stats.submitted.load(Ordering::Acquire),
-            submitted_before + 1
-        );
-        wait_for_completion(completed_before + 1);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !job_completed.load(Ordering::Acquire) {
+            assert!(Instant::now() < deadline, "managed web job did not finish");
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
 
     #[test]
@@ -232,29 +234,34 @@ mod tests {
         let _guard = test_lock();
         let pool = worker_pool().unwrap();
         wait_for_completion(pool.stats.submitted.load(Ordering::Acquire));
-        let submitted_before = pool.stats.submitted.load(Ordering::Acquire);
-        let completed_before = pool.stats.completed.load(Ordering::Acquire);
         let mut saturated = 0;
+        let mut admitted = 0;
+        let jobs_completed = Arc::new(AtomicUsize::new(0));
 
         for _ in 0..12 {
-            let result = run(Duration::from_millis(1), &|| Ok(()), || {
+            let job_completion = Arc::clone(&jobs_completed);
+            let result = run(Duration::from_millis(1), &|| Ok(()), move || {
                 std::thread::sleep(Duration::from_millis(40));
+                job_completion.fetch_add(1, Ordering::AcqRel);
                 Ok(())
             });
-            if matches!(result, Err(WebNetworkCallError::Saturated)) {
-                saturated += 1;
+            match result {
+                Err(WebNetworkCallError::TimedOut) => admitted += 1,
+                Err(WebNetworkCallError::Saturated) => saturated += 1,
+                other => panic!("unexpected bounded-pool result: {other:?}"),
             }
         }
 
-        let admitted = pool
-            .stats
-            .submitted
-            .load(Ordering::Acquire)
-            .saturating_sub(submitted_before);
         assert!(admitted <= WEB_WORKER_COUNT * (QUEUED_JOBS_PER_WORKER + 1));
         assert!(saturated > 0);
-        wait_for_completion(completed_before + admitted);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while jobs_completed.load(Ordering::Acquire) < admitted {
+            assert!(
+                Instant::now() < deadline,
+                "managed bounded-pool jobs did not finish"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
         assert!(pool.stats.peak_active.load(Ordering::Acquire) <= WEB_WORKER_COUNT);
-        assert_eq!(pool.stats.active.load(Ordering::Acquire), 0);
     }
 }

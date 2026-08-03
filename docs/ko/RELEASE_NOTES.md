@@ -12,6 +12,21 @@
 - [v0.10–v0.19](releases/v0.10-v0.19.md)
 - [v0.1–v0.9](releases/v0.1-v0.9.md)
 
+## v0.55.1 후보 - 반복형 웹 도구 재판단
+
+상태: 미출시 candidate
+
+- 검증된 각 웹 observation 뒤 structured model decision에 다시 진입해 Search,
+  Open, Find, Answer가 실제 제한된 loop를 이루도록 보정
+- Search는 검색 결과 근거만 반환하고 Open·Find를 내부 실행하지 않으며, 각각 별도
+  model 판단을 거치도록 분리
+- Open은 runtime이 발견한 HTTPS URL, Find는 현재 page에만 허용하여 model 출력이
+  network 권한을 넓히지 못하게 유지
+- 동일 호출 반복을 거절하고 도구 3회·후속 model turn 3회 상한을 적용한 뒤 마지막
+  출처 결합 observation으로 안전하게 fallback
+- 순서가 있는 fake-sidecar protocol fixture로 production terminal 경계의
+  Search→Open→Find→Answer와 malformed·반복 호출 안전 종료를 검증
+
 ## v0.55.0 - 모델 기반 생성과 신뢰 가능한 터미널 여정
 
 릴리즈 날짜: 2026-08-03

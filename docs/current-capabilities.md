@@ -101,6 +101,15 @@ bounded observation, and makes the final answer a separate model turn.
 Follow-up search context is derived only from recent user requests; model text,
 attachments, credentials, and unrelated earlier topics cannot become a query.
 
+The `v0.55.1` candidate extends that separate model turn into a bounded iterative
+agent loop. After each validated observation, the model selects the next Search,
+Open, Find, or final Answer; the runtime admits only HTTPS URLs discovered in the
+observation and Find calls against the current page. Repeated calls, three tool
+calls, or three follow-up model turns stop the loop, and malformed output, tool
+failure, or budget exhaustion falls back to the last source-bound evidence.
+Search itself returns only the bounded result list. It cannot implicitly Open a
+result or Find inside a page before the model sees that observation.
+
 The language guard accepts Korean prose together with numbers, formulas, code,
 paths, URLs, and bounded technical titles. It attempts one fact-preserving
 Korean rewrite for CJK leakage or sustained foreign prose, then safely projects

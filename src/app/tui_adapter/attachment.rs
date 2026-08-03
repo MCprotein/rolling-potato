@@ -22,11 +22,17 @@ const MAX_TEXT_BYTES: u64 = 256 * 1024;
 const MAX_ATTACHMENTS: usize = 8;
 
 mod capture;
+mod clipboard;
 mod compose;
 mod format;
 mod path;
 
 pub(super) use capture::capture;
+pub(in crate::app::tui_adapter) fn capture_clipboard_image(
+    session_id: &str,
+) -> Result<TuiAttachment, AppError> {
+    clipboard::capture_clipboard_image(session_id)
+}
 pub(super) use compose::compose_request;
 use format::{attachment_kind, validate_content};
 use path::{normalized_source_path, safe_leaf};

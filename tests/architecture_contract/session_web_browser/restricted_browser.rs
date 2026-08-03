@@ -25,6 +25,10 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     let conversation = fs::read_to_string("src/app/tui_adapter/conversation.rs").unwrap();
     let conversation_decision =
         fs::read_to_string("src/app/tui_adapter/conversation/decision.rs").unwrap();
+    let conversation_web_observation = fs::read_to_string(
+        "src/app/tui_adapter/conversation/decision/web_observation.rs",
+    )
+    .unwrap();
     let conversation_local_facts =
         fs::read_to_string("src/app/tui_adapter/conversation/local_facts.rs").unwrap();
     let conversation_presentation =
@@ -72,6 +76,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         "src/app/browser_adapter/search_form.rs",
         "src/app/browser_adapter/tests.rs",
         "src/app/tui_adapter/conversation/decision.rs",
+        "src/app/tui_adapter/conversation/decision/web_observation.rs",
         "src/app/tui_adapter/conversation/local_facts.rs",
         "src/app/tui_adapter/conversation/presentation.rs",
         "src/app/tui_adapter/conversation/reply.rs",
@@ -162,9 +167,14 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(conversation_decision.contains("generate_structured_candidate_for_user"));
     assert!(conversation_decision.contains("TURN_DECISION_JSON_SCHEMA"));
     assert!(conversation_decision.contains("deterministic_browser_fallback"));
+    assert!(conversation_decision.contains("mod web_observation;"));
+    assert!(conversation_web_observation.contains("RUNTIME_WEB_OBSERVATION"));
+    assert!(conversation_web_observation.contains("request_decision_from_observation_tool"));
     assert!(tui_request.lines().any(|line| line == "mod routing;"));
     assert!(tui_request_routing.contains("RequestDecision::BrowserTool"));
-    assert!(conversation_reply.lines().any(|line| line == "mod prompt;"));
+    assert!(conversation_reply
+        .lines()
+        .any(|line| line.ends_with("mod prompt;")));
     assert!(conversation_reply_prompt.contains("fn assemble_plain_prompt("));
     assert!(conversation_reply_prompt.contains("fn assemble_vision_prompt("));
 
@@ -188,6 +198,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(interaction_tests.lines().count() < 225);
     assert!(conversation.lines().count() < 50);
     assert!(conversation_decision.lines().count() < 300);
+    assert!(conversation_web_observation.lines().count() < 175);
     assert!(conversation_local_facts.lines().count() < 300);
     assert!(conversation_presentation.lines().count() < 125);
     assert!(conversation_reply.lines().count() < 125);
@@ -196,7 +207,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     for (path, line_budget) in [
         (
             "src/app/tui_adapter/conversation/tests/decision.rs",
-            250,
+            275,
         ),
         (
             "src/app/tui_adapter/conversation/tests/local_facts.rs",

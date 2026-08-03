@@ -1,5 +1,6 @@
 use crate::adapters::web_search;
 use crate::foundation::error::AppError;
+use std::time::Duration;
 
 use super::super::{
     research::WebResearchSession, web_answer_language_policy, WebAnswerResult,
@@ -17,8 +18,9 @@ pub(crate) fn observe_open_page(
     url: &str,
     request: &str,
     research: &mut WebResearchSession,
+    remaining: Duration,
 ) -> Result<WebOpenObservation, AppError> {
-    match web_search::open(url)? {
+    match web_search::open_with_timeout(url, remaining)? {
         web_search::WebOpenResult::Redirect {
             from_url,
             target_url,

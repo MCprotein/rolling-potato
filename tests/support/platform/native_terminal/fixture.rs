@@ -232,6 +232,27 @@ impl NativeTerminalFixture {
         structured_response_body: &str,
         text_response_body: &str,
     ) -> PreparedConversationBackend {
+        self.start_conversation_backend(structured_response_body, text_response_body, None)
+    }
+
+    pub fn start_conversation_backend_with_structured_sequence(
+        &self,
+        structured_responses: &[&str],
+    ) -> PreparedConversationBackend {
+        assert!(!structured_responses.is_empty());
+        self.start_conversation_backend(
+            structured_responses[0],
+            "unused text response",
+            Some(structured_responses.join("\n---RPOTATO-RESPONSE---\n")),
+        )
+    }
+
+    fn start_conversation_backend(
+        &self,
+        structured_response_body: &str,
+        text_response_body: &str,
+        structured_response_sequence: Option<String>,
+    ) -> PreparedConversationBackend {
         let backend = self.root.join(if cfg!(windows) {
             "fake-conversation-sidecar.exe"
         } else {
@@ -281,32 +302,44 @@ impl NativeTerminalFixture {
         std::fs::write(&structured_response, structured_response_body).unwrap();
         let text_response = self.root.join("text-response.txt");
         std::fs::write(&text_response, text_response_body).unwrap();
+        let structured_sequence = self.root.join("structured-response-sequence.txt");
+        if let Some(sequence) = &structured_response_sequence {
+            std::fs::write(&structured_sequence, sequence).unwrap();
+        }
         let request_bodies = self.root.join("conversation-request-bodies.txt");
         let port = native_port();
+        let mut command = Command::new(env!("CARGO_BIN_EXE_rpotato"));
+        command
+            .args([
+                "backend",
+                "start",
+                "--model",
+                model.to_str().unwrap(),
+                "--ctx-size",
+                MODEL_CONTEXT,
+            ])
+            .env("RPOTATO_PROJECT_ROOT", &self.project)
+            .env("RPOTATO_DATA_HOME", &self.data)
+            .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
+            .env("RPOTATO_BACKEND_PORT", port.to_string())
+            .env(
+                "RPOTATO_FAKE_STRUCTURED_RESPONSE_FILE",
+                &structured_response,
+            )
+            .env("RPOTATO_FAKE_TEXT_RESPONSE_FILE", &text_response)
+            .env("RPOTATO_FAKE_REQUEST_BODY_MARKER", &request_bodies)
+            .env(
+                "RPOTATO_TEST_BACKEND_START_TRACE",
+                self.data.join("logs/conversation-backend-start-trace.log"),
+            );
+        if structured_response_sequence.is_some() {
+            command.env(
+                "RPOTATO_FAKE_STRUCTURED_RESPONSE_SEQUENCE_FILE",
+                &structured_sequence,
+            );
+        }
         let start = run_bounded_command(
-            Command::new(env!("CARGO_BIN_EXE_rpotato"))
-                .args([
-                    "backend",
-                    "start",
-                    "--model",
-                    model.to_str().unwrap(),
-                    "--ctx-size",
-                    MODEL_CONTEXT,
-                ])
-                .env("RPOTATO_PROJECT_ROOT", &self.project)
-                .env("RPOTATO_DATA_HOME", &self.data)
-                .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
-                .env("RPOTATO_BACKEND_PORT", port.to_string())
-                .env(
-                    "RPOTATO_FAKE_STRUCTURED_RESPONSE_FILE",
-                    &structured_response,
-                )
-                .env("RPOTATO_FAKE_TEXT_RESPONSE_FILE", &text_response)
-                .env("RPOTATO_FAKE_REQUEST_BODY_MARKER", &request_bodies)
-                .env(
-                    "RPOTATO_TEST_BACKEND_START_TRACE",
-                    self.data.join("logs/conversation-backend-start-trace.log"),
-                ),
+            &mut command,
             "backend start conversation fixture",
             &self.data,
         );

@@ -23,9 +23,10 @@ fn web_turn_records_typed_success_and_blocked_activity() {
     let mut activities = Vec::new();
     let context = web_tools::WebTurnContext {
         request: "stable을 찾아줘",
-        local_context: "",
-        conversation_context: "",
-        elapsed: std::time::Duration::ZERO,
+        history: &[],
+        tool_history: &[],
+        context_limit_tokens: Some(4_096),
+        started: std::time::Instant::now(),
         progress: &progress,
         cancellation: &cancellation,
     };
@@ -50,9 +51,10 @@ fn web_turn_records_typed_success_and_blocked_activity() {
     let mut blocked = Vec::new();
     let context = web_tools::WebTurnContext {
         request: "잘못된 검색",
-        local_context: "",
-        conversation_context: "",
-        elapsed: std::time::Duration::ZERO,
+        history: &[],
+        tool_history: &[],
+        context_limit_tokens: Some(4_096),
+        started: std::time::Instant::now(),
         progress: &progress,
         cancellation: &cancellation,
     };
@@ -83,9 +85,10 @@ fn web_turn_records_typed_success_and_blocked_activity() {
         },
         web_tools::WebTurnContext {
             request: "Rust stable release를 검색해줘",
-            local_context: "",
-            conversation_context: "",
-            elapsed: std::time::Duration::ZERO,
+            history: &[],
+            tool_history: &[],
+            context_limit_tokens: Some(4_096),
+            started: std::time::Instant::now(),
             progress: &progress,
             cancellation: &cancelled_token,
         },
@@ -98,5 +101,34 @@ fn web_turn_records_typed_success_and_blocked_activity() {
     assert_eq!(cancelled.len(), 1);
     assert_eq!(cancelled[0].tool, ConversationToolName::Search);
     assert_eq!(cancelled[0].status, ConversationToolStatus::Cancelled);
+
+    let mut elapsed = Vec::new();
+    let expired = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(45))
+        .expect("45 seconds before now");
+    let error = match execute_web_turn(
+        &mut WebResearchSession::default(),
+        &mut WebPageSession::default(),
+        WebToolRoute::Search {
+            query: "Rust stable release".to_string(),
+        },
+        web_tools::WebTurnContext {
+            request: "Rust stable release를 검색해줘",
+            history: &[],
+            tool_history: &[],
+            context_limit_tokens: Some(4_096),
+            started: expired,
+            progress: &progress,
+            cancellation: &cancellation,
+        },
+        &mut elapsed,
+    ) {
+        Ok(_) => panic!("expired research budget must not execute"),
+        Err(error) => error,
+    };
+    assert_eq!(error.message, "웹 리서치 시간 상한에 도달했습니다.");
+    assert_eq!(elapsed.len(), 1);
+    assert_eq!(elapsed[0].tool, ConversationToolName::Search);
+    assert_eq!(elapsed[0].status, ConversationToolStatus::Blocked);
     std::env::remove_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL");
 }
