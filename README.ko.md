@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.55.0` |
+| 현재 릴리즈 | `v0.55.1` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -201,7 +201,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.52.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.55.1` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -232,7 +232,7 @@ v0.55.0 릴리즈는 제품 고정 생성 상한을 활성 model profile 기반 
 교체하고, memory·resume, 제한된 웹 조사, 진행·취소, Markdown·scroll, 첨부와
 lazy vision 준비 상태를 포함한 기본 터미널 사용자 여정을 강화합니다. 공개하지
 않은 v0.54.0 구현 이정표는 별도 릴리스로 표현하지 않고 v0.55.0에 포함합니다.
-v0.55.1 candidate는 최초 도구 호출 뒤 한 번만 답변하던 경계를 보정합니다.
+v0.55.1 릴리즈는 최초 도구 호출 뒤 한 번만 답변하던 경계를 보정합니다.
 Runtime이 검증한 observation을 모델에 다시 전달해 다음 Search·Open·Find 또는
 최종 Answer를 선택하게 하되, 동일 호출 반복과 3회 도구·후속 model-turn 상한을
 runtime에서 강제하고 실패 시 마지막 검증 근거로 안전하게 답합니다. Search는
@@ -287,7 +287,7 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.55.0`까지의 release history에는 로컬 coding-agent workflow를
+게시된 `v0.55.1`까지의 release history에는 로컬 coding-agent workflow를
 유지하는 제한된 웹 연구, browser search-form 지원, 신뢰할 수 있는 대화형
 TUI와 후속 질문·resume session까지 이어지는 근거 기반 대화 연속성이
 포함됩니다. Web tool은 schema로 제한된 turn 결정, generic freshness routing과

@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.55.0` |
+| Current release | `v0.55.1` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -224,7 +224,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.55.0` release is an active pre-1.0 runtime, not only a
+The `v0.55.1` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -257,7 +257,7 @@ active model profile and hardens complete terminal journeys for memory and
 resume, bounded web research, progress and cancellation, Markdown and scroll,
 attachments, and lazy vision readiness. The unpublished v0.54.0 implementation
 milestone is included in v0.55.0 rather than presented as a separate release.
-The v0.55.1 candidate corrects the one-follow-up boundary after the first tool
+The v0.55.1 release corrects the one-follow-up boundary after the first tool
 call. The runtime feeds each validated observation back to the model so it can
 choose another Search, Open, Find, or the final Answer, while enforcing repeated-
 call rejection, three-tool and three-follow-up-turn limits, and a safe fallback
@@ -315,7 +315,7 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.55.0` includes bounded web research,
+The published release history through `v0.55.1` includes bounded web research,
 restricted browser search-form support, a reliable interactive TUI, and
 grounded conversation continuity across follow-ups and resumed sessions. Web
 tools use schema-constrained turn decisions, generic freshness routing, and
