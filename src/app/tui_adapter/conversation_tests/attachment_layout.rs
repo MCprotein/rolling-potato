@@ -17,6 +17,56 @@ fn pasted_image_path_becomes_an_attachment_instead_of_an_unknown_command() {
 }
 
 #[test]
+fn terminal_wrapped_clipboard_path_is_captured_before_any_slash_dispatcher() {
+    let path = "/var/folders/example/clipboard-2026-08-03-140749-C70D7FD5.png";
+    let wrapped = format!("\u{001b}[200~{path}\u{001b}[201~");
+    let mut terminal = ScriptedTerminal::new([]);
+    terminal.input_events = [
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            wrapped,
+        )),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "/quit".to_string(),
+        )),
+    ]
+    .into_iter()
+    .collect();
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.captured_paths, [path]);
+    assert!(!terminal.frames.join("\n").contains("알 수 없는 TUI 명령"));
+}
+
+#[test]
+fn native_clipboard_image_event_adds_an_attachment_without_submitting_text() {
+    let mut terminal = ScriptedTerminal::new([]);
+    terminal.input_events = [
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::PasteClipboardImage),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "이 이미지 설명해줘".to_string(),
+        )),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "/quit".to_string(),
+        )),
+    ]
+    .into_iter()
+    .collect();
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.clipboard_capture_calls, 1);
+    assert_eq!(runtime.requests, ["이 이미지 설명해줘"]);
+    assert_eq!(runtime.submitted_attachment_counts, [1]);
+    assert!(terminal
+        .frames
+        .join("\n")
+        .contains("클립보드 이미지 첨부됨"));
+}
+
+#[test]
 fn failed_request_keeps_attachments_until_a_successful_retry() {
     let path = "/private/tmp/rpotato-retry.png";
     let mut terminal =

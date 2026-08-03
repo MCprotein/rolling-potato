@@ -19,8 +19,25 @@ pub(super) fn capture_attachment_notice(
     }
 }
 
+pub(super) fn capture_clipboard_image_notice(
+    runtime: &mut impl TuiRuntimePort,
+    state: &mut InteractiveState,
+) -> String {
+    match runtime.capture_clipboard_image() {
+        Ok(attachment) => {
+            let notice = format!(
+                "클립보드 이미지 첨부됨 · {} · {} bytes\n다음 요청에 포함됩니다.",
+                attachment.display_name, attachment.size_bytes
+            );
+            state.add_attachment(attachment);
+            notice
+        }
+        Err(error) => error.message,
+    }
+}
+
 pub(super) fn attachment_path_candidate(value: &str) -> Option<String> {
-    let value = trim_clipboard_boundaries(value);
+    let value = strip_bracketed_paste_markers(trim_clipboard_boundaries(value));
     let value = value
         .strip_prefix('"')
         .and_then(|value| value.strip_suffix('"'))
@@ -30,7 +47,7 @@ pub(super) fn attachment_path_candidate(value: &str) -> Option<String> {
                 .and_then(|value| value.strip_suffix('\''))
         })
         .unwrap_or(value);
-    let value = trim_clipboard_boundaries(value);
+    let value = strip_bracketed_paste_markers(trim_clipboard_boundaries(value));
     let decoded = value.replace("\\ ", " ");
     let value = decoded.strip_prefix("file://").unwrap_or(&decoded);
     let value = trim_clipboard_boundaries(value);
@@ -86,8 +103,9 @@ pub(super) fn attachment_path_candidate(value: &str) -> Option<String> {
     .then(|| value.to_string())
 }
 
-pub(super) fn looks_like_attachment_path(value: &str) -> bool {
-    attachment_path_candidate(value).is_some()
+fn strip_bracketed_paste_markers(value: &str) -> &str {
+    let value = value.strip_prefix("\u{001b}[200~").unwrap_or(value);
+    value.strip_suffix("\u{001b}[201~").unwrap_or(value)
 }
 
 fn trim_clipboard_boundaries(value: &str) -> &str {
@@ -121,6 +139,16 @@ mod tests {
         assert_eq!(
             attachment_path_candidate(path).as_deref(),
             Some("/private/tmp/My Screenshot.png")
+        );
+    }
+
+    #[test]
+    fn leaked_bracketed_paste_markers_do_not_turn_an_image_path_into_a_command() {
+        let path = "\u{001b}[200~/var/folders/example/clipboard-image.png\u{001b}[201~";
+
+        assert_eq!(
+            attachment_path_candidate(path).as_deref(),
+            Some("/var/folders/example/clipboard-image.png")
         );
     }
 }

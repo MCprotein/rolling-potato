@@ -12,7 +12,7 @@ use editor::Editor;
 use keymap::{decode_escape, escape_sequence_complete, Action};
 use paste::PasteCapture;
 pub(super) use picker::choose;
-use render::{BracketedPasteGuard, MouseTrackingGuard};
+use render::BracketedPasteGuard;
 
 const MAX_INPUT_BYTES: usize = 8 * 1024;
 const MAX_PALETTE_ROWS: usize = 6;
@@ -43,7 +43,6 @@ pub(super) fn read(
     state: Option<State>,
 ) -> Result<ReadOutcome, TerminalFault> {
     let _paste_guard = BracketedPasteGuard::start()?;
-    let _mouse_guard = MouseTrackingGuard::start()?;
     let mut editor = state.map(|state| state.editor).unwrap_or_default();
     let mut escape = Vec::new();
     let mut utf8 = Vec::new();
@@ -66,6 +65,9 @@ pub(super) fn read(
         if let Some(pasted) = paste.as_mut() {
             if let Some(completed) = pasted.push(byte) {
                 let normalized = paste::normalize(&completed)?;
+                if normalized.is_empty() {
+                    return Ok(clipboard_image_outcome(editor));
+                }
                 if editor.text().len() + normalized.len() <= MAX_INPUT_BYTES {
                     editor.insert(&normalized);
                 }
@@ -127,6 +129,7 @@ pub(super) fn read(
             0x0e => apply_action(&mut editor, Action::Down, suggestions),
             0x10 => apply_action(&mut editor, Action::Up, suggestions),
             0x15 => editor.delete_to_start(),
+            0x16 => return Ok(clipboard_image_outcome(editor)),
             0x17 => editor.delete_word_back(),
             byte if !byte.is_ascii_control() && editor.text().len() < MAX_INPUT_BYTES => {
                 utf8.push(byte);
@@ -142,6 +145,13 @@ pub(super) fn read(
             _ => continue,
         }
         redraw(&editor, suggestions, terminal_width, base_frame)?;
+    }
+}
+
+fn clipboard_image_outcome(editor: Editor) -> ReadOutcome {
+    ReadOutcome {
+        event: TerminalInputEvent::PasteClipboardImage,
+        state: Some(State { editor }),
     }
 }
 

@@ -18,6 +18,10 @@ const ICANON: TcFlag = 0x0000_0002;
 #[cfg(target_os = "macos")]
 const ICANON: TcFlag = 0x0000_0100;
 #[cfg(target_os = "linux")]
+const IEXTEN: TcFlag = 0x0000_8000;
+#[cfg(target_os = "macos")]
+const IEXTEN: TcFlag = 0x0000_0400;
+#[cfg(target_os = "linux")]
 const VTIME: usize = 5;
 #[cfg(target_os = "linux")]
 const VMIN: usize = 6;
@@ -173,7 +177,9 @@ fn with_live_mode<T>(
     let original = unsafe { original.assume_init() };
     let _signal_restore = SignalEchoRestore::install(original)?;
     let mut live = original;
-    live.c_lflag &= !(ECHO | ICANON | ISIG);
+    // IEXTEN keeps VLNEXT (usually Ctrl+V) active even outside canonical mode.
+    // Disable it so the composer receives Ctrl+V as an image-paste shortcut.
+    live.c_lflag &= !(ECHO | ICANON | ISIG | IEXTEN);
     // A short inter-byte timeout lets the line editor distinguish a standalone Escape
     // key from the prefix of CSI/SS3 navigation sequences.
     live.c_cc[VMIN] = 0;

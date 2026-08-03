@@ -23,6 +23,7 @@ struct ConversationRuntime {
     model_options: Vec<TuiModelOption>,
     setup_models: Vec<String>,
     captured_paths: Vec<String>,
+    clipboard_capture_calls: usize,
     submitted_attachment_counts: Vec<usize>,
     submit_failures_remaining: usize,
     session_options: Vec<TuiSessionOption>,
@@ -134,6 +135,17 @@ impl TuiRuntimePort for ConversationRuntime {
             id: "attachment-test".to_string(),
             display_name: path.to_string(),
             stored_path: path.to_string(),
+            size_bytes: 1,
+            kind: TuiAttachmentKind::Image,
+        })
+    }
+
+    fn capture_clipboard_image(&mut self) -> Result<TuiAttachment, AppError> {
+        self.clipboard_capture_calls += 1;
+        Ok(TuiAttachment {
+            id: "clipboard-image-test".to_string(),
+            display_name: "clipboard.png".to_string(),
+            stored_path: "/private/tmp/clipboard.png".to_string(),
             size_bytes: 1,
             kind: TuiAttachmentKind::Image,
         })

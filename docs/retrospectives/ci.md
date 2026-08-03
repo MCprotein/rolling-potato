@@ -418,3 +418,30 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
   변경된 owner의 exact contract와 전체 migration-map contract를 커밋 전에 실행합니다.
 - Candidate preflight 실패는 실패한 contract만 재현해 수정하고, 새 HEAD에서만 최종
   preflight를 다시 실행합니다. 같은 HEAD의 전체 preflight는 반복하지 않습니다.
+
+## 2026-08-03: 합성 입력 테스트가 실제 터미널 붙여넣기 계약을 대체함
+
+### 증상
+
+- Controller에 경로 문자열을 직접 넣는 테스트는 통과했지만 macOS 이미지 붙여넣기는
+  임시 PNG 경로가 slash command로 분류되어 실패했습니다.
+- TUI가 mouse-reporting mode를 기본 활성화해 터미널의 일반 드래그 선택도 가로챘습니다.
+- `Ctrl+V`는 raw mode에서 `IEXTEN`이 남아 애플리케이션 이벤트가 아니라 POSIX
+  literal-next 입력으로 처리됐습니다.
+
+### 원인
+
+- 테스트가 terminal escape mode, bracketed-paste provenance, OS clipboard bridge를
+  건너뛰고 controller 이후 상태만 주입했습니다.
+- mouse-wheel 지원과 사용자의 native selection을 별도 기능으로 모델링하지 않았습니다.
+
+### 재발 방지
+
+- 터미널 입력 변경은 controller unit test에 더해 실제 PTY에서 bracketed paste mode가
+  켜진 뒤 정확한 macOS 임시 경로와 `Ctrl+V` byte가 application action에 도달하는지
+  검증합니다.
+- 기본 TUI는 mouse-reporting mode를 켜지 않습니다. 별도 선택 UI가 없는 한 drag
+  selection과 terminal-native scrollback을 보존합니다.
+- 이미지 붙여넣기는 slash command dispatch보다 먼저 분류하고, 비어 있는 bracketed
+  paste와 명시적 clipboard shortcut은 OS clipboard adapter를 거치며 입력 draft를
+  보존합니다.

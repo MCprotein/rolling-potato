@@ -4,9 +4,7 @@ use crate::runtime_core::terminal::TerminalIo;
 use super::super::outcome::{exact_tui_outcome, TuiOutcomeCode, TuiOutcomeContext};
 use super::super::runtime_bridge::{OneShotSecret, TuiReadPage};
 use super::super::view_model::{ConversationRole, InteractiveState, InteractiveView};
-use super::attachments::{
-    attachment_path_candidate, capture_attachment_notice, looks_like_attachment_path,
-};
+use super::attachments::{attachment_path_candidate, capture_attachment_notice};
 use super::request_submission::{submit_request_with_progress, test_secret_probe_enabled};
 use super::session_selection::resume_selected_session;
 use super::terminal_flow::{outcome_notice, terminal_fault_error, write_pre_dispatch_frame};
@@ -31,6 +29,11 @@ pub(super) fn dispatch_line(
     height: u16,
     line: &str,
 ) -> Result<LoopControl, AppError> {
+    if let Some(path) = attachment_path_candidate(line) {
+        state.reset_notice_page();
+        state.notice = capture_attachment_notice(runtime, state, &path);
+        return Ok(LoopControl::Continue);
+    }
     let words = line.split_whitespace().collect::<Vec<_>>();
     if !matches!(words.as_slice(), ["/more"] | ["/back"]) {
         state.reset_notice_page();
@@ -150,23 +153,11 @@ pub(super) fn dispatch_line(
             resume_selected_session(runtime, state, session_id);
             LoopControl::Continue
         }
-        [command, ..] if command.starts_with('/') && looks_like_attachment_path(line.trim()) => {
-            let path = attachment_path_candidate(line.trim())
-                .expect("attachment guard and normalization share one classifier");
-            state.notice = capture_attachment_notice(runtime, state, &path);
-            LoopControl::Continue
-        }
         [command, ..] if command.starts_with('/') => {
             state.notice = format!("알 수 없는 TUI 명령입니다: {command}\n/help로 확인하세요.");
             LoopControl::Continue
         }
         _ => {
-            if looks_like_attachment_path(line.trim()) {
-                let path = attachment_path_candidate(line.trim())
-                    .expect("attachment guard and normalization share one classifier");
-                state.notice = capture_attachment_notice(runtime, state, &path);
-                return Ok(LoopControl::Continue);
-            }
             state.view = InteractiveView::Conversation;
             state.push_turn(ConversationRole::User, line.trim());
             let progress = runtime

@@ -288,4 +288,18 @@ mod tests {
             "작성 중인 요청"
         );
     }
+
+    #[test]
+    fn clipboard_image_event_preserves_the_current_draft() {
+        let mut editor = Editor::default();
+        editor.insert("이 이미지 설명해줘");
+
+        let outcome = super::super::clipboard_image_outcome(editor);
+
+        assert_eq!(outcome.event, TerminalInputEvent::PasteClipboardImage);
+        assert_eq!(
+            outcome.state.expect("preserved editor").editor.text(),
+            "이 이미지 설명해줘"
+        );
+    }
 }

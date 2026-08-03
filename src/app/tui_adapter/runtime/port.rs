@@ -51,6 +51,12 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         crate::app::tui_adapter::attachment::capture(path, &identity.session_id)
     }
 
+    fn capture_clipboard_image(&mut self) -> Result<TuiAttachment, AppError> {
+        self.ensure_fresh_session()?;
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+        crate::app::tui_adapter::attachment::capture_clipboard_image(&identity.session_id)
+    }
+
     fn request_progress_hint(&mut self, request: &str) -> Option<String> {
         crate::app::browser_adapter::progress_notice(request)
     }
