@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.55.0` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.55.1` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.55.0`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.55.1`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -97,7 +97,7 @@ web tool을 직접 실행하고 제한된 observation을 기록한 뒤, 별도 m
 답변을 만듭니다. 후속 검색 context는 최근 user request에서만 만들며 model text,
 attachment, credential과 무관한 이전 topic은 query에 들어가지 않습니다.
 
-`v0.55.1` candidate는 이 별도 model turn을 제한된 반복형 agent loop로 확장합니다.
+`v0.55.1` 릴리즈는 이 별도 model turn을 제한된 반복형 agent loop로 확장합니다.
 각 검증 observation 뒤 모델이 다음 Search·Open·Find 또는 Answer를 다시 선택하며,
 runtime은 관찰에서 발견한 HTTPS URL과 현재 page만 허용합니다. 동일 호출 반복,
 도구 3회, 후속 model turn 3회가 중단 조건이고, 출력 오류·도구 실패·상한 도달 시

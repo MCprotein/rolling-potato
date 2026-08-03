@@ -12,9 +12,9 @@ This index keeps the current release train concise. Historical notes are preserv
 - [v0.10–v0.19](docs/releases/v0.10-v0.19.md)
 - [v0.1–v0.9](docs/releases/v0.1-v0.9.md)
 
-## v0.55.1 Candidate - Iterative Web Tool Replanning
+## v0.55.1 - Iterative Web Tool Replanning
 
-Status: unpublished candidate
+Release date: 2026-08-03
 
 - Re-enters the structured model decision after every validated web observation
   so Search, Open, Find, and Answer can form a real bounded loop.
@@ -26,6 +26,15 @@ Status: unpublished candidate
   follow-up model turns, then falls back to the last source-bound observation.
 - Covers Search→Open→Find→Answer plus malformed and repeated-call safe exits
   through the production terminal path with a sequential fake-sidecar fixture.
+- Keeps direct read-only Search, Open, and Find commands available when model
+  context is unavailable, using only verified source-bound fallback output.
+
+### Compatibility and boundaries
+
+- Existing commands, stored sessions, model caches, and GitHub-only distribution
+  remain compatible.
+- This patch closes the iterative web-tool orchestration gap in v0.55.0; it does
+  not claim broad model-quality or reference-product parity.
 
 ## v0.55.0 - Model-Aware Generation and Reliable Terminal Journeys
 

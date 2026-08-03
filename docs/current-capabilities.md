@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.55.0` runtime. It groups the runtime by responsibility
+`rolling-potato v0.55.1` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.55.0`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.55.1`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -101,7 +101,7 @@ bounded observation, and makes the final answer a separate model turn.
 Follow-up search context is derived only from recent user requests; model text,
 attachments, credentials, and unrelated earlier topics cannot become a query.
 
-The `v0.55.1` candidate extends that separate model turn into a bounded iterative
+The `v0.55.1` release extends that separate model turn into a bounded iterative
 agent loop. After each validated observation, the model selects the next Search,
 Open, Find, or final Answer; the runtime admits only HTTPS URLs discovered in the
 observation and Find calls against the current page. Repeated calls, three tool
