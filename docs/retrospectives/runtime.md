@@ -527,9 +527,10 @@ Backend, TUI, session, model capability, web grounding 등 실제 제품 동작�
   것입니다. Parser와 executor 단위 테스트만으로 capability를 완료 처리하지 않습니다.
 - llama.cpp structured schema 변경은 pinned managed parser가 production request를
   HTTP 성공으로 수락하는 candidate job을 필수로 둡니다.
-- Runtime parser가 요구하는 decision별 field 조합은 `oneOf`/`const`로 schema에도
-  표현합니다. 설치된 지원 model로 첫 tool call과 observation 이후 visible answer를
-  모두 semantic parse하며, 정상 tool call 뒤에는 protocol error streak를 초기화합니다.
+- Runtime parser가 요구하는 decision별 field 조합과 Unicode whitespace-only 거부는
+  `oneOf`/`const`/anchored `pattern`으로 schema에도 표현합니다. 설치된 지원 model로
+  첫 tool call과 observation 이후 visible answer를 모두 semantic parse하며, 정상 tool
+  call 뒤에는 protocol error streak를 초기화합니다.
 - 파일·코드 도구는 경로·symlink·명령 문법뿐 아니라 대용량 파일, 대용량 디렉터리,
   timeout, cancellation, 출력 누적 상한을 회귀 테스트합니다.
 - Runtime route가 없거나 연결되지 않은 결함에 재실행·재설치를 해결책으로 안내하지

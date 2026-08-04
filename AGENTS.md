@@ -83,7 +83,8 @@ test(guard): cover Korean output leakage
   변경한 뒤에는 fake sidecar만으로 완료하지 않는다. Pinned managed
   `llama-server`와 설치된 지원 model로 structured 기본 대화 한 건을 실행해 HTTP
   성공과 visible answer를 확인한다. Decision별 빈 field처럼 runtime parser가
-  요구하는 상호배타 조건은 JSON schema의 `oneOf`/`const`에도 동일하게 표현하며,
+  요구하는 상호배타 조건과 non-blank 조건은 JSON schema의 `oneOf`/`const`/anchored
+  `pattern`에도 동일하게 표현하며,
   HTTP 수락만이 아니라 지원 model의 tool call과 후속 answer를 semantic parse한다.
   로컬 실행이 불가능하면 같은 pinned backend의 실제 grammar/request parser를
   통과하는 candidate job을 먼저 추가한다.
