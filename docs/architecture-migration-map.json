@@ -17077,6 +17077,171 @@
       ]
     },
     {
+      "path": "src/adapters/llama_cpp/backend/tests/parser_contract.rs",
+      "slices": [
+        {
+          "responsibility": "managed llama.cpp local-turn grammar compatibility probe",
+          "target": "src/adapters/llama_cpp/backend/tests/parser_contract.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend/tests/parser_contract.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/command/local.rs",
+      "slices": [
+        {
+          "responsibility": "local agent exact JSON argv grammar policy",
+          "target": "src/runtime_core/policy/decision/command/local.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/decision/command/local.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_execution.rs",
+      "slices": [
+        {
+          "responsibility": "TUI bounded local agent loop orchestration and visible answer integration",
+          "target": "src/app/tui_adapter/runtime/request/support/local_execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_execution.rs",
+            "tests/surfaces/native_terminal/local_tools.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_loop_state.rs",
+      "slices": [
+        {
+          "responsibility": "TUI local agent loop budgets and deterministic terminal transitions",
+          "target": "src/app/tui_adapter/runtime/request/support/local_loop_state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_loop_state.rs",
+            "tests/surfaces/native_terminal/local_tools.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/mod.rs",
+      "slices": [
+        {
+          "responsibility": "project-local tool executor composition and observation helpers",
+          "target": "src/app/tui_adapter/runtime/request/support/local_tools/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_tools/mod.rs",
+            "tests/surfaces/native_terminal/local_tools.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/command.rs",
+      "slices": [
+        {
+          "responsibility": "project-scoped bounded read-only command execution adapter",
+          "target": "src/app/tui_adapter/runtime/request/support/local_tools/command.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_tools/command.rs",
+            "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/filesystem.rs",
+      "slices": [
+        {
+          "responsibility": "project-scoped bounded file and directory reading adapter",
+          "target": "src/app/tui_adapter/runtime/request/support/local_tools/filesystem.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_tools/filesystem.rs",
+            "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/path.rs",
+      "slices": [
+        {
+          "responsibility": "canonical project path admission and symlink boundary checks",
+          "target": "src/app/tui_adapter/runtime/request/support/local_tools/path.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_tools/path.rs",
+            "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/search.rs",
+      "slices": [
+        {
+          "responsibility": "bounded project repository literal search adapter",
+          "target": "src/app/tui_adapter/runtime/request/support/local_tools/search.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_tools/search.rs",
+            "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs",
+      "slices": [
+        {
+          "responsibility": "project-local tool safety and boundary regressions",
+          "target": "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs",
+            "scripts/ci/verify-local-tool-schema-contract.sh"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/local_tools.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal local tool multi-round journey regression",
+          "target": "tests/surfaces/native_terminal/local_tools.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal/local_tools.rs",
+            "tests/surfaces/native_terminal.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/runtime/request/support/tests.rs",
       "slices": [
         {
@@ -23595,6 +23760,72 @@
       "path": "src/app/tui_adapter/runtime/request/support/context.rs",
       "responsibilities": [
         "TUI request context and history preparation"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend/tests/parser_contract.rs",
+      "responsibilities": [
+        "managed llama.cpp local-turn grammar compatibility probe"
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/command/local.rs",
+      "responsibilities": [
+        "local agent exact JSON argv grammar policy"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_execution.rs",
+      "responsibilities": [
+        "TUI bounded local agent loop orchestration and visible answer integration"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_loop_state.rs",
+      "responsibilities": [
+        "TUI local agent loop budgets and deterministic terminal transitions"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/mod.rs",
+      "responsibilities": [
+        "project-local tool executor composition and observation helpers"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/command.rs",
+      "responsibilities": [
+        "project-scoped bounded read-only command execution adapter"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/filesystem.rs",
+      "responsibilities": [
+        "project-scoped bounded file and directory reading adapter"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/path.rs",
+      "responsibilities": [
+        "canonical project path admission and symlink boundary checks"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/search.rs",
+      "responsibilities": [
+        "bounded project repository literal search adapter"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request/support/local_tools/tests.rs",
+      "responsibilities": [
+        "project-local tool safety and boundary regressions"
+      ]
+    },
+    {
+      "path": "tests/surfaces/native_terminal/local_tools.rs",
+      "responsibilities": [
+        "native terminal local tool multi-round journey regression"
       ]
     },
     {

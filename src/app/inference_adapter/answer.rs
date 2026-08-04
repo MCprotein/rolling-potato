@@ -47,7 +47,7 @@ fn generate_candidate_for_user_with_cancel(
     cancellation: &RequestCancellationToken,
 ) -> Result<GeneratedCandidate, AppError> {
     let input = BackendChatInput::text_for_user(prompt, user_request);
-    generate_candidate_with_input_and_cancel(&input, intent, cancellation)
+    generate_candidate_with_input_and_cancel(&input, intent, None, cancellation)
 }
 
 pub(crate) fn generate_structured_candidate_for_user(
@@ -68,7 +68,7 @@ pub(crate) fn generate_structured_candidate_for_user_with_cancel(
     cancellation: &RequestCancellationToken,
 ) -> Result<GeneratedCandidate, AppError> {
     let input = BackendChatInput::text_for_user(prompt, user_request).with_json_schema(schema);
-    generate_candidate_with_input_and_cancel(&input, intent, cancellation)
+    generate_candidate_with_input_and_cancel(&input, intent, None, cancellation)
 }
 
 pub(crate) fn generate_structured_candidate_for_user_with_cancel_bounded(
@@ -80,21 +80,7 @@ pub(crate) fn generate_structured_candidate_for_user_with_cancel_bounded(
     cancellation: &RequestCancellationToken,
 ) -> Result<GeneratedCandidate, AppError> {
     let input = BackendChatInput::text_for_user(prompt, user_request).with_json_schema(schema);
-    let run = backend::chat_once_with_input_for_intent_and_cancel_bounded(
-        &input,
-        intent,
-        timeout_ms,
-        cancellation,
-    )?;
-    ensure_complete(&run)?;
-    let visible = visible_text(&run.response);
-    if visible.is_empty() {
-        return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
-    }
-    Ok(GeneratedCandidate {
-        response_language: input.response_language,
-        visible,
-    })
+    generate_candidate_with_input_and_cancel(&input, intent, Some(timeout_ms), cancellation)
 }
 
 fn generate_candidate_with_input(
@@ -116,9 +102,15 @@ fn generate_candidate_with_input(
 fn generate_candidate_with_input_and_cancel(
     input: &BackendChatInput,
     intent: GenerationIntent,
+    timeout_ms: Option<u32>,
     cancellation: &RequestCancellationToken,
 ) -> Result<GeneratedCandidate, AppError> {
-    let run = backend::chat_once_with_input_for_intent_and_cancel(input, intent, cancellation)?;
+    let run = backend::chat_once_with_input_for_intent_and_cancel(
+        input,
+        intent,
+        timeout_ms,
+        cancellation,
+    )?;
     ensure_complete(&run)?;
     let visible = visible_text(&run.response);
     if visible.is_empty() {
@@ -139,7 +131,8 @@ pub(crate) fn generate_input_with_cancel(
     intent: GenerationIntent,
     cancellation: &RequestCancellationToken,
 ) -> Result<String, AppError> {
-    let run = backend::chat_once_with_input_for_intent_and_cancel(input, intent, cancellation)?;
+    let run =
+        backend::chat_once_with_input_for_intent_and_cancel(input, intent, None, cancellation)?;
     ensure_complete(&run)?;
     finish_generated(input.response_language, &run.response)
 }

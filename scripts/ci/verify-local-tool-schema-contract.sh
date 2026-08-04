@@ -26,8 +26,9 @@ require_text() {
 agent=src/runtime_core/agent.rs
 loop_state=src/app/tui_adapter/runtime/request/support/local_loop_state.rs
 local_execution=src/app/tui_adapter/runtime/request/support/local_execution.rs
+answer=src/app/inference_adapter/answer.rs
 backend_chat=src/app/inference_adapter/backend/chat.rs
-backend_tests=src/adapters/llama_cpp/backend/tests.rs
+backend_parser_test=src/adapters/llama_cpp/backend/tests/parser_contract.rs
 installer=src/adapters/llama_cpp/install.rs
 workflow=.github/workflows/refactor-candidate.yml
 preflight=scripts/ci/verify-pr-candidate-preflight.sh
@@ -66,16 +67,17 @@ require_literal "$local_execution" 'LOCAL_TURN_DECISION_JSON_SCHEMA' 'production
 require_literal "$local_execution" 'remaining_request_time(started.elapsed())' 'production local execution does not consume one request-wide deadline'
 require_literal "$local_execution" 'generate_structured_candidate_for_user_with_cancel_bounded' 'production local model turns are not bounded by the remaining request deadline'
 require_literal "$local_execution" 'state.tool_timeout().min(remaining)' 'production local tools are not bounded by the remaining request deadline'
-require_literal "$backend_chat" 'chat_once_with_input_for_intent_and_cancel_bounded' 'bounded structured backend entry point is missing'
-require_literal "$backend_chat" 'Some(timeout_ms)' 'bounded structured backend timeout is not forwarded to the transport deadline'
+require_literal "$answer" 'generate_candidate_with_input_and_cancel(&input, intent, Some(timeout_ms), cancellation)' 'bounded structured answer timeout is not forwarded to the backend'
+require_literal "$backend_chat" 'timeout_ms: Option<u32>' 'cancel-aware backend entry point does not accept a bounded timeout'
+require_literal "$backend_chat" '        timeout_ms,' 'cancel-aware backend timeout is not forwarded to the transport deadline'
 
 require_literal "$installer" 'release_tag: "b9982"' 'managed llama.cpp revision drifted'
-require_literal "$backend_tests" 'fn managed_llama_parser_accepts_local_turn_schema()' 'ignored live parser probe is missing'
-require_literal "$backend_tests" '#[ignore = "requires the pinned managed llama.cpp server and checksummed tiny model"]' 'live parser probe must remain explicitly ignored outside its CI job'
-require_literal "$backend_tests" 'LOCAL_TURN_DECISION_JSON_SCHEMA' 'live parser probe is not wired to the local schema'
-require_literal "$backend_tests" 'chat_request_body_for_input(&input, 1,' 'live parser probe max_tokens must remain 1'
-require_literal "$backend_tests" 'POST /v1/chat/completions HTTP/1.1' 'live parser endpoint drifted'
-if sed -n '/fn managed_llama_parser_accepts_local_turn_schema()/,/^}/p' "$backend_tests" | grep -F 'TURN_DECISION_JSON_SCHEMA' | grep -Fv 'LOCAL_TURN_DECISION_JSON_SCHEMA' >/dev/null; then
+require_literal "$backend_parser_test" 'fn managed_llama_parser_accepts_local_turn_schema()' 'ignored live parser probe is missing'
+require_literal "$backend_parser_test" '#[ignore = "requires the pinned managed llama.cpp server and checksummed tiny model"]' 'live parser probe must remain explicitly ignored outside its CI job'
+require_literal "$backend_parser_test" 'LOCAL_TURN_DECISION_JSON_SCHEMA' 'live parser probe is not wired to the local schema'
+require_literal "$backend_parser_test" 'chat_request_body_for_input(&input, 1,' 'live parser probe max_tokens must remain 1'
+require_literal "$backend_parser_test" 'POST /v1/chat/completions HTTP/1.1' 'live parser endpoint drifted'
+if sed -n '/fn managed_llama_parser_accepts_local_turn_schema()/,/^}/p' "$backend_parser_test" | grep -F 'TURN_DECISION_JSON_SCHEMA' | grep -Fv 'LOCAL_TURN_DECISION_JSON_SCHEMA' >/dev/null; then
   fail 'live parser probe references the legacy turn schema'
 fi
 
