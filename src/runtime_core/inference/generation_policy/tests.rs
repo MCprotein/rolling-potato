@@ -474,6 +474,7 @@ fn every_intent_uses_the_same_capability_driven_calculator() {
         GenerationIntent::InteractiveAnswer,
         GenerationIntent::VisionAnswer,
         GenerationIntent::StructuredRouteAndAnswer,
+        GenerationIntent::StructuredToolRoute,
         GenerationIntent::GroundedWebAnswer,
         GenerationIntent::Repair,
         GenerationIntent::AgentAction,

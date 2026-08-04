@@ -3,11 +3,16 @@
 //! This module owns calculation only. Runtime binding, prompt assembly, backend
 //! dispatch, persistence, and presentation remain application/adaptor concerns.
 
+mod protocol;
+
+pub(crate) use protocol::structured_tool_route_capacity;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GenerationIntent {
     InteractiveAnswer,
     VisionAnswer,
     StructuredRouteAndAnswer,
+    StructuredToolRoute,
     GroundedWebAnswer,
     Repair,
     AgentAction,

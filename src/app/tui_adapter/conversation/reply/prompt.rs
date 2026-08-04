@@ -14,6 +14,24 @@ pub(in crate::app::tui_adapter::conversation) fn assemble_plain_prompt(
     tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
 ) -> Result<AssembledPrompt, AppError> {
+    assemble_plain_prompt_with_runtime_evidence(
+        user_request,
+        local_context,
+        "",
+        history,
+        tool_activities,
+        context_limit_tokens,
+    )
+}
+
+pub(in crate::app::tui_adapter::conversation) fn assemble_plain_prompt_with_runtime_evidence(
+    user_request: &str,
+    local_context: &str,
+    runtime_evidence: &str,
+    history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
+    context_limit_tokens: u32,
+) -> Result<AssembledPrompt, AppError> {
     let language_instruction =
         language_instruction(ResponseLanguage::from_user_request(user_request));
     let attachment_context = local_context
@@ -31,8 +49,9 @@ pub(in crate::app::tui_adapter::conversation) fn assemble_plain_prompt(
         context_limit_tokens,
         GenerationIntent::InteractiveAnswer,
     )?
-    .assemble(
+    .assemble_with_runtime_evidence(
         &instructions,
+        runtime_evidence,
         attachment_context,
         user_request,
         &format!("{}\n답변:", prompt_policy::direct_answer_cue()),

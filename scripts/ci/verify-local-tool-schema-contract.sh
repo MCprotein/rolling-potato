@@ -36,7 +36,7 @@ managed_smoke=scripts/ci/verify-managed-real-model-smoke.sh
 managed_smoke_test=scripts/ci/test-managed-real-model-smoke.sh
 
 local_schema="$(grep -F 'pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA' "$agent" || true)"
-expected_local_schema='pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"oneOf":[{"type":"object","properties":{"decision":{"const":"answer"},"input":{"const":""},"answer":{"type":"string","minLength":1,"pattern":"^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*$"}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"type":"string","enum":["read_file","list_directory","search_repository","run_read_only_command"]},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u001f\\u007f-\\u009f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"const":"propose_mutation"},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u001f\\u007f-\\u009f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false}]}"#;'
+expected_local_schema='pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"oneOf":[{"type":"object","properties":{"decision":{"const":"answer"},"input":{"const":""},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"type":"string","enum":["read_file","list_directory","search_repository","run_read_only_command"]},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\x00-\\x1f\\x7f-\\x9f]*[^ \\x00-\\x1f\\x7f-\\x9f][^\\x00-\\x1f\\x7f-\\x9f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"const":"propose_mutation"},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\x00-\\x1f\\x7f-\\x9f]*[^ \\x00-\\x1f\\x7f-\\x9f][^\\x00-\\x1f\\x7f-\\x9f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false}]}"#;'
 [[ "$local_schema" == "$expected_local_schema" ]] || fail 'production local-turn schema drifted'
 for decision in answer read_file list_directory search_repository run_read_only_command propose_mutation; do
   require_text "$local_schema" "\"$decision\"" "local schema decision is missing: $decision"
@@ -57,7 +57,11 @@ observation_status_count="$(grep -Ec '^    [A-Z][A-Za-z]+,$' <<<"$observation_st
 require_literal "$loop_state" 'pub(super) const MAX_MODEL_TURNS: u8 = 8;' 'model-turn budget drifted'
 require_literal "$loop_state" 'pub(super) const MAX_TOOL_CALLS: u8 = 6;' 'tool-call budget drifted'
 require_literal "$loop_state" 'pub(super) const TOOL_TIMEOUT: Duration = Duration::from_secs(5);' 'tool timeout drifted'
-require_literal "$loop_state" 'pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);' 'request timeout drifted'
+require_literal "$loop_state" 'pub(super) const MODEL_TURN_TIMEOUT: Duration = Duration::from_secs(30);' 'model-turn timeout drifted'
+require_literal "$loop_state" 'pub(super) const GUARANTEED_TOOL_ASSISTED_MODEL_TURNS: u8 = 3;' 'tool-assisted round-trip guarantee drifted'
+require_literal "$loop_state" 'pub(super) const ORCHESTRATION_OVERHEAD_RESERVE: Duration =' 'orchestration overhead reserve is missing'
+require_literal "$loop_state" 'MODEL_TURN_TIMEOUT.as_secs() * GUARANTEED_TOOL_ASSISTED_MODEL_TURNS as u64' 'request timeout is not derived from the required model turns'
+require_literal "$loop_state" '+ ORCHESTRATION_OVERHEAD_RESERVE.as_secs()' 'request timeout omits orchestration overhead reserve'
 require_literal "$loop_state" 'pub(super) const MAX_OBSERVATION_BYTES: usize = 16 * 1024;' 'observation budget drifted'
 require_literal "$loop_state" 'pub(super) const MAX_CUMULATIVE_OBSERVATION_BYTES: usize = 64 * 1024;' 'cumulative observation budget drifted'
 require_literal "$loop_state" 'self.consecutive_protocol_errors = 0;' 'successful tool admission does not reset the protocol error streak'
@@ -67,9 +71,13 @@ done
 require_literal "$local_execution" 'LOCAL_TURN_DECISION_JSON_SCHEMA' 'production local execution is not wired to the local schema'
 require_literal "$local_execution" 'remaining_request_time(started.elapsed())' 'production local execution does not consume one request-wide deadline'
 require_literal "$local_execution" 'generate_structured_candidate_for_user_with_cancel_bounded' 'production local model turns are not bounded by the remaining request deadline'
+require_literal "$local_execution" 'state.model_turn_timeout().min(' 'one slow model turn can consume the complete local request deadline'
 require_literal "$local_execution" 'state.tool_timeout().min(remaining)' 'production local tools are not bounded by the remaining request deadline'
-require_literal "$local_execution" 'answer일 때 input은 비우고 answer만 작성한다.' 'small-model decision field contract is missing from the production prompt'
+require_literal "$local_execution" 'answer일 때 input과 answer를 모두 비운다.' 'small-model answer-ready contract is missing from the production prompt'
+require_literal "$local_execution" 'GenerationIntent::StructuredToolRoute' 'local route is not isolated behind the structured tool intent'
+require_literal "$local_execution" 'reply_with_context_and_cancel_bounded' 'answer-ready does not transition to a plain visible-answer generation'
 require_literal "$answer" 'generate_candidate_with_input_and_cancel(&input, intent, Some(timeout_ms), cancellation)' 'bounded structured answer timeout is not forwarded to the backend'
+require_literal "$answer" 'finish_candidate_without_repair(generate_candidate_with_input_and_cancel(' 'bounded visible answer can start an unbounded repair generation'
 require_literal "$backend_chat" 'timeout_ms: Option<u32>' 'cancel-aware backend entry point does not accept a bounded timeout'
 require_literal "$backend_chat" '        timeout_ms,' 'cancel-aware backend timeout is not forwarded to the transport deadline'
 

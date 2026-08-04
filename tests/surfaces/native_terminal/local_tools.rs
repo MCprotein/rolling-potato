@@ -16,12 +16,15 @@ fn conversation_agent_reads_and_searches_the_current_project_before_answering() 
     )
     .unwrap();
 
-    let backend = fixture.start_conversation_backend_with_structured_sequence(&[
-        r#"{"decision":"local_task","input":"","answer":""}"#,
-        r#"{"decision":"read_file","input":"src/lib.rs","answer":""}"#,
-        r#"{"decision":"search_repository","input":"LOCAL_TOOL_MARKER","answer":""}"#,
-        r#"{"decision":"answer","input":"","answer":"src/lib.rs에서 LOCAL_TOOL_MARKER 상수를 확인했습니다."}"#,
-    ]);
+    let backend = fixture.start_conversation_backend_with_structured_sequence_and_text(
+        &[
+            r#"{"decision":"local_task","input":"","answer":""}"#,
+            r#"{"decision":"read_file","input":"src/lib.rs","answer":""}"#,
+            r#"{"decision":"search_repository","input":"LOCAL_TOOL_MARKER","answer":""}"#,
+            r#"{"decision":"answer","input":"","answer":""}"#,
+        ],
+        "src/lib.rs에서 LOCAL_TOOL_MARKER 상수를 확인했습니다.",
+    );
 
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("local ready");
@@ -40,7 +43,7 @@ fn conversation_agent_reads_and_searches_the_current_project_before_answering() 
     terminal.finish();
 
     let requests = backend.request_bodies();
-    assert_eq!(requests.len(), 4, "local tool requests: {requests:#?}");
+    assert_eq!(requests.len(), 5, "local tool requests: {requests:#?}");
     assert!(requests[0].contains("local_task"));
     assert!(requests[1].contains("read_file"));
     assert!(requests[1].contains("search_repository"));
@@ -51,4 +54,10 @@ fn conversation_agent_reads_and_searches_the_current_project_before_answering() 
     assert!(requests[3].contains("RUNTIME_LOCAL_OBSERVATIONS"));
     assert!(requests[3].contains("src/lib.rs"));
     assert!(requests[3].contains("LOCAL_TOOL_MARKER"));
+    assert!(requests[3].contains("\"response_format\""));
+    assert!(!requests[3].contains(r#""answer":{"type":"string""#));
+    assert!(requests[4].contains("RUNTIME_LOCAL_OBSERVATIONS"));
+    assert!(requests[4].contains("src/lib.rs"));
+    assert!(requests[4].contains("LOCAL_TOOL_MARKER"));
+    assert!(!requests[4].contains("\"response_format\""));
 }

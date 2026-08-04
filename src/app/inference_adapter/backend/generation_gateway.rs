@@ -5,10 +5,11 @@
 
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::generation_policy::{
-    ActiveTokenCapacity, AssembledPromptEstimate, BootstrapPromptEstimate, DeadlineCapacityInput,
-    EstimatorUncertaintyInput, FinalBudgetInput, GenerationCapacityInputs, GenerationIntent,
-    GenerationLimitingFactor, GenerationPolicyError, GenerationPolicyProfileV1,
-    ManagedThroughputEvidence, PolicyValueSourceKind, ProvisionalBudgetInput, VersionedValueSource,
+    structured_tool_route_capacity, ActiveTokenCapacity, AssembledPromptEstimate,
+    BootstrapPromptEstimate, DeadlineCapacityInput, EstimatorUncertaintyInput, FinalBudgetInput,
+    GenerationCapacityInputs, GenerationIntent, GenerationLimitingFactor, GenerationPolicyError,
+    GenerationPolicyProfileV1, ManagedThroughputEvidence, PolicyValueSourceKind,
+    ProvisionalBudgetInput, VersionedValueSource,
 };
 use crate::runtime_core::inference::resource::ResourcePressure;
 const PROMPT_ESTIMATOR_ID: &str = "llama.cpp-chat-input-tokens";
@@ -111,6 +112,7 @@ fn bind_budget(
     })?;
     let estimated_prompt_tokens = facts.prompt.exact_input_tokens;
     let mut capacities = capacities(
+        intent,
         context_window_tokens,
         facts.timeout_ms,
         facts.resource_pressure,
@@ -170,6 +172,7 @@ fn bind_budget(
 }
 
 fn capacities(
+    intent: GenerationIntent,
     context_window_tokens: u32,
     timeout_ms: u32,
     resource_pressure: ResourcePressure,
@@ -197,7 +200,8 @@ fn capacities(
             RUNTIME_SNAPSHOT_VERSION,
         ),
         model_completion_cap: None,
-        protocol_capacity: None,
+        protocol_capacity: (intent == GenerationIntent::StructuredToolRoute)
+            .then(structured_tool_route_capacity),
         sink_capacity: None,
         deadline: throughput.map(|managed_conservative_observation| DeadlineCapacityInput {
             timeout_ms,

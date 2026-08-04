@@ -26,6 +26,8 @@ fn general_questions_use_conversation_without_stealing_agent_tasks() {
     for request in [
         "안녕, 이 코드 고쳐줘",
         "src/main.rs 수정해줘",
+        "Cargo.toml을 직접 읽고 package의 name, version, edition을 한 줄로 알려줘",
+        "pyproject.toml 열어서 프로젝트 버전을 알려줘",
         "이 오류를 분석해줘",
         "테스트를 실행해줘",
         "이 저장소 구조를 알려줘",
@@ -34,6 +36,17 @@ fn general_questions_use_conversation_without_stealing_agent_tasks() {
         "they need help with startup",
     ] {
         assert!(!is_conversational_request(request), "{request}");
+    }
+
+    for request in [
+        "Rust 1.90과 Go 1.25를 비교해줘",
+        "3.14가 무엇인지 알려줘",
+        "example.com이 어떤 사이트야?",
+    ] {
+        assert!(
+            is_conversational_request(request),
+            "일반적인 점 표기는 프로젝트 artifact로 오인하면 안 됩니다: {request}"
+        );
     }
 }
 
@@ -195,27 +208,4 @@ fn vision_status_reply_does_not_intercept_agent_tasks() {
             "{request}"
         );
     }
-}
-
-#[test]
-fn local_access_status_uses_verified_runtime_capability_without_stealing_tasks() {
-    for request in [
-        "너 로컬 파일시스템 접근 가능해?",
-        "현재 프로젝트 파일을 직접 읽을 수 있어?",
-    ] {
-        let reply = local_reply(request, Some("gemma-test"), TuiVisionStatus::OnDemand)
-            .expect("local access capability is a runtime fact");
-        assert!(reply.starts_with("가능합니다."), "{request}");
-        assert!(reply.contains("현재 프로젝트 범위"), "{request}");
-        assert!(reply.contains("읽기 전용"), "{request}");
-    }
-
-    assert_eq!(
-        local_reply(
-            "src/main.rs 파일을 읽어서 구조를 분석해줘",
-            Some("gemma-test"),
-            TuiVisionStatus::OnDemand,
-        ),
-        None,
-    );
 }

@@ -35,6 +35,8 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         fs::read_to_string("src/app/tui_adapter/conversation/presentation.rs").unwrap();
     let conversation_reply =
         fs::read_to_string("src/app/tui_adapter/conversation/reply.rs").unwrap();
+    let conversation_reply_bounded =
+        fs::read_to_string("src/app/tui_adapter/conversation/reply/bounded.rs").unwrap();
     let conversation_reply_prompt =
         fs::read_to_string("src/app/tui_adapter/conversation/reply/prompt.rs").unwrap();
     let conversation_tests =
@@ -80,12 +82,15 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         "src/app/tui_adapter/conversation/local_facts.rs",
         "src/app/tui_adapter/conversation/presentation.rs",
         "src/app/tui_adapter/conversation/reply.rs",
+        "src/app/tui_adapter/conversation/reply/bounded.rs",
         "src/app/tui_adapter/conversation/reply/prompt.rs",
         "src/app/tui_adapter/conversation/tests/decision.rs",
+        "src/app/tui_adapter/conversation/tests/local_access.rs",
         "src/app/tui_adapter/conversation/tests/local_facts.rs",
         "src/app/tui_adapter/conversation/tests/mod.rs",
         "src/app/tui_adapter/conversation/tests/presentation.rs",
         "src/app/tui_adapter/conversation/tests/reply.rs",
+        "src/app/tui_adapter/conversation/tests/reply_prompt.rs",
         "src/runtime_core/browser.rs",
         "src/runtime_core/browser/interaction.rs",
         "src/runtime_core/browser/tests.rs",
@@ -175,6 +180,11 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(conversation_reply
         .lines()
         .any(|line| line.ends_with("mod prompt;")));
+    assert!(conversation_reply
+        .lines()
+        .any(|line| line == "mod bounded;"));
+    assert!(conversation_reply_bounded.contains("reply_with_context_and_cancel_bounded"));
+    assert!(conversation_reply_bounded.contains("struct BoundedReplyRequest"));
     assert!(conversation_reply_prompt.contains("fn assemble_plain_prompt("));
     assert!(conversation_reply_prompt.contains("fn assemble_vision_prompt("));
 
@@ -202,6 +212,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(conversation_local_facts.lines().count() < 300);
     assert!(conversation_presentation.lines().count() < 125);
     assert!(conversation_reply.lines().count() < 125);
+    assert!(conversation_reply_bounded.lines().count() < 75);
     assert!(conversation_reply_prompt.lines().count() < 100);
     assert!(conversation_tests.lines().count() < 20);
     for (path, line_budget) in [
@@ -214,10 +225,18 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
             225,
         ),
         (
+            "src/app/tui_adapter/conversation/tests/local_access.rs",
+            50,
+        ),
+        (
             "src/app/tui_adapter/conversation/tests/presentation.rs",
             100,
         ),
         ("src/app/tui_adapter/conversation/tests/reply.rs", 75),
+        (
+            "src/app/tui_adapter/conversation/tests/reply_prompt.rs",
+            50,
+        ),
     ] {
         let source = fs::read_to_string(path).unwrap();
         assert!(

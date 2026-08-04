@@ -191,13 +191,49 @@ fn has_agent_task_signal(request: &str) -> bool {
         && ["분석", "원인", "왜"]
             .iter()
             .any(|signal| request.contains(signal));
+    let artifact_inspection = references_project_artifact(request)
+        && (["읽", "열", "확인", "보여"]
+            .iter()
+            .any(|signal| request.contains(signal))
+            || english_action);
 
     english_mutation
         || english_failure
         || (english_local_scope && english_action)
         || korean_action
         || korean_failure_analysis
+        || artifact_inspection
         || (korean_local_scope && korean_local_action)
+}
+
+fn references_project_artifact(request: &str) -> bool {
+    request.split_whitespace().any(|raw| {
+        let token = raw.trim_matches(|character: char| {
+            character.is_ascii_punctuation() && !matches!(character, '.' | '/' | '\\' | '_' | '-')
+        });
+        let token = token
+            .char_indices()
+            .find(|(_, character)| {
+                !(character.is_ascii_alphanumeric()
+                    || matches!(character, '.' | '/' | '\\' | '_' | '-'))
+            })
+            .map(|(index, _)| &token[..index])
+            .unwrap_or(token);
+        if token.contains('/') || token.contains('\\') {
+            return true;
+        }
+        let Some((stem, extension)) = token.rsplit_once('.') else {
+            return false;
+        };
+        !stem.is_empty()
+            && !extension.is_empty()
+            && token
+                .chars()
+                .any(|character| character.is_ascii_alphabetic())
+            && extension.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+            })
+    })
 }
 
 fn ascii_words(text: &str) -> Vec<&str> {

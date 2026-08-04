@@ -79,12 +79,12 @@ fn decide_request_impl(
     }
     let prior_user_requests = recent_user_requests(history);
     let web_instruction = if web_enabled {
-        "응답은 runtime이 강제하는 JSON object이며 decision, input, answer 세 field를 모두 채운다. 최신 정보나 외부 공개 근거가 필요하면 decision을 web_search, web_open, web_find 중 하나로 선택하고 input에 최소 공개 검색어·HTTPS URL·페이지 내부 검색어만 기록하며 answer는 빈 문자열로 둔다. 후속 질문의 검색어는 최근 사용자 발화를 반영한 자립형 문구로 만들되 모델 답변·첨부 내용·인증정보·개인정보는 넣지 않는다. 웹 도구가 필요하지 않으면 decision은 answer로 하고 answer에 최종 답변을 기록하며 input은 빈 문자열로 둔다."
+        "응답은 runtime이 강제하는 JSON object이며 decision, input, answer 세 field를 모두 채운다. 최신 정보나 외부 공개 근거가 필요하면 decision을 web_search, web_open, web_find 중 하나로 선택하고 input에 최소 공개 검색어·HTTPS URL·페이지 내부 검색어만 기록하며 answer는 빈 문자열로 둔다. 후속 질문의 검색어는 최근 사용자 발화를 반영한 자립형 문구로 만들되 모델 답변·첨부 내용·인증정보·개인정보는 넣지 않는다. 현재 프로젝트 파일·디렉터리·코드·명령 실행 결과를 확인해야 정확히 답할 수 있으면 decision=local_task로 하고 input과 answer를 비운다. 웹이나 로컬 도구가 모두 필요하지 않을 때만 decision=answer로 최종 답변을 기록하고 input은 비운다."
     } else {
-        "사용자가 이 요청에서 인터넷 사용을 금지했다. decision은 web_search, web_open, web_find를 선택하지 않는다. 현재 로컬 지식과 문맥만 사용하며 최신성이 불확실하면 그 한계를 answer에 밝힌다."
+        "사용자가 이 요청에서 인터넷 사용을 금지했다. decision은 web_search, web_open, web_find를 선택하지 않는다. 현재 프로젝트 파일·디렉터리·코드·명령 실행 결과를 확인해야 정확히 답할 수 있으면 decision=local_task로 하고 input과 answer를 비운다. 로컬 도구도 필요하지 않으면 현재 지식과 문맥으로 decision=answer를 선택하며 최신성이 불확실하면 그 한계를 answer에 밝힌다."
     };
     let completion_instruction = if allow_direct_answer {
-        "웹 도구가 필요하지 않으면 decision=answer로 사용자 질문에 바로 답하라."
+        "현재 질문이 도구 없이 답할 수 있는 일반 대화일 때만 decision=answer로 바로 답하라."
     } else {
         "웹 도구가 필요하지 않으면 decision=local_task, input과 answer는 빈 문자열로 둔다."
     };

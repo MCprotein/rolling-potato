@@ -56,7 +56,21 @@ fn process_cpu_and_rss(pid: u32) -> (Option<f64>, Option<u64>) {
         return (None, None);
     }
 
-    parse_ps_cpu_rss(&String::from_utf8_lossy(&output.stdout))
+    let (cpu, rss) = parse_ps_cpu_rss(&String::from_utf8_lossy(&output.stdout));
+    (normalize_process_cpu_percent(cpu, logical_cpu_count()), rss)
+}
+
+#[cfg(unix)]
+fn logical_cpu_count() -> usize {
+    thread::available_parallelism()
+        .map(std::num::NonZeroUsize::get)
+        .unwrap_or(1)
+}
+
+#[cfg(any(unix, test))]
+fn normalize_process_cpu_percent(raw: Option<f64>, logical_cpus: usize) -> Option<f64> {
+    raw.filter(|value| value.is_finite() && *value >= 0.0)
+        .map(|value| (value / logical_cpus.max(1) as f64).min(100.0))
 }
 
 #[cfg(windows)]
@@ -220,6 +234,16 @@ mod tests {
 
         assert_eq!(cpu, Some(12.7));
         assert_eq!(rss, Some(4 * 1024 * 1024));
+    }
+
+    #[test]
+    fn normalizes_multicore_ps_cpu_against_total_host_capacity() {
+        assert_eq!(
+            normalize_process_cpu_percent(Some(300.0), 18),
+            Some(300.0 / 18.0)
+        );
+        assert_eq!(normalize_process_cpu_percent(Some(125.0), 1), Some(100.0));
+        assert_eq!(normalize_process_cpu_percent(Some(f64::NAN), 8), None);
     }
 
     #[cfg(unix)]

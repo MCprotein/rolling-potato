@@ -86,6 +86,16 @@ test(guard): cover Korean output leakage
   요구하는 상호배타 조건과 non-blank 조건은 JSON schema의 `oneOf`/`const`/anchored
   `pattern`에도 동일하게 표현하며,
   HTTP 수락만이 아니라 지원 model의 tool call과 후속 answer를 semantic parse한다.
+  Tool-assisted 요청의 전체 deadline은 최소한 첫 model decision, 한 번의 bounded tool,
+  후속 answer-ready decision과 별도 visible answer 각각의 실행 창을 보장하고 한 model
+  turn이 전체 창을 독점하지 못한다. Structured route에는 schema 소유의 protocol
+  capacity를 적용하되 plain visible answer의 model/context capacity를 제한하지 않는다.
+  Bounded visible answer는 같은 deadline 밖의 숨은 repair generation을 시작하지 않으며,
+  현재 turn의 tool evidence는 첨부와 과거 memory보다 우선하는 독립 budget layer로 보존한다.
+  현재 프로젝트 사실을 요구하는 local task는 적어도 한 번의 project tool 관찰 없이
+  answer-ready로 종료할 수 없다. 일반 대화 분류기는 특정 파일명 목록이 아니라 경로·파일
+  형태와 inspection 의도를 함께 사용하고, language projection이 답변의 실질 내용을 대부분
+  제거하면 짧은 파편을 완성 답변으로 채택하지 않는다.
   로컬 실행이 불가능하면 같은 pinned backend의 실제 grammar/request parser를
   통과하는 candidate job을 먼저 추가한다.
 - persistence schema, model manifest capability 또는 필수 runtime artifact 계약을 변경할 때는 fresh fixture만으로 완료하지 않는다. 지원 중인 직전 schema의 실제 누적 상태로 기본 TUI 진입과 base capability를 검증하고 `scripts/ci/verify-model-upgrade-compatibility.sh`를 candidate preflight에서 통과시킨다.

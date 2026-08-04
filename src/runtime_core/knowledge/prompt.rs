@@ -51,6 +51,7 @@ impl PromptBudget {
 
 pub(crate) struct PromptParts<'a> {
     pub(crate) instructions: &'a str,
+    pub(crate) runtime_evidence: &'a str,
     pub(crate) typed_memory: &'a str,
     pub(crate) tool_activity: &'a str,
     pub(crate) recalled_history: &'a str,
@@ -87,6 +88,8 @@ pub(crate) fn assemble(
     }
 
     let mut remaining = budget.input_limit_tokens - mandatory_tokens;
+    let runtime_evidence = bounded_head(parts.runtime_evidence, remaining);
+    remaining = remaining.saturating_sub(estimate_tokens(&runtime_evidence));
     let typed_memory = bounded_head(
         parts.typed_memory,
         budget.typed_memory_target_tokens.min(remaining),
@@ -110,6 +113,7 @@ pub(crate) fn assemble(
     let attachment_context = bounded_head(parts.attachment_context, remaining);
 
     let mut sections = vec![parts.instructions.trim().to_string()];
+    push_nonempty(&mut sections, runtime_evidence);
     push_nonempty(&mut sections, typed_memory);
     push_nonempty(&mut sections, tool_activity);
     push_nonempty(&mut sections, recalled_history);
@@ -176,6 +180,7 @@ mod tests {
             budget,
             PromptParts {
                 instructions: "stable instructions",
+                runtime_evidence: "required current-turn evidence",
                 typed_memory: &"memory ".repeat(2_000),
                 tool_activity: &"tool ".repeat(2_000),
                 recalled_history: &"recall ".repeat(2_000),
@@ -188,6 +193,7 @@ mod tests {
         .unwrap();
 
         assert!(assembled.estimated_tokens <= assembled.input_limit_tokens);
+        assert!(assembled.text.contains("required current-turn evidence"));
         assert!(assembled
             .text
             .ends_with("<CURRENT_USER_REQUEST>\n지금 질문\n</CURRENT_USER_REQUEST>\n\n답변:"));
