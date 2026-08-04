@@ -505,3 +505,24 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
   넣지 않습니다.
 - No-model `/open → /find`와 `/search → source 선택 → /find` journey를 유지하고,
   핵심 화면 assertion에는 렌더 결과를 실패 메시지로 포함합니다.
+
+## 2026-08-04: 변경한 owner의 일부 테스트만 골라 전체 candidate에서 기대값 오류 발견
+
+### 증상
+
+- 로컬 도구 관찰 JSON의 key가 raw JSON으로 출력되는데, 변경된 unit test만 key까지
+  이중 escape된다고 잘못 기대했습니다.
+- 선택한 기능 회귀와 PTY 테스트는 통과했지만 같은 `local_execution` owner의 이 테스트를
+  실행하지 않아 candidate 전체 test에서 뒤늦게 실패했습니다.
+
+### 원인
+
+- production 출력 계약을 바꾸지 않은 상태에서 test assertion만 수정했고, 변경 owner의
+  테스트 모듈 전체 대신 성공 경로 테스트 몇 개만 골라 실행했습니다.
+
+### 재발 방지
+
+- 한 owner 안의 production 코드나 test assertion을 함께 수정하면 개별 test 이름을
+  표본 추출하지 않고 해당 owner의 test module 전체를 targeted 검증으로 실행합니다.
+- JSON이 다른 envelope 안에 포함될 때 구조 key는 raw JSON으로 유지하고, 신뢰할 수 없는
+  string content만 JSON escaping과 delimiter escaping을 적용하는 계약을 회귀로 고정합니다.

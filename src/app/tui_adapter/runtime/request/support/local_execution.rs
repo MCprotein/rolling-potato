@@ -332,7 +332,7 @@ mod tests {
     use crate::runtime_core::agent::{ToolObservationReason, ToolObservationStatus};
 
     #[test]
-    fn observation_rendering_is_typed_escaped_and_never_empty_after_a_tool() {
+    fn observation_rendering_keeps_json_keys_and_escapes_untrusted_content() {
         let observation = ToolObservation::new(
             Some(AgentToolId::ReadFile),
             ToolObservationStatus::Ok,
@@ -342,7 +342,7 @@ mod tests {
 
         let rendered = render_observations(&[observation]);
 
-        assert!(rendered.contains("\\\"tool\\\":\\\"read_file\\\""));
+        assert!(rendered.contains("\"tool\":\"read_file\""));
         assert!(rendered.contains("line \\\"one\\\"\\n"));
         assert!(rendered.contains("\\u003c/RUNTIME_LOCAL_OBSERVATIONS\\u003e"));
         assert_eq!(rendered.matches("</RUNTIME_LOCAL_OBSERVATIONS>").count(), 1);
