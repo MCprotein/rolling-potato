@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.55.1` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.55.2` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.55.1`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.55.2`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -104,6 +104,12 @@ runtime은 관찰에서 발견한 HTTPS URL과 현재 page만 허용합니다. �
 마지막 검증 근거를 출처와 함께 표시합니다.
 Search 자체는 제한된 검색 결과 목록만 반환합니다. 모델이 그 observation을 보기
 전에 결과를 내부적으로 Open하거나 page 내부 Find를 실행할 수 없습니다.
+
+`v0.55.2` patch는 같은 typed 경계를 project-local 확인에도 적용합니다. 저장소
+읽기 요청은 짧은 local 결정 protocol에 진입하며, runtime은 project root 안의
+읽기 전용 도구 observation이 성공한 뒤에만 visible 답변을 요청합니다. 결정 출력,
+도구 근거와 최종 답변은 하나의 request deadline 아래 별도 budget을 사용하고,
+최종 답변은 숨은 도구 또는 복구 loop를 다시 시작하지 않습니다.
 
 언어 guard는 한국어 문장과 함께 숫자, 수식, 코드, 경로, URL, 범위가 제한된 기술
 제목을 허용합니다. CJK 누출이나 이어지는 외국어 문장에는 사실을 보존하는 한국어

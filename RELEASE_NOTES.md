@@ -12,6 +12,31 @@ This index keeps the current release train concise. Historical notes are preserv
 - [v0.10–v0.19](docs/releases/v0.10-v0.19.md)
 - [v0.1–v0.9](docs/releases/v0.1-v0.9.md)
 
+## v0.55.2 - Grounded Project-Local Tool Answers
+
+Release date: 2026-08-04
+
+- Routes repository inspection requests through the bounded project-local tool
+  loop instead of allowing an unsupported direct model answer.
+- Requires a successful runtime-owned local tool observation before the model
+  can produce the visible answer for a local-tool route.
+- Separates the compact JSON decision protocol from the final reply budget so
+  small models retain room for a grounded user-facing answer.
+- Gives tool evidence its own prompt budget, preserves the request deadline
+  across decision, tool, and reply stages, and prevents the bounded final reply
+  from entering another hidden repair loop.
+- Normalizes managed-backend CPU pressure by logical core count so multicore
+  macOS hosts do not falsely reject an otherwise healthy local request.
+- Adds production-terminal coverage that reads `Cargo.toml` through `read_file`
+  and verifies the visible package name, version, and edition answer.
+
+### Compatibility and boundaries
+
+- Existing commands, stored sessions, model and backend caches, web tools, and
+  GitHub-only distribution remain compatible.
+- Local tools remain read-only and project-root confined; this patch does not
+  grant general shell or unrestricted filesystem access.
+
 ## v0.55.1 - Iterative Web Tool Replanning
 
 Release date: 2026-08-03

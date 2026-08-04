@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.55.1` |
+| Current release | `v0.55.2` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -224,7 +224,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.55.1` release is an active pre-1.0 runtime, not only a
+The `v0.55.2` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -264,6 +264,11 @@ call rejection, three-tool and three-follow-up-turn limits, and a safe fallback
 to the last verified evidence. Search returns only its result-list observation;
 Open and Find require separate model decisions and each counts against the same
 logical tool budget.
+The v0.55.2 patch makes repository inspection use the runtime-owned local tool
+loop and requires a successful read-only observation before the visible answer.
+Its compact decision protocol, tool evidence, and final reply use separate
+budgets, while project-root confinement and runtime-owned execution remain
+unchanged.
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -315,7 +320,7 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.55.1` includes bounded web research,
+The published release history through `v0.55.2` includes bounded web research,
 restricted browser search-form support, a reliable interactive TUI, and
 grounded conversation continuity across follow-ups and resumed sessions. Web
 tools use schema-constrained turn decisions, generic freshness routing, and

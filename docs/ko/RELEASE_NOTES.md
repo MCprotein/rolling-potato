@@ -12,6 +12,31 @@
 - [v0.10–v0.19](releases/v0.10-v0.19.md)
 - [v0.1–v0.9](releases/v0.1-v0.9.md)
 
+## v0.55.2 - 근거가 있는 프로젝트 로컬 도구 답변
+
+릴리즈 날짜: 2026-08-04
+
+- 저장소 확인 요청을 근거 없는 model 직접 답변 대신 제한된 project-local tool
+  loop로 route
+- local-tool 경로에서는 runtime이 소유한 로컬 도구 observation이 성공해야만
+  model이 사용자에게 보이는 최종 답변을 만들도록 강제
+- 작은 모델이 근거 기반 최종 답변을 만들 여유를 유지하도록 짧은 JSON 결정
+  protocol과 visible reply budget을 분리
+- 도구 근거에 별도 prompt budget을 배정하고 decision·tool·reply 단계 전체에서
+  request deadline을 보존하며, 제한된 최종 답변이 숨은 복구 loop에 다시 진입하지
+  못하도록 차단
+- multicore macOS에서 정상 local request를 과부하로 오판하지 않도록 관리형 backend
+  CPU pressure를 logical core 수로 정규화
+- production terminal에서 `read_file`로 `Cargo.toml`을 읽고 package name, version,
+  edition을 표시하는 회귀 테스트 추가
+
+### 호환성과 경계
+
+- 기존 명령, 저장된 session, model·backend cache, web tool과 GitHub 전용 배포
+  경로는 호환됩니다.
+- 로컬 도구는 계속 읽기 전용이며 project root 안으로 제한됩니다. 일반 shell이나
+  제한 없는 filesystem 권한은 추가하지 않습니다.
+
 ## v0.55.1 - 반복형 웹 도구 재판단
 
 릴리즈 날짜: 2026-08-03

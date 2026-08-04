@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.55.1` |
+| 현재 릴리즈 | `v0.55.2` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -201,7 +201,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.55.1` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.55.2` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -238,6 +238,10 @@ Runtime이 검증한 observation을 모델에 다시 전달해 다음 Search·Op
 runtime에서 강제하고 실패 시 마지막 검증 근거로 안전하게 답합니다. Search는
 검색 결과 observation만 반환하며, Open과 Find는 각각 별도 model 판단과 동일한
 논리 도구 budget을 거쳐야 합니다.
+v0.55.2 patch는 저장소 확인 요청을 runtime 소유 local tool loop로 보내고,
+성공한 읽기 전용 observation이 있어야 사용자에게 보이는 답변을 만들도록
+강제합니다. 짧은 결정 protocol, 도구 근거와 최종 답변은 별도 budget을 사용하며
+project-root 제한과 runtime 소유 실행 경계는 그대로 유지합니다.
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에
@@ -287,7 +291,7 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.55.1`까지의 release history에는 로컬 coding-agent workflow를
+게시된 `v0.55.2`까지의 release history에는 로컬 coding-agent workflow를
 유지하는 제한된 웹 연구, browser search-form 지원, 신뢰할 수 있는 대화형
 TUI와 후속 질문·resume session까지 이어지는 근거 기반 대화 연속성이
 포함됩니다. Web tool은 schema로 제한된 turn 결정, generic freshness routing과
