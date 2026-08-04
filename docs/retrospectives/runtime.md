@@ -518,6 +518,20 @@ Backend, TUI, session, model capability, web grounding 등 실제 제품 동작�
   decision별 빈 `input`/`answer` 조합까지 요구했습니다. Scripted backend는 항상
   정답 JSON을 반환했고 live parser probe도 1 token HTTP 수락만 확인해, Gemma가
   schema상 유효하지만 runtime에서 거부되는 조합을 생성하는 문제를 놓쳤습니다.
+- Local route와 visible answer를 하나의 structured generation에 결합했고 schema가 긴
+  Unicode pattern과 무제한 answer를 포함했습니다. Exact throughput 근거가 없는 backend는
+  131K context 잔여분 전체를 max tokens로 요청해, 파일 읽기 후 JSON 답변 생성이 45초를
+  소비하고도 끝나지 않았습니다.
+- Unix `ps %cpu`가 멀티코어 프로세스에서 100%를 넘을 수 있는데도 단일 코어 값 그대로
+  95% critical threshold와 비교해, 18 logical CPU 호스트의 llama-server 299%를 시스템
+  전체 critical pressure로 잘못 차단했습니다.
+- Bounded visible-answer 뒤의 한국어 repair가 같은 deadline과 cancellation을 상속하지
+  않았고, 첨부와 현재 turn의 tool observation을 한 문자열로 합쳐 큰 첨부가 뒤쪽의
+  실제 관찰을 prompt truncation으로 제거할 수 있었습니다.
+- 일반 대화 판별기가 `Cargo.toml` 같은 구조적 artifact 참조와 `읽기` 의도를 인식하지
+  못했고 route prompt도 `answer`와 `local_task` 조건을 모순되게 설명해, 프로젝트 파일을
+  직접 읽으라는 요청이 도구 없이 일반 답변으로 끝났습니다. 이어진 language projection은
+  원문의 대부분을 버린 `분석을 위해 Cargo.` 파편도 유효한 답변으로 채택했습니다.
 - 한국어 guard가 경로에 인접한 ASCII code identifier를 외국어 산문으로 계산했습니다.
 
 ### 재발 방지
@@ -531,6 +545,22 @@ Backend, TUI, session, model capability, web grounding 등 실제 제품 동작�
   `oneOf`/`const`/anchored `pattern`으로 schema에도 표현합니다. 설치된 지원 model로
   첫 tool call과 observation 이후 visible answer를 모두 semantic parse하며, 정상 tool
   call 뒤에는 protocol error streak를 초기화합니다.
+- Structured 단계는 tool/propose/answer-ready만 선택하고 visible answer는 plain
+  generation으로 분리합니다. Route에만 schema 소유의 protocol capacity를 적용하며 plain
+  answer는 active model의 context/answer capacity를 유지합니다. 전체 local loop는 첫 route,
+  bounded tool, answer-ready route, visible answer 창을 보장하고 설치된 지원 model의
+  cold/warm 변동 모두에서 같은 tool-assisted 사용자 여정을 확인합니다.
+- Unix process CPU는 available logical CPU 수로 정규화한 시스템 총 용량 비율로 pressure를
+  분류하고, 100%를 넘는 원시 `ps` fixture를 회귀 테스트합니다.
+- Bounded answer 경로는 숨은 repair model turn을 시작하지 않고 language leakage를
+  deterministic best-effort projection으로 처리합니다. 현재 turn의 tool evidence는
+  첨부·과거 memory보다 먼저 독립 budget layer에 배치하고 oversized attachment에서도
+  route와 visible-answer prompt 양쪽에 남는지 검증합니다. Request-wide deadline에는
+  세 model window와 tool window 외에 단계 전환 overhead reserve도 포함합니다.
+- Project artifact의 구조와 inspection 의도를 함께 판별하고 route prompt에서 web,
+  local task, direct answer 조건을 상호배타적으로 설명합니다. Local task는 실제 project
+  tool 관찰 전 answer-ready를 거부하며, language projection은 실질 내용 보존 계약을
+  통과할 때만 원문 대신 표시합니다.
 - 파일·코드 도구는 경로·symlink·명령 문법뿐 아니라 대용량 파일, 대용량 디렉터리,
   timeout, cancellation, 출력 누적 상한을 회귀 테스트합니다.
 - Runtime route가 없거나 연결되지 않은 결함에 재실행·재설치를 해결책으로 안내하지
