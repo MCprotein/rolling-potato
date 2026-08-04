@@ -97,8 +97,7 @@ pub(super) fn list_directory(
     let mut entries = Vec::new();
     let started = Instant::now();
     let mut scan_truncated = false;
-    let mut scanned = 0usize;
-    for entry in read_dir.flatten() {
+    for (scanned, entry) in read_dir.flatten().enumerate() {
         if let Some(terminal) =
             terminal_observation(AgentToolId::ListDirectory, cancellation, started, timeout)
         {
@@ -108,7 +107,6 @@ pub(super) fn list_directory(
             scan_truncated = true;
             break;
         }
-        scanned += 1;
         let Some(name) = entry.file_name().to_str().map(ToOwned::to_owned) else {
             continue;
         };

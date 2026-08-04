@@ -342,10 +342,7 @@ fn read_capped(mut reader: impl Read, limit: usize) -> (Vec<u8>, bool) {
     let mut returned = Vec::new();
     let mut truncated = false;
     let mut buffer = [0u8; 8192];
-    loop {
-        let Ok(count) = reader.read(&mut buffer) else {
-            break;
-        };
+    while let Ok(count) = reader.read(&mut buffer) {
         if count == 0 {
             break;
         }

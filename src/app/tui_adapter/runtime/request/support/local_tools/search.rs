@@ -99,15 +99,18 @@ pub(super) fn search_repository(
             continue;
         };
         let Ok(file) = File::open(path) else { continue };
-        match scan_file(
-            BufReader::new(file),
+        let scan_request = FileScanRequest {
             literal,
-            &relative,
-            &mut output,
-            &mut matches,
+            relative: &relative,
             cancellation,
             started,
             timeout,
+        };
+        match scan_file(
+            BufReader::new(file),
+            &scan_request,
+            &mut output,
+            &mut matches,
         ) {
             FileScan::Completed => {}
             FileScan::Limit => {
@@ -140,6 +143,14 @@ enum FileScan {
     Limit,
     Cancelled,
     Timeout,
+}
+
+struct FileScanRequest<'a> {
+    literal: &'a str,
+    relative: &'a Path,
+    cancellation: &'a RequestCancellationToken,
+    started: Instant,
+    timeout: Duration,
 }
 
 struct LineScanState {
@@ -212,21 +223,17 @@ impl LineScanState {
 
 fn scan_file(
     mut reader: BufReader<File>,
-    literal: &str,
-    relative: &Path,
+    request: &FileScanRequest<'_>,
     output: &mut String,
     matches: &mut usize,
-    cancellation: &RequestCancellationToken,
-    started: Instant,
-    timeout: Duration,
 ) -> FileScan {
-    let literal = literal.as_bytes();
+    let literal = request.literal.as_bytes();
     let mut line = LineScanState::new();
     loop {
-        if cancellation.is_cancelled() {
+        if request.cancellation.is_cancelled() {
             return FileScan::Cancelled;
         }
-        if started.elapsed() >= timeout {
+        if request.started.elapsed() >= request.timeout {
             return FileScan::Timeout;
         }
         let consumed = {
@@ -235,7 +242,7 @@ fn scan_file(
                 Err(_) => return FileScan::Completed,
             };
             if buffer.is_empty() {
-                if line.has_data && line.finish(relative, output, matches) {
+                if line.has_data && line.finish(request.relative, output, matches) {
                     return FileScan::Limit;
                 }
                 return FileScan::Completed;
@@ -245,7 +252,7 @@ fn scan_file(
                 let remaining = &buffer[cursor..];
                 if let Some(newline) = remaining.iter().position(|byte| *byte == b'\n') {
                     line.push(&remaining[..newline], literal);
-                    if line.finish(relative, output, matches) {
+                    if line.finish(request.relative, output, matches) {
                         return FileScan::Limit;
                     }
                     cursor += newline + 1;
@@ -348,7 +355,7 @@ fn git_candidate_files(
         }
         paths.push(path);
     }
-    paths.sort_by(|left, right| slash_path(left).cmp(&slash_path(right)));
+    paths.sort_by_key(|path| slash_path(path));
     Some(CandidateResult::Files(paths, limit_hit))
 }
 
@@ -424,7 +431,7 @@ fn fallback_candidate_files(
             break;
         }
     }
-    files.sort_by(|left, right| slash_path(left).cmp(&slash_path(right)));
+    files.sort_by_key(|path| slash_path(path));
     CandidateResult::Files(files, limit_hit)
 }
 
