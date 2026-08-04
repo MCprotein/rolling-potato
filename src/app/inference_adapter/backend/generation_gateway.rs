@@ -4,12 +4,12 @@
 //! completion cap is activated only when source-backed metadata exists.
 
 use crate::foundation::error::AppError;
-use crate::runtime_core::agent::LOCAL_TURN_DECISION_MAX_TOKENS;
 use crate::runtime_core::inference::generation_policy::{
-    ActiveTokenCapacity, AssembledPromptEstimate, BootstrapPromptEstimate, DeadlineCapacityInput,
-    EstimatorUncertaintyInput, FinalBudgetInput, GenerationCapacityInputs, GenerationIntent,
-    GenerationLimitingFactor, GenerationPolicyError, GenerationPolicyProfileV1,
-    ManagedThroughputEvidence, PolicyValueSourceKind, ProvisionalBudgetInput, VersionedValueSource,
+    structured_tool_route_capacity, ActiveTokenCapacity, AssembledPromptEstimate,
+    BootstrapPromptEstimate, DeadlineCapacityInput, EstimatorUncertaintyInput, FinalBudgetInput,
+    GenerationCapacityInputs, GenerationIntent, GenerationLimitingFactor, GenerationPolicyError,
+    GenerationPolicyProfileV1, ManagedThroughputEvidence, PolicyValueSourceKind,
+    ProvisionalBudgetInput, VersionedValueSource,
 };
 use crate::runtime_core::inference::resource::ResourcePressure;
 const PROMPT_ESTIMATOR_ID: &str = "llama.cpp-chat-input-tokens";
@@ -17,7 +17,6 @@ const PROMPT_ESTIMATOR_VERSION: &str = "b9982-input-tokens-v1";
 const RUNTIME_SNAPSHOT_VERSION: &str = "backend-sidecar-record-v1";
 const CHAT_TIMEOUT_CONTRACT_VERSION: &str = "backend-chat-timeout-v1";
 const EXACT_THROUGHPUT_EVIDENCE_VERSION: &str = "artifact-backend-conservative-tps-v1";
-const STRUCTURED_TOOL_ROUTE_CONTRACT_VERSION: &str = "structured-tool-route-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum GenerationTokenRequest {
@@ -201,15 +200,8 @@ fn capacities(
             RUNTIME_SNAPSHOT_VERSION,
         ),
         model_completion_cap: None,
-        protocol_capacity: (intent == GenerationIntent::StructuredToolRoute).then(|| {
-            ActiveTokenCapacity::new(
-                LOCAL_TURN_DECISION_MAX_TOKENS,
-                source(
-                    PolicyValueSourceKind::ProtocolContract,
-                    STRUCTURED_TOOL_ROUTE_CONTRACT_VERSION,
-                ),
-            )
-        }),
+        protocol_capacity: (intent == GenerationIntent::StructuredToolRoute)
+            .then(structured_tool_route_capacity),
         sink_capacity: None,
         deadline: throughput.map(|managed_conservative_observation| DeadlineCapacityInput {
             timeout_ms,

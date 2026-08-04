@@ -16,11 +16,12 @@ const PRODUCT_GENERATION_CALLERS: &[&str] = &[
 fn central_generation_owners_are_registered_and_bounded() {
     let policy_facade_path = "src/runtime_core/inference/mod.rs";
     let policy_path = "src/runtime_core/inference/generation_policy/mod.rs";
+    let protocol_path = "src/runtime_core/inference/generation_policy/protocol.rs";
     let policy_tests_path = "src/runtime_core/inference/generation_policy/tests.rs";
     let backend_facade_path = "src/app/inference_adapter/backend.rs";
     let gateway_path = "src/app/inference_adapter/backend/generation_gateway.rs";
 
-    for path in [policy_path, policy_tests_path, gateway_path] {
+    for path in [policy_path, protocol_path, policy_tests_path, gateway_path] {
         assert!(
             Path::new(path).is_file(),
             "model-aware generation owner is missing: {path}"
@@ -29,6 +30,7 @@ fn central_generation_owners_are_registered_and_bounded() {
 
     let policy_facade = fs::read_to_string(policy_facade_path).unwrap();
     let policy = fs::read_to_string(policy_path).unwrap();
+    let protocol = fs::read_to_string(protocol_path).unwrap();
     let policy_tests = fs::read_to_string(policy_tests_path).unwrap();
     let backend_facade = fs::read_to_string(backend_facade_path).unwrap();
     let gateway = fs::read_to_string(gateway_path).unwrap();
@@ -51,6 +53,14 @@ fn central_generation_owners_are_registered_and_bounded() {
             .any(|line| line.trim() == "mod tests;"),
         "central generation policy must retain focused regression tests"
     );
+    assert!(
+        policy
+            .lines()
+            .any(|line| line.trim() == "mod protocol;"),
+        "central generation policy must register its protocol capacity owner"
+    );
+    assert!(protocol.contains("STRUCTURED_TOOL_ROUTE_MAX_TOKENS"));
+    assert!(protocol.contains("STRUCTURED_TOOL_ROUTE_CONTRACT_VERSION"));
 
     assert!(
         policy.lines().count() < 650,
@@ -59,6 +69,10 @@ fn central_generation_owners_are_registered_and_bounded() {
     assert!(
         policy_tests.lines().count() < 600,
         "generation policy regression owner needs responsibility-based splitting"
+    );
+    assert!(
+        protocol.lines().count() < 75,
+        "generation protocol capacity owner exceeded its responsibility boundary"
     );
     assert!(
         gateway.lines().count() < 400,
@@ -254,6 +268,10 @@ fn numeric_completion_constants_exist_only_in_explicit_governed_contracts() {
         (
             "src/runtime_core/inference/resource.rs",
             "DEGRADED_CHAT_MAX_TOKENS",
+        ),
+        (
+            "src/runtime_core/inference/generation_policy/protocol.rs",
+            "STRUCTURED_TOOL_ROUTE_MAX_TOKENS",
         ),
     ]);
     let mut rust_files = BTreeSet::new();

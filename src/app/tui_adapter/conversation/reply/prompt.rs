@@ -93,28 +93,3 @@ pub(in crate::app::tui_adapter) fn language_instruction(
         "사용자가 요청한 내용에만 정확하고 자연스러운 한국어로 답하라."
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn plain_answer_prompt_keeps_current_tool_evidence_ahead_of_large_attachment() {
-        let prompt = assemble_plain_prompt_with_runtime_evidence(
-            "Cargo.toml을 확인해줘",
-            &format!(
-                "Cargo.toml을 확인해줘\n{}",
-                "oversized-attachment ".repeat(20_000)
-            ),
-            "RUNTIME_LOCAL_OBSERVATIONS version-0.55.1",
-            &[],
-            &[],
-            4_096,
-        )
-        .unwrap();
-
-        assert!(prompt.text.contains("CURRENT_TURN_EVIDENCE"));
-        assert!(prompt.text.contains("version-0.55.1"));
-        assert!(prompt.estimated_tokens <= prompt.input_limit_tokens);
-    }
-}

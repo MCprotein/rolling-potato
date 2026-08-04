@@ -59,10 +59,7 @@ fn structured_tool_route_has_a_protocol_budget_without_capping_visible_answers()
     )
     .unwrap();
 
-    assert_eq!(
-        route.requested_max_tokens,
-        crate::runtime_core::agent::LOCAL_TURN_DECISION_MAX_TOKENS
-    );
+    assert_eq!(route.requested_max_tokens, 768);
     assert_eq!(
         route.limiting_factors,
         [GenerationLimitingFactor::ProtocolCapacity]

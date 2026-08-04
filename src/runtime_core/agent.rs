@@ -14,10 +14,6 @@ const MAX_TOOL_CALLS: u8 = 3;
 
 pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","web_search","web_open","web_find","local_task"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
 
-/// Output budget for the schema-owned local routing envelope. This never caps
-/// the separate visible-answer generation.
-pub(crate) const LOCAL_TURN_DECISION_MAX_TOKENS: u32 = 768;
-
 /// Compact schema used only by the project-scoped local tool loop.
 ///
 /// The legacy web schema above deliberately remains unchanged until transcript
@@ -595,7 +591,6 @@ mod tests {
             LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""pattern":"^[^\\x00-\\x1f\\x7f-\\x9f]*"#)
         );
         assert!(!LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""answer":{"type":"string""#));
-        assert_eq!(LOCAL_TURN_DECISION_MAX_TOKENS, 768);
         assert!(!LOCAL_TURN_DECISION_JSON_SCHEMA.contains("web_search"));
         assert!(!TURN_DECISION_JSON_SCHEMA.contains("read_file"));
     }
