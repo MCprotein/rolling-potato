@@ -82,8 +82,11 @@ test(guard): cover Korean output leakage
 - llama.cpp request body, `response_format`, JSON schema 또는 chat template 계약을
   변경한 뒤에는 fake sidecar만으로 완료하지 않는다. Pinned managed
   `llama-server`와 설치된 지원 model로 structured 기본 대화 한 건을 실행해 HTTP
-  성공과 visible answer를 확인한다. 로컬 실행이 불가능하면 같은 pinned backend의
-  실제 grammar/request parser를 통과하는 candidate job을 먼저 추가한다.
+  성공과 visible answer를 확인한다. Decision별 빈 field처럼 runtime parser가
+  요구하는 상호배타 조건은 JSON schema의 `oneOf`/`const`에도 동일하게 표현하며,
+  HTTP 수락만이 아니라 지원 model의 tool call과 후속 answer를 semantic parse한다.
+  로컬 실행이 불가능하면 같은 pinned backend의 실제 grammar/request parser를
+  통과하는 candidate job을 먼저 추가한다.
 - persistence schema, model manifest capability 또는 필수 runtime artifact 계약을 변경할 때는 fresh fixture만으로 완료하지 않는다. 지원 중인 직전 schema의 실제 누적 상태로 기본 TUI 진입과 base capability를 검증하고 `scripts/ci/verify-model-upgrade-compatibility.sh`를 candidate preflight에서 통과시킨다.
 - text, vision, web처럼 capability가 단계적으로 추가되는 runtime에서는 새 optional capability의 artifact·credential·registry field 누락이 기존 base capability를 차단하면 안 된다. Base 경로와 capability 요청 경로를 별도로 테스트하고, optional artifact는 실제 사용 시 검증·준비·원자적 binding한다.
 - Optional capability는 지원 여부와 현재 runtime readiness를 하나의 boolean으로 축약하지 않는다. `지원하지만 지연 준비됨`을 포함한 사용자 상태를 실제 production 기본값으로 회귀 테스트한다.

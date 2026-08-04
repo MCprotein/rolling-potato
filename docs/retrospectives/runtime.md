@@ -514,6 +514,10 @@ Backend, TUI, session, model capability, web grounding 등 실제 제품 동작�
   사용자 화면을 잇는 end-to-end 기능이 아니라 독립된 구성 요소의 존재로 판단했습니다.
 - Native terminal 검증이 로컬 도구 호출, observation 재주입, 두 번째 도구 호출,
   최종 답변으로 이어지는 실제 사용자 여정을 포함하지 않았습니다.
+- 로컬 도구 JSON schema는 field type과 decision enum만 제한했지만 runtime parser는
+  decision별 빈 `input`/`answer` 조합까지 요구했습니다. Scripted backend는 항상
+  정답 JSON을 반환했고 live parser probe도 1 token HTTP 수락만 확인해, Gemma가
+  schema상 유효하지만 runtime에서 거부되는 조합을 생성하는 문제를 놓쳤습니다.
 - 한국어 guard가 경로에 인접한 ASCII code identifier를 외국어 산문으로 계산했습니다.
 
 ### 재발 방지
@@ -523,6 +527,9 @@ Backend, TUI, session, model capability, web grounding 등 실제 제품 동작�
   것입니다. Parser와 executor 단위 테스트만으로 capability를 완료 처리하지 않습니다.
 - llama.cpp structured schema 변경은 pinned managed parser가 production request를
   HTTP 성공으로 수락하는 candidate job을 필수로 둡니다.
+- Runtime parser가 요구하는 decision별 field 조합은 `oneOf`/`const`로 schema에도
+  표현합니다. 설치된 지원 model로 첫 tool call과 observation 이후 visible answer를
+  모두 semantic parse하며, 정상 tool call 뒤에는 protocol error streak를 초기화합니다.
 - 파일·코드 도구는 경로·symlink·명령 문법뿐 아니라 대용량 파일, 대용량 디렉터리,
   timeout, cancellation, 출력 누적 상한을 회귀 테스트합니다.
 - Runtime route가 없거나 연결되지 않은 결함에 재실행·재설치를 해결책으로 안내하지

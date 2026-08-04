@@ -36,7 +36,7 @@ managed_smoke=scripts/ci/verify-managed-real-model-smoke.sh
 managed_smoke_test=scripts/ci/test-managed-real-model-smoke.sh
 
 local_schema="$(grep -F 'pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA' "$agent" || true)"
-expected_local_schema='pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","read_file","list_directory","search_repository","run_read_only_command","propose_mutation"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;'
+expected_local_schema='pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"oneOf":[{"type":"object","properties":{"decision":{"const":"answer"},"input":{"const":""},"answer":{"type":"string","minLength":1}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"type":"string","enum":["read_file","list_directory","search_repository","run_read_only_command"]},"input":{"type":"string","minLength":1,"maxLength":512},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"const":"propose_mutation"},"input":{"type":"string","minLength":1,"maxLength":512},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false}]}"#;'
 [[ "$local_schema" == "$expected_local_schema" ]] || fail 'production local-turn schema drifted'
 for decision in answer read_file list_directory search_repository run_read_only_command propose_mutation; do
   require_text "$local_schema" "\"$decision\"" "local schema decision is missing: $decision"
@@ -60,6 +60,7 @@ require_literal "$loop_state" 'pub(super) const TOOL_TIMEOUT: Duration = Duratio
 require_literal "$loop_state" 'pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);' 'request timeout drifted'
 require_literal "$loop_state" 'pub(super) const MAX_OBSERVATION_BYTES: usize = 16 * 1024;' 'observation budget drifted'
 require_literal "$loop_state" 'pub(super) const MAX_CUMULATIVE_OBSERVATION_BYTES: usize = 64 * 1024;' 'cumulative observation budget drifted'
+require_literal "$loop_state" 'self.consecutive_protocol_errors = 0;' 'successful tool admission does not reset the protocol error streak'
 for terminal in ModelTurnBudget ToolCallBudget RepeatedToolCall ProtocolError Cancelled ToolTimeout RequestDeadline ObservationBudget Answer ProposeMutation; do
   require_literal "$loop_state" "$terminal" "terminal state is missing: $terminal"
 done
@@ -67,6 +68,7 @@ require_literal "$local_execution" 'LOCAL_TURN_DECISION_JSON_SCHEMA' 'production
 require_literal "$local_execution" 'remaining_request_time(started.elapsed())' 'production local execution does not consume one request-wide deadline'
 require_literal "$local_execution" 'generate_structured_candidate_for_user_with_cancel_bounded' 'production local model turns are not bounded by the remaining request deadline'
 require_literal "$local_execution" 'state.tool_timeout().min(remaining)' 'production local tools are not bounded by the remaining request deadline'
+require_literal "$local_execution" 'answer일 때 input은 비우고 answer만 작성한다.' 'small-model decision field contract is missing from the production prompt'
 require_literal "$answer" 'generate_candidate_with_input_and_cancel(&input, intent, Some(timeout_ms), cancellation)' 'bounded structured answer timeout is not forwarded to the backend'
 require_literal "$backend_chat" 'timeout_ms: Option<u32>' 'cancel-aware backend entry point does not accept a bounded timeout'
 require_literal "$backend_chat" '        timeout_ms,' 'cancel-aware backend timeout is not forwarded to the transport deadline'

@@ -18,7 +18,7 @@ pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properti
 ///
 /// The legacy web schema above deliberately remains unchanged until transcript
 /// equivalence allows both drivers to share one production schema.
-pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","read_file","list_directory","search_repository","run_read_only_command","propose_mutation"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
+pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"oneOf":[{"type":"object","properties":{"decision":{"const":"answer"},"input":{"const":""},"answer":{"type":"string","minLength":1}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"type":"string","enum":["read_file","list_directory","search_repository","run_read_only_command"]},"input":{"type":"string","minLength":1,"maxLength":512},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"const":"propose_mutation"},"input":{"type":"string","minLength":1,"maxLength":512},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false}]}"#;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum LocalAgentDecision {
@@ -574,6 +574,9 @@ mod tests {
 
         assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains("read_file"));
         assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains("propose_mutation"));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""oneOf""#));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""const":"answer""#));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""minLength":1"#));
         assert!(!LOCAL_TURN_DECISION_JSON_SCHEMA.contains("web_search"));
         assert!(!TURN_DECISION_JSON_SCHEMA.contains("read_file"));
     }
