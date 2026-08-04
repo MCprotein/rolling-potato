@@ -7015,6 +7015,22 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/generation_policy/protocol.rs",
+      "slices": [
+        {
+          "responsibility": "structured tool route protocol capacity contract",
+          "target": "src/runtime_core/inference/generation_policy/protocol.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/generation_policy/protocol.rs",
+            "src/runtime_core/inference/generation_policy/mod.rs",
+            "tests/architecture_contract/inference/generation_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/generation_policy/tests.rs",
       "slices": [
         {
@@ -12549,6 +12565,22 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/conversation/tests/local_access.rs",
+      "slices": [
+        {
+          "responsibility": "local filesystem capability response regression tests",
+          "target": "src/app/tui_adapter/conversation/tests/local_access.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/local_facts.rs",
+            "src/app/tui_adapter/conversation/tests/local_access.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/conversation/tests/mod.rs",
       "slices": [
         {
@@ -12590,6 +12622,22 @@
           "evidence": [
             "src/app/tui_adapter/conversation/reply.rs",
             "src/app/tui_adapter/conversation/tests/reply.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/reply_prompt.rs",
+      "slices": [
+        {
+          "responsibility": "conversation reply prompt evidence regression tests",
+          "target": "src/app/tui_adapter/conversation/tests/reply_prompt.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/reply/prompt.rs",
+            "src/app/tui_adapter/conversation/tests/reply_prompt.rs",
             "tests/architecture_contract/session_web_browser/restricted_browser.rs"
           ]
         }
@@ -14451,6 +14499,22 @@
           "evidence": [
             "src/app/tui_adapter/conversation/reply.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/reply/bounded.rs",
+      "slices": [
+        {
+          "responsibility": "bounded local evidence reply generation",
+          "target": "src/app/tui_adapter/conversation/reply/bounded.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/reply/bounded.rs",
+            "src/app/tui_adapter/conversation/reply.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
           ]
         }
       ]
@@ -20024,6 +20088,12 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/generation_policy/protocol.rs",
+      "responsibilities": [
+        "structured tool route protocol capacity contract"
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/generation_policy/tests.rs",
       "responsibilities": [
         "generation capacity monotonicity and incident regression tests"
@@ -22020,6 +22090,12 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/conversation/tests/local_access.rs",
+      "responsibilities": [
+        "local filesystem capability response regression tests"
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/conversation/tests/mod.rs",
       "responsibilities": [
         "conversation regression test owner registration"
@@ -22035,6 +22111,12 @@
       "path": "src/app/tui_adapter/conversation/tests/reply.rs",
       "responsibilities": [
         "conversation context assembly regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/tests/reply_prompt.rs",
+      "responsibilities": [
+        "conversation reply prompt evidence regression tests"
       ]
     },
     {
@@ -22734,6 +22816,12 @@
       "path": "src/app/tui_adapter/conversation/reply.rs",
       "responsibilities": [
         "text, image, and grounded conversation prompt assembly"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/reply/bounded.rs",
+      "responsibilities": [
+        "bounded local evidence reply generation"
       ]
     },
     {
