@@ -184,6 +184,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         .lines()
         .any(|line| line == "mod bounded;"));
     assert!(conversation_reply_bounded.contains("reply_with_context_and_cancel_bounded"));
+    assert!(conversation_reply_bounded.contains("struct BoundedReplyRequest"));
     assert!(conversation_reply_prompt.contains("fn assemble_plain_prompt("));
     assert!(conversation_reply_prompt.contains("fn assemble_vision_prompt("));
 

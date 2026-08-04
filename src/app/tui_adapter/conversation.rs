@@ -16,7 +16,7 @@ pub(super) use prompt_policy::assistant_and_answer_contract;
 pub(super) use reply::{
     estimate_context_tokens, language_instruction, render_web_conversation_context,
     reply_with_context_and_cancel, reply_with_context_and_cancel_bounded,
-    reply_with_images_and_cancel,
+    reply_with_images_and_cancel, BoundedReplyRequest,
 };
 
 #[cfg(test)]

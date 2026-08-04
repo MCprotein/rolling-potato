@@ -6,31 +6,35 @@ use crate::surfaces::tui::runtime_bridge::TuiConversationTurn;
 use super::super::super::session_memory::ConversationToolActivity;
 use super::prompt::assemble_plain_prompt_with_runtime_evidence;
 
+pub(in crate::app::tui_adapter) struct BoundedReplyRequest<'a> {
+    pub(in crate::app::tui_adapter) user_request: &'a str,
+    pub(in crate::app::tui_adapter) local_context: &'a str,
+    pub(in crate::app::tui_adapter) runtime_evidence: &'a str,
+    pub(in crate::app::tui_adapter) history: &'a [TuiConversationTurn],
+    pub(in crate::app::tui_adapter) tool_activities: &'a [ConversationToolActivity],
+    pub(in crate::app::tui_adapter) context_limit_tokens: u32,
+    pub(in crate::app::tui_adapter) timeout_ms: u32,
+    pub(in crate::app::tui_adapter) cancellation: &'a RequestCancellationToken,
+}
+
 pub(in crate::app::tui_adapter) fn reply_with_context_and_cancel_bounded(
-    user_request: &str,
-    local_context: &str,
-    runtime_evidence: &str,
-    history: &[TuiConversationTurn],
-    tool_activities: &[ConversationToolActivity],
-    context_limit_tokens: u32,
-    timeout_ms: u32,
-    cancellation: &RequestCancellationToken,
+    request: BoundedReplyRequest<'_>,
 ) -> Result<String, AppError> {
-    cancellation.check()?;
+    request.cancellation.check()?;
     let prompt = assemble_plain_prompt_with_runtime_evidence(
-        user_request,
-        local_context,
-        runtime_evidence,
-        history,
-        tool_activities,
-        context_limit_tokens,
+        request.user_request,
+        request.local_context,
+        request.runtime_evidence,
+        request.history,
+        request.tool_activities,
+        request.context_limit_tokens,
     )?
     .text;
     crate::app::inference_adapter::answer::generate_for_user_with_cancel_bounded(
         &prompt,
-        user_request,
+        request.user_request,
         GenerationIntent::InteractiveAnswer,
-        timeout_ms,
-        cancellation,
+        request.timeout_ms,
+        request.cancellation,
     )
 }

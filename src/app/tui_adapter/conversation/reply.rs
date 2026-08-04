@@ -9,7 +9,9 @@ use super::super::session_memory::ConversationToolActivity;
 mod bounded;
 pub(super) mod prompt;
 
-pub(in crate::app::tui_adapter) use bounded::reply_with_context_and_cancel_bounded;
+pub(in crate::app::tui_adapter) use bounded::{
+    reply_with_context_and_cancel_bounded, BoundedReplyRequest,
+};
 pub(in crate::app::tui_adapter) use prompt::language_instruction;
 use prompt::{assemble_plain_prompt, assemble_vision_prompt};
 

@@ -113,14 +113,16 @@ pub(in crate::app::tui_adapter::runtime::request) fn execute_local_turn(
                 let answer_context = attachment_context(&context);
                 let runtime_evidence = render_observations(&observations);
                 let answer = match crate::app::tui_adapter::conversation::reply_with_context_and_cancel_bounded(
-                    context.request,
-                    answer_context,
-                    &runtime_evidence,
-                    context.history,
-                    context.tool_history,
-                    context.context_limit_tokens,
-                    answer_timeout_ms,
-                    context.cancellation,
+                    crate::app::tui_adapter::conversation::BoundedReplyRequest {
+                        user_request: context.request,
+                        local_context: answer_context,
+                        runtime_evidence: &runtime_evidence,
+                        history: context.history,
+                        tool_activities: context.tool_history,
+                        context_limit_tokens: context.context_limit_tokens,
+                        timeout_ms: answer_timeout_ms,
+                        cancellation: context.cancellation,
+                    },
                 ) {
                     Ok(answer) => answer,
                     Err(error) => match state.remaining_request_time(started.elapsed()) {
