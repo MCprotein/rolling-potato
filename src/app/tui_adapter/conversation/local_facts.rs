@@ -18,6 +18,12 @@ pub(in crate::app::tui_adapter) fn local_reply(
     if ResponseLanguage::from_user_request(request).allows_non_korean() {
         return None;
     }
+    if is_local_access_status_request(request) && !has_agent_task_signal(request) {
+        return Some(
+            "가능합니다. rpotato는 현재 프로젝트 범위에서 파일 읽기, 디렉터리 목록, 코드 검색과 제한된 읽기 전용 명령을 직접 실행할 수 있습니다. 프로젝트 밖 접근과 변경 작업은 별도 정책·승인 경계를 따릅니다."
+                .to_string(),
+        );
+    }
     if is_vision_status_request(request) && !has_agent_task_signal(request) {
         let model = model.unwrap_or("현재 모델");
         return Some(match vision {
@@ -50,6 +56,34 @@ pub(in crate::app::tui_adapter) fn local_reply(
     }
     is_agent_identity_request(request)
         .then(|| "저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
+}
+
+fn is_local_access_status_request(request: &str) -> bool {
+    let lower = request.trim().to_ascii_lowercase();
+    let mentions_local_access = [
+        "로컬 파일",
+        "파일시스템",
+        "파일 시스템",
+        "프로젝트 파일",
+        "local file",
+        "filesystem",
+        "file system",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal));
+    let asks_capability = [
+        "접근",
+        "읽",
+        "가능",
+        "할 수",
+        "access",
+        "read",
+        "available",
+        "can you",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal));
+    mentions_local_access && asks_capability
 }
 
 fn is_vision_status_request(request: &str) -> bool {

@@ -128,7 +128,7 @@ fn is_release_title_context(text: &str) -> bool {
 
 fn foreign_word_count(text: &str) -> usize {
     text.split_whitespace()
-        .filter(|token| !is_path_or_url_token(token))
+        .filter(|token| !is_path_or_url_token(token) && !is_code_identifier_token(token))
         .flat_map(|token| token.split(|ch: char| !ch.is_ascii_alphanumeric()))
         .filter(|word| {
             word.len() > 1
@@ -138,6 +138,37 @@ fn foreign_word_count(text: &str) -> usize {
                 && !allowed_ascii(word)
         })
         .count()
+}
+
+fn is_code_identifier_token(token: &str) -> bool {
+    let token = token.trim_matches(|character: char| {
+        matches!(
+            character,
+            '(' | ')'
+                | '['
+                | ']'
+                | '{'
+                | '}'
+                | '<'
+                | '>'
+                | ','
+                | ';'
+                | ':'
+                | '.'
+                | '!'
+                | '?'
+                | '"'
+                | '\''
+                | '`'
+        )
+    });
+    token.contains('_')
+        && token
+            .chars()
+            .any(|character| character.is_ascii_alphabetic())
+        && token
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn is_path_or_url_token(token: &str) -> bool {

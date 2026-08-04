@@ -122,6 +122,22 @@ pub(crate) enum ToolObservationStatus {
     Timeout,
 }
 
+impl ToolObservationStatus {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::NotFound => "not_found",
+            Self::Denied => "denied",
+            Self::ToolError => "tool_error",
+            Self::Truncated => "truncated",
+            Self::Malformed => "malformed",
+            Self::UnknownOrStale => "unknown_or_stale",
+            Self::Cancelled => "cancelled",
+            Self::Timeout => "timeout",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ToolObservationReason {
     Completed,
@@ -134,6 +150,23 @@ pub(crate) enum ToolObservationReason {
     RequestCancelled,
     ToolTimedOut,
     ObservationBudgetExceeded,
+}
+
+impl ToolObservationReason {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::NotFound => "not_found",
+            Self::PolicyDenied => "policy_denied",
+            Self::ExecutionFailed => "execution_failed",
+            Self::OutputTruncated => "output_truncated",
+            Self::InvalidArguments => "invalid_arguments",
+            Self::UnknownOrStaleTool => "unknown_or_stale_tool",
+            Self::RequestCancelled => "request_cancelled",
+            Self::ToolTimedOut => "tool_timed_out",
+            Self::ObservationBudgetExceeded => "observation_budget_exceeded",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

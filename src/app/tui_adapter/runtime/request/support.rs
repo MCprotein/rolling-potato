@@ -1,8 +1,11 @@
 mod context;
+mod local_execution;
 pub(super) mod local_loop_state;
+mod local_tools;
 mod web_execution;
 
 pub(super) use context::{required_context_limit, web_conversation_context};
+pub(super) use local_execution::{execute_local_turn, LocalTurnContext};
 pub(super) use web_execution::{execute_web_turn, plain_execution};
 
 #[cfg(test)]

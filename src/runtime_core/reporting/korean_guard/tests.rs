@@ -83,6 +83,14 @@ fn file_path_passes() {
 }
 
 #[test]
+fn file_path_with_a_code_identifier_is_not_projected_or_truncated() {
+    let answer = "src/lib.rs에서 LOCAL_TOOL_MARKER 상수를 확인했습니다.";
+
+    assert!(validate(answer));
+    assert_eq!(safe_projection(answer), Some(answer.to_string()));
+}
+
+#[test]
 fn english_explanation_blocks() {
     assert!(!validate("This is a full English explanation."));
 }

@@ -7,7 +7,8 @@ use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::TuiRequestProgress;
 
 use super::support::{
-    execute_web_turn, plain_execution, required_context_limit, web_conversation_context,
+    execute_local_turn, execute_web_turn, plain_execution, required_context_limit,
+    web_conversation_context, LocalTurnContext,
 };
 use super::{RequestContext, RequestExecution};
 use crate::app::tui_adapter::runtime::backend::{
@@ -144,9 +145,18 @@ pub(super) fn execute_routed(
     }
     progress.emit(TuiRequestProgress::LocalWork);
     cancellation.check()?;
-    crate::app::runtime_adapter::agent_run_report(local_context)
-        .map(|report| conversation::present_agent_report(&report))
-        .map(plain_execution)
+    execute_local_turn(
+        LocalTurnContext {
+            request: user_request,
+            local_context,
+            history,
+            tool_history,
+            context_limit_tokens: required_context_limit(context_limit_tokens)?,
+            progress,
+            cancellation,
+        },
+        tool_activities,
+    )
 }
 
 fn web_turn_context<'a>(
