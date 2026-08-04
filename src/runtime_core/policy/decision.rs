@@ -5,6 +5,7 @@ mod path_policy;
 mod schema;
 mod types;
 
+pub(crate) use command::parse_local_read_only_command;
 pub use command::{classify_command, parse_patch_verification};
 pub(crate) use path_policy::classify_path;
 pub use schema::schema_report;
