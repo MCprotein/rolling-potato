@@ -8,10 +8,272 @@ use crate::foundation::serialization as strict_json;
 
 const MAX_TOOL_INPUT_CHARS: usize = 512;
 const DECISION_CONTEXT: &str = "agent turn decision";
+const LOCAL_DECISION_CONTEXT: &str = "local agent turn decision";
 const MAX_FOLLOW_UP_MODEL_TURNS: u8 = 3;
 const MAX_TOOL_CALLS: u8 = 3;
 
 pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","web_search","web_open","web_find","local_task"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
+
+/// Compact schema used only by the project-scoped local tool loop.
+///
+/// The legacy web schema above deliberately remains unchanged until transcript
+/// equivalence allows both drivers to share one production schema.
+pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","read_file","list_directory","search_repository","run_read_only_command","propose_mutation"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum LocalAgentDecision {
+    Answer(String),
+    Tool(LocalAgentToolCall),
+    ProposeMutation(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LocalAgentToolCall {
+    pub(crate) id: AgentToolId,
+    pub(crate) input: String,
+}
+
+impl LocalAgentToolCall {
+    pub(crate) fn normalized_key(&self) -> String {
+        format!("{}\n{}", self.id.as_str(), self.input.trim())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum AgentToolId {
+    WebSearch,
+    WebOpen,
+    WebFind,
+    ReadFile,
+    ListDirectory,
+    SearchRepository,
+    RunReadOnlyCommand,
+}
+
+impl AgentToolId {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::WebSearch => "web_search",
+            Self::WebOpen => "web_open",
+            Self::WebFind => "web_find",
+            Self::ReadFile => "read_file",
+            Self::ListDirectory => "list_directory",
+            Self::SearchRepository => "search_repository",
+            Self::RunReadOnlyCommand => "run_read_only_command",
+        }
+    }
+
+    fn from_decision(value: &str) -> Option<Self> {
+        match value {
+            "web_search" => Some(Self::WebSearch),
+            "web_open" => Some(Self::WebOpen),
+            "web_find" => Some(Self::WebFind),
+            "read_file" => Some(Self::ReadFile),
+            "list_directory" => Some(Self::ListDirectory),
+            "search_repository" => Some(Self::SearchRepository),
+            "run_read_only_command" => Some(Self::RunReadOnlyCommand),
+            _ => None,
+        }
+    }
+}
+
+/// Immutable per-request view of the tool IDs actually advertised to a model.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AgentToolRegistrySnapshot {
+    advertised: Vec<AgentToolId>,
+}
+
+impl AgentToolRegistrySnapshot {
+    pub(crate) fn new(advertised: impl IntoIterator<Item = AgentToolId>) -> Self {
+        let mut advertised = advertised.into_iter().collect::<Vec<_>>();
+        advertised.sort_unstable_by_key(|tool| tool.as_str());
+        advertised.dedup();
+        Self { advertised }
+    }
+
+    pub(crate) fn local_default() -> Self {
+        Self::new([
+            AgentToolId::ReadFile,
+            AgentToolId::ListDirectory,
+            AgentToolId::SearchRepository,
+            AgentToolId::RunReadOnlyCommand,
+        ])
+    }
+
+    pub(crate) fn advertises(&self, tool: AgentToolId) -> bool {
+        self.advertised.contains(&tool)
+    }
+
+    pub(crate) fn advertised_ids(&self) -> impl Iterator<Item = AgentToolId> + '_ {
+        self.advertised.iter().copied()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ToolObservationStatus {
+    Ok,
+    NotFound,
+    Denied,
+    ToolError,
+    Truncated,
+    Malformed,
+    UnknownOrStale,
+    Cancelled,
+    Timeout,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ToolObservationReason {
+    Completed,
+    NotFound,
+    PolicyDenied,
+    ExecutionFailed,
+    OutputTruncated,
+    InvalidArguments,
+    UnknownOrStaleTool,
+    RequestCancelled,
+    ToolTimedOut,
+    ObservationBudgetExceeded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ToolObservationTruncation {
+    pub(crate) truncated: bool,
+    pub(crate) original_bytes: usize,
+    pub(crate) returned_bytes: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ToolObservation {
+    pub(crate) tool_id: Option<AgentToolId>,
+    pub(crate) status: ToolObservationStatus,
+    pub(crate) reason: ToolObservationReason,
+    pub(crate) content: String,
+    pub(crate) truncation: ToolObservationTruncation,
+}
+
+impl ToolObservation {
+    pub(crate) fn new(
+        tool_id: Option<AgentToolId>,
+        status: ToolObservationStatus,
+        reason: ToolObservationReason,
+        content: impl Into<String>,
+    ) -> Self {
+        let content = content.into();
+        let bytes = content.len();
+        Self {
+            tool_id,
+            status,
+            reason,
+            content,
+            truncation: ToolObservationTruncation {
+                truncated: false,
+                original_bytes: bytes,
+                returned_bytes: bytes,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LocalDecisionErrorKind {
+    Malformed,
+    UnknownOrStale,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LocalDecisionError {
+    pub(crate) kind: LocalDecisionErrorKind,
+    pub(crate) tool_id: Option<AgentToolId>,
+    pub(crate) message: String,
+}
+
+pub(crate) fn parse_local_turn_decision(
+    candidate: &str,
+    registry: &AgentToolRegistrySnapshot,
+) -> Result<LocalAgentDecision, LocalDecisionError> {
+    parse_local_turn_decision_inner(candidate, registry).map_err(|error| match error {
+        LocalParseFailure::Malformed(message) => LocalDecisionError {
+            kind: LocalDecisionErrorKind::Malformed,
+            tool_id: None,
+            message,
+        },
+        LocalParseFailure::UnknownOrStale { tool_id, message } => LocalDecisionError {
+            kind: LocalDecisionErrorKind::UnknownOrStale,
+            tool_id,
+            message,
+        },
+    })
+}
+
+enum LocalParseFailure {
+    Malformed(String),
+    UnknownOrStale {
+        tool_id: Option<AgentToolId>,
+        message: String,
+    },
+}
+
+fn parse_local_turn_decision_inner(
+    candidate: &str,
+    registry: &AgentToolRegistrySnapshot,
+) -> Result<LocalAgentDecision, LocalParseFailure> {
+    let object = strict_json::parse_object(
+        candidate.trim(),
+        &["decision", "input", "answer"],
+        LOCAL_DECISION_CONTEXT,
+    )
+    .map_err(|_| malformed_local_decision("JSON object 형식이 올바르지 않습니다."))?;
+    let decision = strict_json::string(&object, "decision", LOCAL_DECISION_CONTEXT)
+        .map_err(|_| malformed_local_decision("decision이 문자열이 아닙니다."))?;
+    let input = strict_json::string(&object, "input", LOCAL_DECISION_CONTEXT)
+        .map_err(|_| malformed_local_decision("input이 문자열이 아닙니다."))?;
+    let answer = strict_json::string(&object, "answer", LOCAL_DECISION_CONTEXT)
+        .map_err(|_| malformed_local_decision("answer가 문자열이 아닙니다."))?;
+    ensure_bounded(&input, MAX_TOOL_INPUT_CHARS, "input")
+        .map_err(|_| malformed_local_decision("input이 허용 범위를 벗어났습니다."))?;
+    ensure_visible_answer(&answer)
+        .map_err(|_| malformed_local_decision("answer에 표시 불가능한 문자가 있습니다."))?;
+
+    match decision.as_str() {
+        "answer" if input.is_empty() && !answer.trim().is_empty() => {
+            Ok(LocalAgentDecision::Answer(answer))
+        }
+        "propose_mutation" if !input.trim().is_empty() && answer.is_empty() => Ok(
+            LocalAgentDecision::ProposeMutation(input.trim().to_string()),
+        ),
+        "answer" | "propose_mutation" => Err(LocalParseFailure::Malformed(format!(
+            "{LOCAL_DECISION_CONTEXT}: decision field 조합이 올바르지 않습니다."
+        ))),
+        tool_name => {
+            let Some(tool_id) = AgentToolId::from_decision(tool_name) else {
+                return Err(LocalParseFailure::UnknownOrStale {
+                    tool_id: None,
+                    message: format!("unknown tool id: {tool_name}"),
+                });
+            };
+            if !registry.advertises(tool_id) {
+                return Err(LocalParseFailure::UnknownOrStale {
+                    tool_id: Some(tool_id),
+                    message: format!("unadvertised tool id: {}", tool_id.as_str()),
+                });
+            }
+            if input.trim().is_empty() || !answer.is_empty() {
+                return Err(LocalParseFailure::Malformed(format!(
+                    "{LOCAL_DECISION_CONTEXT}: tool decision field 조합이 올바르지 않습니다."
+                )));
+            }
+            Ok(LocalAgentDecision::Tool(LocalAgentToolCall {
+                id: tool_id,
+                input: input.trim().to_string(),
+            }))
+        }
+    }
+}
+
+fn malformed_local_decision(reason: &str) -> LocalParseFailure {
+    LocalParseFailure::Malformed(format!("{LOCAL_DECISION_CONTEXT}: {reason}"))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum AgentTurnDecision {
@@ -213,6 +475,74 @@ mod tests {
             parse_turn_decision(&candidate, true).unwrap(),
             AgentTurnDecision::Answer(answer)
         );
+    }
+
+    #[test]
+    fn local_contract_parses_advertised_tools_answers_and_mutation_proposals() {
+        let registry = AgentToolRegistrySnapshot::local_default();
+        assert_eq!(
+            parse_local_turn_decision(
+                r#"{"decision":"read_file","input":"src/main.rs","answer":""}"#,
+                &registry,
+            )
+            .unwrap(),
+            LocalAgentDecision::Tool(LocalAgentToolCall {
+                id: AgentToolId::ReadFile,
+                input: "src/main.rs".to_string(),
+            })
+        );
+        assert_eq!(
+            parse_local_turn_decision(
+                r#"{"decision":"answer","input":"","answer":"확인했습니다."}"#,
+                &registry,
+            )
+            .unwrap(),
+            LocalAgentDecision::Answer("확인했습니다.".to_string())
+        );
+        assert_eq!(
+            parse_local_turn_decision(
+                r#"{"decision":"propose_mutation","input":"src/main.rs를 수정한다","answer":""}"#,
+                &registry,
+            )
+            .unwrap(),
+            LocalAgentDecision::ProposeMutation("src/main.rs를 수정한다".to_string())
+        );
+        assert_eq!(registry.advertised_ids().count(), 4);
+    }
+
+    #[test]
+    fn local_contract_rejects_unknown_stale_and_malformed_calls_without_promoting_them() {
+        let registry = AgentToolRegistrySnapshot::local_default();
+        let stale = parse_local_turn_decision(
+            r#"{"decision":"web_search","input":"Rust","answer":""}"#,
+            &registry,
+        )
+        .unwrap_err();
+        assert_eq!(stale.kind, LocalDecisionErrorKind::UnknownOrStale);
+        assert_eq!(stale.tool_id, Some(AgentToolId::WebSearch));
+
+        let unknown = parse_local_turn_decision(
+            r#"{"decision":"shell","input":"pwd","answer":""}"#,
+            &registry,
+        )
+        .unwrap_err();
+        assert_eq!(unknown.kind, LocalDecisionErrorKind::UnknownOrStale);
+        assert_eq!(unknown.tool_id, None);
+
+        for malformed in [
+            r#"{"decision":"read_file","input":"","answer":""}"#,
+            r#"{"decision":"read_file","input":"src/main.rs","answer":"done"}"#,
+            r#"{"decision":"propose_mutation","input":"","answer":""}"#,
+            r#"{"decision":"answer","input":"unexpected","answer":"답"}"#,
+        ] {
+            let error = parse_local_turn_decision(malformed, &registry).unwrap_err();
+            assert_eq!(error.kind, LocalDecisionErrorKind::Malformed, "{malformed}");
+        }
+
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains("read_file"));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains("propose_mutation"));
+        assert!(!LOCAL_TURN_DECISION_JSON_SCHEMA.contains("web_search"));
+        assert!(!TURN_DECISION_JSON_SCHEMA.contains("read_file"));
     }
 
     #[test]
