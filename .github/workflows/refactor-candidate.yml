@@ -50,6 +50,9 @@ jobs:
       - name: Verify repository tool pins
         run: scripts/release/verify-toolchain-pins.sh
 
+      - name: Verify local tool schema contract
+        run: scripts/ci/verify-local-tool-schema-contract.sh
+
       - name: Verify release target matrix
         run: scripts/release/verify-release-target-matrix.sh
 
@@ -88,6 +91,75 @@ jobs:
           RPOTATO_REQUIRE_TAG_ON_MAIN: "0"
           RPOTATO_DELETE_RELEASE_BRANCH: "0"
         run: scripts/release/verify-release-policy.sh
+
+  llama-parser-contract:
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      CARGO_TERM_COLOR: always
+      PARSER_MODEL_URL: https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories260K.gguf
+      PARSER_MODEL_SIZE: "1185376"
+      PARSER_MODEL_SHA256: 270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d
+      RPOTATO_LLAMA_PARSER_HOST: 127.0.0.1
+      RPOTATO_LLAMA_PARSER_PORT: "17842"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then
+            printf 'candidate SHA mismatch: expected %s, got %s\n' "$CANDIDATE_SHA" "$actual_sha" >&2
+            exit 1
+          fi
+
+      - name: Verify parser contract wiring
+        run: scripts/ci/verify-local-tool-schema-contract.sh
+
+      - name: Install pinned managed llama.cpp
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --bin rpotato
+          parser_root="$RUNNER_TEMP/rpotato-llama-parser"
+          mkdir -p "$parser_root"
+          RPOTATO_DATA_HOME="$parser_root/data" target/debug/rpotato backend install
+          printf 'RPOTATO_DATA_HOME=%s\n' "$parser_root/data" >> "$GITHUB_ENV"
+          printf 'PARSER_MODEL=%s\n' "$parser_root/stories260K.gguf" >> "$GITHUB_ENV"
+
+      - name: Download and verify upstream tiny model
+        shell: bash
+        run: |
+          set -euo pipefail
+          parser_headers="$RUNNER_TEMP/stories260K.headers"
+          curl --fail --location --retry 3 --dump-header "$parser_headers" --output "$PARSER_MODEL" "$PARSER_MODEL_URL"
+          tr -d '\r' < "$parser_headers" | grep -Ei "^x-linked-etag: \"?$PARSER_MODEL_SHA256\"?$"
+          actual_size="$(stat --format='%s' "$PARSER_MODEL")"
+          if [ "$actual_size" != "$PARSER_MODEL_SIZE" ]; then
+            printf 'parser model size mismatch: expected %s, got %s\n' "$PARSER_MODEL_SIZE" "$actual_size" >&2
+            exit 1
+          fi
+          printf '%s  %s\n' "$PARSER_MODEL_SHA256" "$PARSER_MODEL" | sha256sum --check --strict
+
+      - name: Exercise production local schema through pinned parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() {
+            RPOTATO_DATA_HOME="$RPOTATO_DATA_HOME" target/debug/rpotato backend stop >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          RPOTATO_DATA_HOME="$RPOTATO_DATA_HOME" target/debug/rpotato backend start --model "$PARSER_MODEL" --ctx-size 512
+          RPOTATO_DATA_HOME="$RPOTATO_DATA_HOME" cargo test --locked --bin rpotato adapters::llama_cpp::backend::tests::managed_llama_parser_accepts_local_turn_schema -- --ignored --exact --test-threads=1 --nocapture
 
   windows-compile:
     if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')
