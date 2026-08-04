@@ -26,6 +26,8 @@ fn general_questions_use_conversation_without_stealing_agent_tasks() {
     for request in [
         "안녕, 이 코드 고쳐줘",
         "src/main.rs 수정해줘",
+        "Cargo.toml을 직접 읽고 package의 name, version, edition을 한 줄로 알려줘",
+        "pyproject.toml 열어서 프로젝트 버전을 알려줘",
         "이 오류를 분석해줘",
         "테스트를 실행해줘",
         "이 저장소 구조를 알려줘",
@@ -34,6 +36,17 @@ fn general_questions_use_conversation_without_stealing_agent_tasks() {
         "they need help with startup",
     ] {
         assert!(!is_conversational_request(request), "{request}");
+    }
+
+    for request in [
+        "Rust 1.90과 Go 1.25를 비교해줘",
+        "3.14가 무엇인지 알려줘",
+        "example.com이 어떤 사이트야?",
+    ] {
+        assert!(
+            is_conversational_request(request),
+            "일반적인 점 표기는 프로젝트 artifact로 오인하면 안 됩니다: {request}"
+        );
     }
 }
 

@@ -4,6 +4,7 @@
 //! completion cap is activated only when source-backed metadata exists.
 
 use crate::foundation::error::AppError;
+use crate::runtime_core::agent::LOCAL_TURN_DECISION_MAX_TOKENS;
 use crate::runtime_core::inference::generation_policy::{
     ActiveTokenCapacity, AssembledPromptEstimate, BootstrapPromptEstimate, DeadlineCapacityInput,
     EstimatorUncertaintyInput, FinalBudgetInput, GenerationCapacityInputs, GenerationIntent,
@@ -16,6 +17,7 @@ const PROMPT_ESTIMATOR_VERSION: &str = "b9982-input-tokens-v1";
 const RUNTIME_SNAPSHOT_VERSION: &str = "backend-sidecar-record-v1";
 const CHAT_TIMEOUT_CONTRACT_VERSION: &str = "backend-chat-timeout-v1";
 const EXACT_THROUGHPUT_EVIDENCE_VERSION: &str = "artifact-backend-conservative-tps-v1";
+const STRUCTURED_TOOL_ROUTE_CONTRACT_VERSION: &str = "structured-tool-route-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum GenerationTokenRequest {
@@ -111,6 +113,7 @@ fn bind_budget(
     })?;
     let estimated_prompt_tokens = facts.prompt.exact_input_tokens;
     let mut capacities = capacities(
+        intent,
         context_window_tokens,
         facts.timeout_ms,
         facts.resource_pressure,
@@ -170,6 +173,7 @@ fn bind_budget(
 }
 
 fn capacities(
+    intent: GenerationIntent,
     context_window_tokens: u32,
     timeout_ms: u32,
     resource_pressure: ResourcePressure,
@@ -197,7 +201,15 @@ fn capacities(
             RUNTIME_SNAPSHOT_VERSION,
         ),
         model_completion_cap: None,
-        protocol_capacity: None,
+        protocol_capacity: (intent == GenerationIntent::StructuredToolRoute).then(|| {
+            ActiveTokenCapacity::new(
+                LOCAL_TURN_DECISION_MAX_TOKENS,
+                source(
+                    PolicyValueSourceKind::ProtocolContract,
+                    STRUCTURED_TOOL_ROUTE_CONTRACT_VERSION,
+                ),
+            )
+        }),
         sink_capacity: None,
         deadline: throughput.map(|managed_conservative_observation| DeadlineCapacityInput {
             timeout_ms,

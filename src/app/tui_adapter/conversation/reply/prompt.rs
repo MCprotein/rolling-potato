@@ -14,6 +14,24 @@ pub(in crate::app::tui_adapter::conversation) fn assemble_plain_prompt(
     tool_activities: &[ConversationToolActivity],
     context_limit_tokens: u32,
 ) -> Result<AssembledPrompt, AppError> {
+    assemble_plain_prompt_with_runtime_evidence(
+        user_request,
+        local_context,
+        "",
+        history,
+        tool_activities,
+        context_limit_tokens,
+    )
+}
+
+pub(in crate::app::tui_adapter::conversation) fn assemble_plain_prompt_with_runtime_evidence(
+    user_request: &str,
+    local_context: &str,
+    runtime_evidence: &str,
+    history: &[TuiConversationTurn],
+    tool_activities: &[ConversationToolActivity],
+    context_limit_tokens: u32,
+) -> Result<AssembledPrompt, AppError> {
     let language_instruction =
         language_instruction(ResponseLanguage::from_user_request(user_request));
     let attachment_context = local_context
@@ -31,8 +49,9 @@ pub(in crate::app::tui_adapter::conversation) fn assemble_plain_prompt(
         context_limit_tokens,
         GenerationIntent::InteractiveAnswer,
     )?
-    .assemble(
+    .assemble_with_runtime_evidence(
         &instructions,
+        runtime_evidence,
         attachment_context,
         user_request,
         &format!("{}\n답변:", prompt_policy::direct_answer_cue()),
@@ -72,5 +91,30 @@ pub(in crate::app::tui_adapter) fn language_instruction(
         "사용자가 명시한 출력 언어로 정확하게 답하라."
     } else {
         "사용자가 요청한 내용에만 정확하고 자연스러운 한국어로 답하라."
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plain_answer_prompt_keeps_current_tool_evidence_ahead_of_large_attachment() {
+        let prompt = assemble_plain_prompt_with_runtime_evidence(
+            "Cargo.toml을 확인해줘",
+            &format!(
+                "Cargo.toml을 확인해줘\n{}",
+                "oversized-attachment ".repeat(20_000)
+            ),
+            "RUNTIME_LOCAL_OBSERVATIONS version-0.55.1",
+            &[],
+            &[],
+            4_096,
+        )
+        .unwrap();
+
+        assert!(prompt.text.contains("CURRENT_TURN_EVIDENCE"));
+        assert!(prompt.text.contains("version-0.55.1"));
+        assert!(prompt.estimated_tokens <= prompt.input_limit_tokens);
     }
 }

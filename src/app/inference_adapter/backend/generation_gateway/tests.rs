@@ -41,6 +41,40 @@ fn context_window_is_remainder_capacity_not_a_completion_cap() {
 }
 
 #[test]
+fn structured_tool_route_has_a_protocol_budget_without_capping_visible_answers() {
+    let route = bind_default_backend_budget(
+        GenerationTokenRequest::Intent(GenerationIntent::StructuredToolRoute),
+        GenerationPromptEstimate::exact(600),
+        Some(131_072),
+        30_000,
+        ResourcePressure::Normal,
+    )
+    .unwrap();
+    let answer = bind_default_backend_budget(
+        GenerationTokenRequest::Intent(GenerationIntent::InteractiveAnswer),
+        GenerationPromptEstimate::exact(600),
+        Some(131_072),
+        30_000,
+        ResourcePressure::Normal,
+    )
+    .unwrap();
+
+    assert_eq!(
+        route.requested_max_tokens,
+        crate::runtime_core::agent::LOCAL_TURN_DECISION_MAX_TOKENS
+    );
+    assert_eq!(
+        route.limiting_factors,
+        [GenerationLimitingFactor::ProtocolCapacity]
+    );
+    assert!(answer.requested_max_tokens > route.requested_max_tokens);
+    assert_eq!(
+        answer.limiting_factors,
+        [GenerationLimitingFactor::ContextCapacity]
+    );
+}
+
+#[test]
 fn untrusted_throughput_is_not_promoted_to_a_quality_cap() {
     let budget = bind_default_backend_budget(
         GenerationTokenRequest::Intent(GenerationIntent::InteractiveAnswer),

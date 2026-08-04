@@ -8,6 +8,7 @@ pub(crate) enum GenerationIntent {
     InteractiveAnswer,
     VisionAnswer,
     StructuredRouteAndAnswer,
+    StructuredToolRoute,
     GroundedWebAnswer,
     Repair,
     AgentAction,

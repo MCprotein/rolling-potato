@@ -20,6 +20,7 @@ use crate::runtime_core::reporting::korean_guard;
 
 const EMPTY_VISIBLE_ANSWER: &str =
     "model의 읽기 전용 답변이 비어 있습니다. 표시 가능한 답변을 생성하지 않았습니다.";
+const MIN_SAFE_PROJECTION_RETENTION_DENOMINATOR: usize = 4;
 
 pub(crate) struct GeneratedCandidate {
     pub(crate) response_language: ResponseLanguage,
@@ -36,6 +37,22 @@ pub(crate) fn generate_for_user_with_cancel(
         prompt,
         user_request,
         intent,
+        cancellation,
+    )?)
+}
+
+pub(crate) fn generate_for_user_with_cancel_bounded(
+    prompt: &str,
+    user_request: &str,
+    intent: GenerationIntent,
+    timeout_ms: u32,
+    cancellation: &RequestCancellationToken,
+) -> Result<String, AppError> {
+    let input = BackendChatInput::text_for_user(prompt, user_request);
+    finish_candidate_without_repair(generate_candidate_with_input_and_cancel(
+        &input,
+        intent,
+        Some(timeout_ms),
         cancellation,
     )?)
 }
@@ -124,6 +141,10 @@ fn generate_candidate_with_input_and_cancel(
 
 pub(crate) fn finish_candidate(candidate: GeneratedCandidate) -> Result<String, AppError> {
     finish_generated(candidate.response_language, &candidate.visible)
+}
+
+fn finish_candidate_without_repair(candidate: GeneratedCandidate) -> Result<String, AppError> {
+    finish_generated_without_repair(candidate.response_language, &candidate.visible)
 }
 
 pub(crate) fn generate_input_with_cancel(
@@ -227,16 +248,46 @@ fn finish_generated(
     repair_existing(&visible)
 }
 
+fn finish_generated_without_repair(
+    response_language: ResponseLanguage,
+    response: &str,
+) -> Result<String, AppError> {
+    let visible = visible_text(response);
+    if visible.is_empty() {
+        return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
+    }
+    if response_language.allows_non_korean() || korean_guard::validate(&visible) {
+        return Ok(visible);
+    }
+    Ok(best_effort_visible(&visible, None))
+}
+
 fn best_effort_visible(original: &str, repaired: Option<&str>) -> String {
     if let Some(repaired) = repaired.filter(|answer| !answer.trim().is_empty()) {
         if korean_guard::validate(repaired) {
             return repaired.to_string();
         }
-        if let Some(projected) = korean_guard::safe_projection(repaired) {
+        if let Some(projected) = korean_guard::safe_projection(repaired)
+            .filter(|projected| projection_preserves_substance(repaired, projected))
+        {
             return projected;
         }
     }
-    korean_guard::safe_projection(original).unwrap_or_else(|| original.to_string())
+    korean_guard::safe_projection(original)
+        .filter(|projected| projection_preserves_substance(original, projected))
+        .unwrap_or_else(|| original.to_string())
+}
+
+fn projection_preserves_substance(original: &str, projected: &str) -> bool {
+    let original_chars = original
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .count();
+    let projected_chars = projected
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .count();
+    projected_chars.saturating_mul(MIN_SAFE_PROJECTION_RETENTION_DENOMINATOR) >= original_chars
 }
 
 fn visible_text(response: &str) -> String {
@@ -357,6 +408,29 @@ mod tests {
         assert_eq!(
             fallback_visible("정답은 15입니다.\n这是错误混入。").unwrap(),
             "정답은 15입니다."
+        );
+        let mostly_foreign =
+            "분석을 위해 `Cargo.toml`을 확인하겠습니다. This is a long foreign explanation that contains the actual missing answer.";
+        assert_eq!(fallback_visible(mostly_foreign).unwrap(), mostly_foreign);
+    }
+
+    #[test]
+    fn bounded_finish_projects_language_leakage_without_starting_a_repair_turn() {
+        assert_eq!(
+            finish_generated_without_repair(
+                ResponseLanguage::KoreanDefault,
+                "정답은 15입니다.\nThis sentence leaked."
+            )
+            .unwrap(),
+            "정답은 15입니다."
+        );
+        assert_eq!(
+            finish_generated_without_repair(
+                ResponseLanguage::UserRequestedOther,
+                "This language was explicitly requested."
+            )
+            .unwrap(),
+            "This language was explicitly requested."
         );
     }
 

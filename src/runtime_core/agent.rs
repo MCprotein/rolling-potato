@@ -14,15 +14,19 @@ const MAX_TOOL_CALLS: u8 = 3;
 
 pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","web_search","web_open","web_find","local_task"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
 
+/// Output budget for the schema-owned local routing envelope. This never caps
+/// the separate visible-answer generation.
+pub(crate) const LOCAL_TURN_DECISION_MAX_TOKENS: u32 = 768;
+
 /// Compact schema used only by the project-scoped local tool loop.
 ///
 /// The legacy web schema above deliberately remains unchanged until transcript
 /// equivalence allows both drivers to share one production schema.
-pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"oneOf":[{"type":"object","properties":{"decision":{"const":"answer"},"input":{"const":""},"answer":{"type":"string","minLength":1,"pattern":"^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*$"}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"type":"string","enum":["read_file","list_directory","search_repository","run_read_only_command"]},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u001f\\u007f-\\u009f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"const":"propose_mutation"},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u001f\\u007f-\\u009f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false}]}"#;
+pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"oneOf":[{"type":"object","properties":{"decision":{"const":"answer"},"input":{"const":""},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"type":"string","enum":["read_file","list_directory","search_repository","run_read_only_command"]},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\x00-\\x1f\\x7f-\\x9f]*[^ \\x00-\\x1f\\x7f-\\x9f][^\\x00-\\x1f\\x7f-\\x9f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"const":"propose_mutation"},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\x00-\\x1f\\x7f-\\x9f]*[^ \\x00-\\x1f\\x7f-\\x9f][^\\x00-\\x1f\\x7f-\\x9f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false}]}"#;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum LocalAgentDecision {
-    Answer(String),
+    Answer,
     Tool(LocalAgentToolCall),
     ProposeMutation(String),
 }
@@ -35,7 +39,11 @@ pub(crate) struct LocalAgentToolCall {
 
 impl LocalAgentToolCall {
     pub(crate) fn normalized_key(&self) -> String {
-        format!("{}\n{}", self.id.as_str(), self.input.trim())
+        format!(
+            "{}\n{}",
+            self.id.as_str(),
+            trim_protocol_whitespace(&self.input)
+        )
     }
 }
 
@@ -269,12 +277,12 @@ fn parse_local_turn_decision_inner(
         .map_err(|_| malformed_local_decision("answer에 표시 불가능한 문자가 있습니다."))?;
 
     match decision.as_str() {
-        "answer" if input.is_empty() && !answer.trim().is_empty() => {
-            Ok(LocalAgentDecision::Answer(answer))
+        "answer" if input.is_empty() && answer.is_empty() => Ok(LocalAgentDecision::Answer),
+        "propose_mutation" if !trim_protocol_whitespace(&input).is_empty() && answer.is_empty() => {
+            Ok(LocalAgentDecision::ProposeMutation(
+                trim_protocol_whitespace(&input).to_string(),
+            ))
         }
-        "propose_mutation" if !input.trim().is_empty() && answer.is_empty() => Ok(
-            LocalAgentDecision::ProposeMutation(input.trim().to_string()),
-        ),
         "answer" | "propose_mutation" => Err(LocalParseFailure::Malformed(format!(
             "{LOCAL_DECISION_CONTEXT}: decision field 조합이 올바르지 않습니다."
         ))),
@@ -291,17 +299,21 @@ fn parse_local_turn_decision_inner(
                     message: format!("unadvertised tool id: {}", tool_id.as_str()),
                 });
             }
-            if input.trim().is_empty() || !answer.is_empty() {
+            if trim_protocol_whitespace(&input).is_empty() || !answer.is_empty() {
                 return Err(LocalParseFailure::Malformed(format!(
                     "{LOCAL_DECISION_CONTEXT}: tool decision field 조합이 올바르지 않습니다."
                 )));
             }
             Ok(LocalAgentDecision::Tool(LocalAgentToolCall {
                 id: tool_id,
-                input: input.trim().to_string(),
+                input: trim_protocol_whitespace(&input).to_string(),
             }))
         }
     }
+}
+
+fn trim_protocol_whitespace(value: &str) -> &str {
+    value.trim_matches(|character| matches!(character, ' ' | '\n' | '\r' | '\t'))
 }
 
 fn malformed_local_decision(reason: &str) -> LocalParseFailure {
@@ -526,11 +538,11 @@ mod tests {
         );
         assert_eq!(
             parse_local_turn_decision(
-                r#"{"decision":"answer","input":"","answer":"확인했습니다."}"#,
+                r#"{"decision":"answer","input":"","answer":""}"#,
                 &registry,
             )
             .unwrap(),
-            LocalAgentDecision::Answer("확인했습니다.".to_string())
+            LocalAgentDecision::Answer
         );
         assert_eq!(
             parse_local_turn_decision(
@@ -567,9 +579,8 @@ mod tests {
             r#"{"decision":"read_file","input":" \t","answer":""}"#,
             r#"{"decision":"read_file","input":"src/main.rs","answer":"done"}"#,
             r#"{"decision":"propose_mutation","input":"","answer":""}"#,
-            r#"{"decision":"propose_mutation","input":"\u3000","answer":""}"#,
             r#"{"decision":"answer","input":"unexpected","answer":"답"}"#,
-            r#"{"decision":"answer","input":"","answer":" \n\t"}"#,
+            r#"{"decision":"answer","input":"","answer":"답"}"#,
         ] {
             let error = parse_local_turn_decision(malformed, &registry).unwrap_err();
             assert_eq!(error.kind, LocalDecisionErrorKind::Malformed, "{malformed}");
@@ -579,12 +590,12 @@ mod tests {
         assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains("propose_mutation"));
         assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""oneOf""#));
         assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""const":"answer""#));
-        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""minLength":1"#));
-        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(
-            r#""pattern":"^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*"#
-        ));
-        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA
-            .contains(r#""pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*"#));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""answer":{"const":""}"#));
+        assert!(
+            LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""pattern":"^[^\\x00-\\x1f\\x7f-\\x9f]*"#)
+        );
+        assert!(!LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""answer":{"type":"string""#));
+        assert_eq!(LOCAL_TURN_DECISION_MAX_TOKENS, 768);
         assert!(!LOCAL_TURN_DECISION_JSON_SCHEMA.contains("web_search"));
         assert!(!TURN_DECISION_JSON_SCHEMA.contains("read_file"));
     }

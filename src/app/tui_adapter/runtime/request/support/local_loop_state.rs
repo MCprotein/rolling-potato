@@ -15,7 +15,15 @@ use crate::runtime_core::agent::{
 pub(super) const MAX_MODEL_TURNS: u8 = 8;
 pub(super) const MAX_TOOL_CALLS: u8 = 6;
 pub(super) const TOOL_TIMEOUT: Duration = Duration::from_secs(5);
-pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+pub(super) const MODEL_TURN_TIMEOUT: Duration = Duration::from_secs(30);
+pub(super) const GUARANTEED_TOOL_ASSISTED_MODEL_TURNS: u8 = 3;
+pub(super) const ORCHESTRATION_OVERHEAD_RESERVE: Duration =
+    Duration::from_secs(MODEL_TURN_TIMEOUT.as_secs() / 3);
+pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(
+    MODEL_TURN_TIMEOUT.as_secs() * GUARANTEED_TOOL_ASSISTED_MODEL_TURNS as u64
+        + TOOL_TIMEOUT.as_secs()
+        + ORCHESTRATION_OVERHEAD_RESERVE.as_secs(),
+);
 pub(super) const MAX_OBSERVATION_BYTES: usize = 16 * 1024;
 pub(super) const MAX_CUMULATIVE_OBSERVATION_BYTES: usize = 64 * 1024;
 
@@ -52,6 +60,13 @@ pub(super) enum ObservationTransition {
     Terminate(LocalLoopTerminal),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum AnswerAdmission {
+    Complete,
+    Replan(ToolObservation),
+    Terminate(LocalLoopTerminal),
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct LocalLoopState {
     registry: AgentToolRegistrySnapshot,
@@ -76,6 +91,10 @@ impl LocalLoopState {
 
     pub(super) fn tool_timeout(&self) -> Duration {
         TOOL_TIMEOUT
+    }
+
+    pub(super) fn model_turn_timeout(&self) -> Duration {
+        MODEL_TURN_TIMEOUT
     }
 
     pub(super) fn remaining_request_time(
@@ -139,6 +158,26 @@ impl LocalLoopState {
             return ToolAdmission::Terminate(terminal);
         }
         self.protocol_error(tool_id, kind)
+    }
+
+    pub(super) fn admit_answer(&mut self, elapsed: Duration) -> AnswerAdmission {
+        if let Err(terminal) = self.ensure_request_time(elapsed) {
+            return AnswerAdmission::Terminate(terminal);
+        }
+        if self.admitted_tool_calls > 0 {
+            return AnswerAdmission::Complete;
+        }
+
+        match self.protocol_error(None, LocalDecisionErrorKind::Malformed) {
+            ToolAdmission::Replan(mut observation) => {
+                observation.content =
+                    "local_task completion requires at least one project tool observation"
+                        .to_string();
+                AnswerAdmission::Replan(observation)
+            }
+            ToolAdmission::Terminate(terminal) => AnswerAdmission::Terminate(terminal),
+            ToolAdmission::Execute => unreachable!("protocol errors are never executable"),
+        }
     }
 
     pub(super) fn record_observation(
@@ -346,6 +385,16 @@ mod tests {
             ToolAdmission::Terminate(terminal(LocalLoopTerminalReason::RepeatedToolCall, None))
         );
         assert_eq!(TOOL_TIMEOUT, repeated.tool_timeout());
+        assert_eq!(MODEL_TURN_TIMEOUT, repeated.model_turn_timeout());
+        assert!(
+            repeated
+                .remaining_request_time(
+                    MODEL_TURN_TIMEOUT + TOOL_TIMEOUT + ORCHESTRATION_OVERHEAD_RESERVE,
+                )
+                .unwrap()
+                >= MODEL_TURN_TIMEOUT * 2,
+            "route, one tool, and orchestration reserve must leave two full model windows"
+        );
         assert_eq!(
             repeated
                 .remaining_request_time(REQUEST_TIMEOUT - Duration::from_millis(7))
@@ -446,6 +495,25 @@ mod tests {
         assert_eq!(
             state.terminal_decision(true, Duration::ZERO).reason,
             LocalLoopTerminalReason::ProposeMutation
+        );
+    }
+
+    #[test]
+    fn local_answer_requires_a_project_tool_observation() {
+        let mut state = LocalLoopState::new(AgentToolRegistrySnapshot::local_default());
+
+        assert!(matches!(
+            state.admit_answer(Duration::ZERO),
+            AnswerAdmission::Replan(ToolObservation { content, .. })
+                if content.contains("requires at least one project tool observation")
+        ));
+        assert_eq!(
+            state.admit_tool_call(&call(AgentToolId::ReadFile, "Cargo.toml"), Duration::ZERO),
+            ToolAdmission::Execute
+        );
+        assert_eq!(
+            state.admit_answer(Duration::ZERO),
+            AnswerAdmission::Complete
         );
     }
 

@@ -247,6 +247,19 @@ impl NativeTerminalFixture {
         )
     }
 
+    pub fn start_conversation_backend_with_structured_sequence_and_text(
+        &self,
+        structured_responses: &[&str],
+        text_response_body: &str,
+    ) -> PreparedConversationBackend {
+        assert!(!structured_responses.is_empty());
+        self.start_conversation_backend(
+            structured_responses[0],
+            text_response_body,
+            Some(structured_responses.join("\n---RPOTATO-RESPONSE---\n")),
+        )
+    }
+
     fn start_conversation_backend(
         &self,
         structured_response_body: &str,
