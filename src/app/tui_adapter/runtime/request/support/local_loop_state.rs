@@ -58,7 +58,7 @@ pub(super) struct LocalLoopState {
     model_turns: u8,
     admitted_tool_calls: u8,
     cumulative_observation_bytes: usize,
-    protocol_errors: u8,
+    consecutive_protocol_errors: u8,
     normalized_calls: HashSet<String>,
 }
 
@@ -69,7 +69,7 @@ impl LocalLoopState {
             model_turns: 0,
             admitted_tool_calls: 0,
             cumulative_observation_bytes: 0,
-            protocol_errors: 0,
+            consecutive_protocol_errors: 0,
             normalized_calls: HashSet::new(),
         }
     }
@@ -125,6 +125,7 @@ impl LocalLoopState {
 
         self.normalized_calls.insert(normalized);
         self.admitted_tool_calls += 1;
+        self.consecutive_protocol_errors = 0;
         ToolAdmission::Execute
     }
 
@@ -172,8 +173,8 @@ impl LocalLoopState {
             return ObservationTransition::Terminate(terminal(reason, Some(observation)));
         }
         if protocol_kind.is_some() {
-            self.protocol_errors += 1;
-            if self.protocol_errors > 1 {
+            self.consecutive_protocol_errors += 1;
+            if self.consecutive_protocol_errors > 1 {
                 return ObservationTransition::Terminate(terminal(
                     LocalLoopTerminalReason::ProtocolError,
                     Some(observation),
@@ -203,7 +204,7 @@ impl LocalLoopState {
         tool_id: Option<crate::runtime_core::agent::AgentToolId>,
         kind: LocalDecisionErrorKind,
     ) -> ToolAdmission {
-        self.protocol_errors += 1;
+        self.consecutive_protocol_errors += 1;
         let (status, reason, content) = match kind {
             LocalDecisionErrorKind::Malformed => (
                 ToolObservationStatus::Malformed,
@@ -217,7 +218,7 @@ impl LocalLoopState {
             ),
         };
         let observation = ToolObservation::new(tool_id, status, reason, content);
-        if self.protocol_errors > 1 {
+        if self.consecutive_protocol_errors > 1 {
             ToolAdmission::Terminate(terminal(
                 LocalLoopTerminalReason::ProtocolError,
                 Some(observation),
@@ -361,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    fn allows_one_protocol_repair_then_terminates() {
+    fn protocol_repair_budget_resets_after_a_valid_tool_call() {
         let mut state = LocalLoopState::new(AgentToolRegistrySnapshot::local_default());
         assert!(matches!(
             state.record_protocol_error(None, LocalDecisionErrorKind::Malformed, Duration::ZERO),
@@ -370,12 +371,23 @@ mod tests {
                 ..
             })
         ));
+        assert_eq!(
+            state.admit_tool_call(&call(AgentToolId::ReadFile, "src/main.rs"), Duration::ZERO,),
+            ToolAdmission::Execute
+        );
         assert!(matches!(
             state.record_protocol_error(
                 Some(AgentToolId::WebSearch),
                 LocalDecisionErrorKind::UnknownOrStale,
                 Duration::ZERO,
             ),
+            ToolAdmission::Replan(ToolObservation {
+                status: ToolObservationStatus::UnknownOrStale,
+                ..
+            })
+        ));
+        assert!(matches!(
+            state.record_protocol_error(None, LocalDecisionErrorKind::Malformed, Duration::ZERO),
             ToolAdmission::Terminate(LocalLoopTerminal {
                 reason: LocalLoopTerminalReason::ProtocolError,
                 ..

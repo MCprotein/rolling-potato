@@ -18,7 +18,7 @@ pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properti
 ///
 /// The legacy web schema above deliberately remains unchanged until transcript
 /// equivalence allows both drivers to share one production schema.
-pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","read_file","list_directory","search_repository","run_read_only_command","propose_mutation"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
+pub(crate) const LOCAL_TURN_DECISION_JSON_SCHEMA: &str = r#"{"oneOf":[{"type":"object","properties":{"decision":{"const":"answer"},"input":{"const":""},"answer":{"type":"string","minLength":1,"pattern":"^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*$"}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"type":"string","enum":["read_file","list_directory","search_repository","run_read_only_command"]},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u001f\\u007f-\\u009f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false},{"type":"object","properties":{"decision":{"const":"propose_mutation"},"input":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*[^\\u0000-\\u0020\\u007f-\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000][^\\u0000-\\u001f\\u007f-\\u009f]*$"},"answer":{"const":""}},"required":["decision","input","answer"],"additionalProperties":false}]}"#;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum LocalAgentDecision {
@@ -564,9 +564,12 @@ mod tests {
 
         for malformed in [
             r#"{"decision":"read_file","input":"","answer":""}"#,
+            r#"{"decision":"read_file","input":" \t","answer":""}"#,
             r#"{"decision":"read_file","input":"src/main.rs","answer":"done"}"#,
             r#"{"decision":"propose_mutation","input":"","answer":""}"#,
+            r#"{"decision":"propose_mutation","input":"\u3000","answer":""}"#,
             r#"{"decision":"answer","input":"unexpected","answer":"답"}"#,
+            r#"{"decision":"answer","input":"","answer":" \n\t"}"#,
         ] {
             let error = parse_local_turn_decision(malformed, &registry).unwrap_err();
             assert_eq!(error.kind, LocalDecisionErrorKind::Malformed, "{malformed}");
@@ -574,6 +577,14 @@ mod tests {
 
         assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains("read_file"));
         assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains("propose_mutation"));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""oneOf""#));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""const":"answer""#));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(r#""minLength":1"#));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA.contains(
+            r#""pattern":"^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]*"#
+        ));
+        assert!(LOCAL_TURN_DECISION_JSON_SCHEMA
+            .contains(r#""pattern":"^[^\\u0000-\\u001f\\u007f-\\u009f]*"#));
         assert!(!LOCAL_TURN_DECISION_JSON_SCHEMA.contains("web_search"));
         assert!(!TURN_DECISION_JSON_SCHEMA.contains("read_file"));
     }
