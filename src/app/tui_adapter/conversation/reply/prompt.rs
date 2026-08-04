@@ -65,7 +65,7 @@ pub(super) fn assemble_vision_prompt(
     )
 }
 
-pub(in crate::app::tui_adapter::conversation) fn language_instruction(
+pub(in crate::app::tui_adapter) fn language_instruction(
     language: ResponseLanguage,
 ) -> &'static str {
     if language.allows_non_korean() {

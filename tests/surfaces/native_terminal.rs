@@ -99,6 +99,8 @@ mod adapter_matrix;
 mod interaction;
 #[path = "native_terminal/lifecycle.rs"]
 mod lifecycle;
+#[path = "native_terminal/local_tools.rs"]
+mod local_tools;
 #[path = "native_terminal/web.rs"]
 mod web;
 #[path = "native_terminal/web_recovery.rs"]

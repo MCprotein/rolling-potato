@@ -21,6 +21,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         "src/runtime_core/policy/approval.rs",
         "src/runtime_core/policy/decision.rs",
         "src/runtime_core/policy/decision/command.rs",
+        "src/runtime_core/policy/decision/command/local.rs",
         "src/runtime_core/policy/decision/path_policy.rs",
         "src/runtime_core/policy/decision/schema.rs",
         "src/runtime_core/policy/decision/types.rs",
@@ -147,11 +148,16 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         (
             "src/runtime_core/policy/decision/command.rs",
             [
+                "mod local;",
                 "fn classify_command(",
                 "fn parse_patch_verification(",
                 "fn parse_exact_argv(",
             ]
             .as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/decision/command/local.rs",
+            ["fn parse_local_read_only_command(", "fn validate_local_read_only_argv("].as_slice(),
         ),
         (
             "src/runtime_core/policy/decision/path_policy.rs",
@@ -199,6 +205,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ("src/runtime_core/knowledge/context/types.rs", 75),
         ("src/runtime_core/policy/decision.rs", 30),
         ("src/runtime_core/policy/decision/command.rs", 225),
+        ("src/runtime_core/policy/decision/command/local.rs", 225),
         ("src/runtime_core/policy/decision/path_policy.rs", 150),
         ("src/runtime_core/policy/decision/schema.rs", 75),
         ("src/runtime_core/policy/decision/types.rs", 125),

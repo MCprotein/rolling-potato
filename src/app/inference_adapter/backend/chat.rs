@@ -54,6 +54,7 @@ pub(crate) fn chat_once_with_input_for_intent(
 pub(crate) fn chat_once_with_input_for_intent_and_cancel(
     input: &BackendChatInput,
     intent: GenerationIntent,
+    timeout_ms: Option<u32>,
     cancellation: &RequestCancellationToken,
 ) -> Result<BackendChatRun, AppError> {
     cancellation.check()?;
@@ -61,7 +62,7 @@ pub(crate) fn chat_once_with_input_for_intent_and_cancel(
         input,
         GenerationTokenRequest::Intent(intent),
         false,
-        None,
+        timeout_ms,
         || Ok(cancellation.is_cancelled()),
         |_| Ok(()),
     )

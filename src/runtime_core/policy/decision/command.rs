@@ -4,6 +4,10 @@ use crate::foundation::error::AppError;
 
 use super::types::{ActionKind, Decision, ParsedCommand, PolicyDecision};
 
+mod local;
+
+pub(crate) use local::parse_local_read_only_command;
+
 pub fn classify_command(command: &str) -> Result<PolicyDecision, AppError> {
     let parsed = parse_exact_argv(command)?;
     let first = parsed.argv[0].as_str();

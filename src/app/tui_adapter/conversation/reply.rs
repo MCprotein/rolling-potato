@@ -8,7 +8,7 @@ use super::super::session_memory::ConversationToolActivity;
 
 pub(super) mod prompt;
 
-pub(super) use prompt::language_instruction;
+pub(in crate::app::tui_adapter) use prompt::language_instruction;
 use prompt::{assemble_plain_prompt, assemble_vision_prompt};
 
 pub(in crate::app::tui_adapter) fn render_web_conversation_context(

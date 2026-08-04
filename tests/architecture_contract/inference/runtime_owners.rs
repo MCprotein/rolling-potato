@@ -30,6 +30,7 @@ fn assert_runtime_inference_owners() {
         "src/adapters/llama_cpp/backend/request.rs",
         "src/adapters/llama_cpp/backend/sidecar.rs",
         "src/adapters/llama_cpp/backend/tests.rs",
+        "src/adapters/llama_cpp/backend/tests/parser_contract.rs",
         "src/adapters/llama_cpp/backend/version.rs",
         "src/adapters/llama_cpp/install.rs",
         "src/adapters/llama_cpp/install/archive.rs",
@@ -104,6 +105,8 @@ fn assert_runtime_inference_owners() {
     let llama_request = fs::read_to_string("src/adapters/llama_cpp/backend/request.rs").unwrap();
     let llama_sidecar = fs::read_to_string("src/adapters/llama_cpp/backend/sidecar.rs").unwrap();
     let llama_tests = fs::read_to_string("src/adapters/llama_cpp/backend/tests.rs").unwrap();
+    let llama_parser_tests =
+        fs::read_to_string("src/adapters/llama_cpp/backend/tests/parser_contract.rs").unwrap();
     let llama_version = fs::read_to_string("src/adapters/llama_cpp/backend/version.rs").unwrap();
     for owner in ["discovery", "health", "request", "sidecar", "version"] {
         assert!(
@@ -119,12 +122,15 @@ fn assert_runtime_inference_owners() {
     assert!(llama_sidecar.contains("pub(crate) fn sidecar_command("));
     assert!(llama_version.contains("pub(crate) fn probe_version("));
     assert!(llama_tests.contains("fn multimodal_request_uses_openai_image_content_parts("));
+    assert!(llama_tests.lines().any(|line| line == "mod parser_contract;"));
+    assert!(llama_parser_tests.contains("fn managed_llama_parser_accepts_local_turn_schema("));
     assert!(llama_backend.lines().count() < 100);
     assert!(llama_discovery.lines().count() < 125);
     assert!(llama_health.lines().count() < 125);
     assert!(llama_request.lines().count() < 225);
     assert!(llama_sidecar.lines().count() < 50);
     assert!(llama_tests.lines().count() < 325);
+    assert!(llama_parser_tests.lines().count() < 75);
     assert!(llama_version.lines().count() < 250);
 
     let install_adapter = fs::read_to_string("src/adapters/llama_cpp/install.rs").unwrap();

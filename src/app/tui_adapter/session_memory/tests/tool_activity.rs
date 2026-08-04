@@ -100,3 +100,48 @@ fn ordered_search_open_find_trace_is_restored_without_replay_turns() {
         assert!(restored.web_grounding().is_empty());
     });
 }
+
+#[test]
+fn local_tool_activity_names_render_and_parse_round_trip() {
+    let tools = [
+        ConversationToolName::ReadFile,
+        ConversationToolName::ListDirectory,
+        ConversationToolName::SearchRepository,
+        ConversationToolName::RunReadOnlyCommand,
+    ];
+
+    for (index, tool) in tools.into_iter().enumerate() {
+        let activity = ConversationToolActivity::bounded(
+            format!("local-step-{index}"),
+            tool,
+            "src/app",
+            ConversationToolStatus::Succeeded,
+            [],
+        );
+        let rendered = event_codec::render_tool_activity_event(&activity);
+        let Some(event_codec::ConversationEvent::ToolActivity(parsed)) =
+            event_codec::parse_conversation_event(&rendered)
+        else {
+            panic!("rendered local tool activity must parse");
+        };
+
+        assert_eq!(parsed, activity);
+    }
+}
+
+#[test]
+fn legacy_web_tool_activity_record_still_parses() {
+    let legacy = r#"{"schema_version":1,"event_type":"tool_activity","execution_id":"web-step-1","tool":"web_search","input":"Rust stable","status":"succeeded","source_ids":["source-rust"]}"#;
+
+    let Some(event_codec::ConversationEvent::ToolActivity(parsed)) =
+        event_codec::parse_conversation_event(legacy)
+    else {
+        panic!("legacy web tool activity must parse");
+    };
+
+    assert_eq!(parsed.execution_id, "web-step-1");
+    assert_eq!(parsed.tool, ConversationToolName::Search);
+    assert_eq!(parsed.input, "Rust stable");
+    assert_eq!(parsed.status, ConversationToolStatus::Succeeded);
+    assert_eq!(parsed.source_ids, ["source-rust"]);
+}

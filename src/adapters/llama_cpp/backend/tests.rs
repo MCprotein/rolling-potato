@@ -5,6 +5,9 @@ use crate::runtime_core::inference::backend::{
 };
 use std::path::Path;
 
+#[path = "tests/parser_contract.rs"]
+mod parser_contract;
+
 fn runtime_profile(disable_thinking_via_template: bool) -> BackendChatRuntimeProfile {
     BackendChatRuntimeProfile {
         sampling_profile_version: "request-test-v1".to_string(),
