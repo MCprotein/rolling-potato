@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.55.1` runtime. It groups the runtime by responsibility
+`rolling-potato v0.55.2` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.55.1`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.55.2`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -109,6 +109,13 @@ calls, or three follow-up model turns stop the loop, and malformed output, tool
 failure, or budget exhaustion falls back to the last source-bound evidence.
 Search itself returns only the bounded result list. It cannot implicitly Open a
 result or Find inside a page before the model sees that observation.
+
+The `v0.55.2` patch applies the same typed boundary to project-local inspection.
+Repository-reading requests enter a compact local decision protocol, and the
+runtime requires a successful project-root-confined read-only tool observation
+before asking for the visible answer. Decision output, tool evidence, and the
+final reply use separate budgets under one request deadline; a final reply never
+starts another hidden tool or repair loop.
 
 The language guard accepts Korean prose together with numbers, formulas, code,
 paths, URLs, and bounded technical titles. It attempts one fact-preserving
