@@ -496,3 +496,36 @@ Backend, TUI, session, model capability, web grounding 등 실제 제품 동작�
   안전한 grounded fallback으로 교체합니다.
 - 자동 검색 변경은 unit test에 더해 실제 TUI에서 `모델 정체성 → 시의성 질문 →
   경험적 비교`를 입력해 무수동 검색, 직접 답변, 출처 결합을 한 번 확인합니다.
+
+## 2026-08-04: 로컬 접근 안내와 실제 TUI 실행 경로가 분리됨
+
+### 증상
+
+- 사용자가 로컬 파일 접근 가능 여부를 물으면 제품은 접근할 수 없다고 답했고,
+  재실행 후에도 프로젝트 파일 읽기 요청을 실제로 수행하지 못했습니다.
+- 로컬 도구 schema와 executor의 일부 단위 계약은 있었지만 일반 TUI 요청은 해당
+  실행 loop가 아니라 기존 workflow 보고 경로로 빠졌습니다.
+- 실제 파일 근거를 포함한 답변의 경로와 snake_case identifier가 한국어 projection
+  과정에서 잘려, 도구 실행이 성공해도 visible answer가 훼손될 수 있었습니다.
+
+### 원인
+
+- Capability를 protocol type, executor, production request routing, persistence,
+  사용자 화면을 잇는 end-to-end 기능이 아니라 독립된 구성 요소의 존재로 판단했습니다.
+- Native terminal 검증이 로컬 도구 호출, observation 재주입, 두 번째 도구 호출,
+  최종 답변으로 이어지는 실제 사용자 여정을 포함하지 않았습니다.
+- 한국어 guard가 경로에 인접한 ASCII code identifier를 외국어 산문으로 계산했습니다.
+
+### 재발 방지
+
+- 로컬 도구 capability 완료 조건은 production TUI에서 `read_file → 서로 다른 로컬
+  도구 → 관찰 근거가 포함된 visible answer`를 실제 프로젝트 fixture로 통과하는
+  것입니다. Parser와 executor 단위 테스트만으로 capability를 완료 처리하지 않습니다.
+- llama.cpp structured schema 변경은 pinned managed parser가 production request를
+  HTTP 성공으로 수락하는 candidate job을 필수로 둡니다.
+- 파일·코드 도구는 경로·symlink·명령 문법뿐 아니라 대용량 파일, 대용량 디렉터리,
+  timeout, cancellation, 출력 누적 상한을 회귀 테스트합니다.
+- Runtime route가 없거나 연결되지 않은 결함에 재실행·재설치를 해결책으로 안내하지
+  않습니다. 재실행은 이미 반영된 상태·binary를 다시 로드하는 검증 수단일 뿐입니다.
+- 한국어 guard는 경로와 snake_case identifier가 함께 있는 한국어 답변을 그대로
+  보존하는 회귀 테스트를 유지합니다.

@@ -75,6 +75,10 @@ test(guard): cover Korean output leakage
 - CI 실패를 단순 재실행으로 닫지 않는다. 실패 원인이 기존 회고와 같은 유형이면 먼저 자동 guard의 누락을 보강하고, 새로운 유형이면 targeted 회귀 테스트 또는 preflight 계약과 회고 항목을 추가한 뒤 새 candidate를 만든다.
 - 태그 이후 플랫폼별 빌드, 패키징, checksum, release asset smoke 검증은 배포 검증으로 취급하며 개발 중 전체 테스트 반복과 구분한다.
 - CLI 동작 변경 후: 관련 `rpotato` 명령 smoke test를 수행한다.
+- 로컬 파일·저장소 도구 capability를 변경한 뒤에는 parser/unit fixture만으로 완료하지
+  않는다. Production TUI route에서 실제 프로젝트 파일 읽기, 서로 다른 두 번째 로컬
+  도구 실행, 관찰 근거가 포함된 visible answer까지 native PTY로 검증한다. Runtime
+  route가 없거나 끊긴 문제를 재실행·재설치 안내로 해결됐다고 간주하지 않는다.
 - llama.cpp request body, `response_format`, JSON schema 또는 chat template 계약을
   변경한 뒤에는 fake sidecar만으로 완료하지 않는다. Pinned managed
   `llama-server`와 설치된 지원 model로 structured 기본 대화 한 건을 실행해 HTTP
