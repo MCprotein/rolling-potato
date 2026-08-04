@@ -18,6 +18,39 @@ use super::{bounded_observation, malformed, observation, tool_error, MAX_OUTPUT_
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
 const ALLOWED_EXECUTABLES: [&str; 7] = ["pwd", "ls", "git", "rg", "head", "tail", "wc"];
 
+pub(super) enum ProjectGitLayout {
+    Repository {
+        git_dir: PathBuf,
+        work_tree: PathBuf,
+    },
+    NotRepository,
+    Unsafe,
+}
+
+pub(super) fn project_git_layout(root: &Path) -> ProjectGitLayout {
+    let dot_git = root.join(".git");
+    let metadata = match std::fs::symlink_metadata(&dot_git) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return ProjectGitLayout::NotRepository;
+        }
+        Err(_) => return ProjectGitLayout::Unsafe,
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return ProjectGitLayout::Unsafe;
+    }
+    let Ok(git_dir) = std::fs::canonicalize(dot_git) else {
+        return ProjectGitLayout::Unsafe;
+    };
+    if !git_dir.starts_with(root) {
+        return ProjectGitLayout::Unsafe;
+    }
+    ProjectGitLayout::Repository {
+        git_dir,
+        work_tree: root.to_path_buf(),
+    }
+}
+
 pub(super) struct CommandPaths {
     resolved: HashMap<&'static str, PathBuf>,
     search_path: std::ffi::OsString,
@@ -92,6 +125,18 @@ pub(super) fn run_read_only_command(
         argv.insert(1, "--no-ext-diff".to_string());
     }
     if executable == "git" {
+        let (git_dir, work_tree) = match project_git_layout(root) {
+            ProjectGitLayout::Repository { git_dir, work_tree } => (git_dir, work_tree),
+            ProjectGitLayout::NotRepository => {
+                return tool_error(
+                    AgentToolId::RunReadOnlyCommand,
+                    "project root is not a Git repository",
+                );
+            }
+            ProjectGitLayout::Unsafe => {
+                return super::denied(AgentToolId::RunReadOnlyCommand, "unsafe project Git layout");
+            }
+        };
         argv.splice(
             0..0,
             [
@@ -99,6 +144,8 @@ pub(super) fn run_read_only_command(
                 "core.fsmonitor=false".to_string(),
                 "-c".to_string(),
                 format!("core.hooksPath={}", null_device()),
+                format!("--git-dir={}", git_dir.display()),
+                format!("--work-tree={}", work_tree.display()),
             ],
         );
     }

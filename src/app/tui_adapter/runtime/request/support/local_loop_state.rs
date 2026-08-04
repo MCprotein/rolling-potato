@@ -78,6 +78,16 @@ impl LocalLoopState {
         TOOL_TIMEOUT
     }
 
+    pub(super) fn remaining_request_time(
+        &self,
+        elapsed: Duration,
+    ) -> Result<Duration, LocalLoopTerminal> {
+        REQUEST_TIMEOUT
+            .checked_sub(elapsed)
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| terminal(LocalLoopTerminalReason::RequestDeadline, None))
+    }
+
     pub(super) fn begin_model_turn(&mut self, elapsed: Duration) -> Result<(), LocalLoopTerminal> {
         self.ensure_request_time(elapsed)?;
         if self.model_turns >= MAX_MODEL_TURNS {
@@ -218,11 +228,7 @@ impl LocalLoopState {
     }
 
     fn ensure_request_time(&self, elapsed: Duration) -> Result<(), LocalLoopTerminal> {
-        if elapsed >= REQUEST_TIMEOUT {
-            Err(terminal(LocalLoopTerminalReason::RequestDeadline, None))
-        } else {
-            Ok(())
-        }
+        self.remaining_request_time(elapsed).map(|_| ())
     }
 
     fn bound_observation(&mut self, mut observation: ToolObservation) -> (ToolObservation, bool) {
@@ -246,9 +252,7 @@ impl LocalLoopState {
             returned_bytes,
         };
         self.cumulative_observation_bytes += returned_bytes;
-        let exhausted = remaining == 0
-            || (original_bytes > remaining)
-            || self.cumulative_observation_bytes >= MAX_CUMULATIVE_OBSERVATION_BYTES;
+        let exhausted = remaining == 0 || original_bytes > remaining;
         (observation, exhausted)
     }
 }
@@ -341,6 +345,12 @@ mod tests {
             ToolAdmission::Terminate(terminal(LocalLoopTerminalReason::RepeatedToolCall, None))
         );
         assert_eq!(TOOL_TIMEOUT, repeated.tool_timeout());
+        assert_eq!(
+            repeated
+                .remaining_request_time(REQUEST_TIMEOUT - Duration::from_millis(7))
+                .unwrap(),
+            Duration::from_millis(7)
+        );
         assert_eq!(
             repeated
                 .begin_model_turn(REQUEST_TIMEOUT)
@@ -459,6 +469,24 @@ mod tests {
                 ),
                 Duration::ZERO,
             ),
+            ObservationTransition::Terminate(LocalLoopTerminal {
+                reason: LocalLoopTerminalReason::ObservationBudget,
+                ..
+            })
+        ));
+
+        let mut exact = LocalLoopState::new(AgentToolRegistrySnapshot::local_default());
+        for _ in 0..4 {
+            assert!(matches!(
+                exact.record_observation(
+                    observation(ToolObservationStatus::Ok, "x".repeat(MAX_OBSERVATION_BYTES)),
+                    Duration::ZERO,
+                ),
+                ObservationTransition::Replan(_)
+            ));
+        }
+        assert!(matches!(
+            exact.record_observation(observation(ToolObservationStatus::Ok, "x"), Duration::ZERO,),
             ObservationTransition::Terminate(LocalLoopTerminal {
                 reason: LocalLoopTerminalReason::ObservationBudget,
                 ..

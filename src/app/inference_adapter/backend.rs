@@ -50,7 +50,7 @@ pub use chat::{
 };
 pub(crate) use chat::{
     chat_once_for_intent, chat_once_with_input_for_intent,
-    chat_once_with_input_for_intent_and_cancel,
+    chat_once_with_input_for_intent_and_cancel, chat_once_with_input_for_intent_and_cancel_bounded,
 };
 #[cfg(test)]
 use generation_state::{

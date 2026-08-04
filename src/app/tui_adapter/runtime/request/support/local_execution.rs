@@ -52,13 +52,31 @@ pub(in crate::app::tui_adapter::runtime::request) fn execute_local_turn(
         context.progress.emit(TuiRequestProgress::Deciding);
 
         let prompt = local_prompt(&context, &registry, &observations)?;
-        let candidate = crate::app::inference_adapter::answer::generate_structured_candidate_for_user_with_cancel(
+        let model_timeout_ms = timeout_millis(
+            state
+                .remaining_request_time(started.elapsed())
+                .map_err(local_loop_error)?,
+        )
+        .ok_or_else(|| {
+            local_loop_error(LocalLoopTerminal {
+                reason: LocalLoopTerminalReason::RequestDeadline,
+                observation: None,
+            })
+        })?;
+        let candidate = match crate::app::inference_adapter::answer::generate_structured_candidate_for_user_with_cancel_bounded(
             &prompt,
             context.request,
             GenerationIntent::StructuredRouteAndAnswer,
             crate::runtime_core::agent::LOCAL_TURN_DECISION_JSON_SCHEMA,
+            model_timeout_ms,
             context.cancellation,
-        )?;
+        ) {
+            Ok(candidate) => candidate,
+            Err(error) => match state.remaining_request_time(started.elapsed()) {
+                Ok(_) => return Err(error),
+                Err(terminal) => return Err(local_loop_error(terminal)),
+            },
+        };
         context.cancellation.check()?;
 
         match parse_local_turn_decision(&candidate.visible, &registry) {
@@ -95,8 +113,14 @@ pub(in crate::app::tui_adapter::runtime::request) fn execute_local_turn(
                     ToolAdmission::Terminate(terminal) => return Err(local_loop_error(terminal)),
                 }
                 context.progress.emit(TuiRequestProgress::LocalWork);
-                let observation =
-                    executor.execute(&call, context.cancellation, state.tool_timeout());
+                let remaining = state
+                    .remaining_request_time(started.elapsed())
+                    .map_err(local_loop_error)?;
+                let observation = executor.execute(
+                    &call,
+                    context.cancellation,
+                    state.tool_timeout().min(remaining),
+                );
                 tool_activities.push(tool_activity(&call, &observation));
                 match state.record_observation(observation, started.elapsed()) {
                     ObservationTransition::Replan(observation) => observations.push(observation),
@@ -114,6 +138,12 @@ pub(in crate::app::tui_adapter::runtime::request) fn execute_local_turn(
             }
         }
     }
+}
+
+fn timeout_millis(duration: std::time::Duration) -> Option<u32> {
+    u32::try_from(duration.as_millis())
+        .ok()
+        .filter(|millis| *millis > 0)
 }
 
 fn local_prompt(
@@ -285,5 +315,15 @@ mod tests {
 
         assert!(error.message.contains("같은 로컬 도구 호출"));
         assert!(!error.message.contains("secret-output"));
+    }
+
+    #[test]
+    fn remaining_deadline_never_expands_when_converted_to_backend_milliseconds() {
+        assert_eq!(timeout_millis(std::time::Duration::from_nanos(1)), None);
+        assert_eq!(timeout_millis(std::time::Duration::from_millis(7)), Some(7));
+        assert_eq!(
+            timeout_millis(std::time::Duration::from_micros(7_001)),
+            Some(7)
+        );
     }
 }

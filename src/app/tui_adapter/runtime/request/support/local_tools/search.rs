@@ -9,7 +9,10 @@ use crate::runtime_core::agent::{
 };
 use crate::runtime_core::inference::cancellation::RequestCancellationToken;
 
-use super::command::{null_device, run_bounded, sanitize_command, CommandPaths, ProcessResult};
+use super::command::{
+    null_device, project_git_layout, run_bounded, sanitize_command, CommandPaths, ProcessResult,
+    ProjectGitLayout,
+};
 use super::path::{resolve_existing_path, EntryKind};
 use super::{malformed, observation, observation_with_truncation, MAX_OUTPUT_BYTES};
 
@@ -53,6 +56,22 @@ pub(super) fn search_repository(
                 ToolObservationStatus::Timeout,
                 ToolObservationReason::ToolTimedOut,
                 "search timed out",
+            )
+        }
+        CandidateResult::Denied => {
+            return observation(
+                AgentToolId::SearchRepository,
+                ToolObservationStatus::Denied,
+                ToolObservationReason::PolicyDenied,
+                "unsafe project Git layout",
+            )
+        }
+        CandidateResult::ToolError(message) => {
+            return observation(
+                AgentToolId::SearchRepository,
+                ToolObservationStatus::ToolError,
+                ToolObservationReason::ExecutionFailed,
+                message,
             )
         }
     };
@@ -257,6 +276,8 @@ enum CandidateResult {
     Files(Vec<PathBuf>, bool),
     Cancelled,
     Timeout,
+    Denied,
+    ToolError(String),
 }
 
 fn git_candidate_files(
@@ -265,11 +286,21 @@ fn git_candidate_files(
     cancellation: &RequestCancellationToken,
     timeout: Duration,
 ) -> Option<CandidateResult> {
-    let git = commands.path_for("git")?;
+    let (git_dir, work_tree) = match project_git_layout(root) {
+        ProjectGitLayout::Repository { git_dir, work_tree } => (git_dir, work_tree),
+        ProjectGitLayout::NotRepository => return None,
+        ProjectGitLayout::Unsafe => return Some(CandidateResult::Denied),
+    };
+    let git = match required_git_executable(commands.path_for("git")) {
+        Ok(git) => git,
+        Err(message) => return Some(CandidateResult::ToolError(message)),
+    };
     let mut command = Command::new(git);
     command
         .args(["-c", "core.fsmonitor=false", "-c"])
         .arg(format!("core.hooksPath={}", null_device()))
+        .arg(format!("--git-dir={}", git_dir.display()))
+        .arg(format!("--work-tree={}", work_tree.display()))
         .args(["ls-files", "-co", "--exclude-standard", "-z"])
         .current_dir(root);
     sanitize_command(&mut command, commands);
@@ -281,8 +312,19 @@ fn git_candidate_files(
                 truncated,
                 ..
             } => (stdout, truncated),
-            ProcessResult::Completed { success: false, .. } | ProcessResult::Failed(_) => {
-                return None
+            ProcessResult::Completed {
+                success: false,
+                stderr,
+                ..
+            } => {
+                let detail = String::from_utf8_lossy(&stderr);
+                return Some(CandidateResult::ToolError(format!(
+                    "git ls-files failed: {}",
+                    detail.trim()
+                )));
+            }
+            ProcessResult::Failed(message) => {
+                return Some(CandidateResult::ToolError(message));
             }
             ProcessResult::Cancelled => return Some(CandidateResult::Cancelled),
             ProcessResult::Timeout => return Some(CandidateResult::Timeout),
@@ -308,6 +350,10 @@ fn git_candidate_files(
     }
     paths.sort_by(|left, right| slash_path(left).cmp(&slash_path(right)));
     Some(CandidateResult::Files(paths, limit_hit))
+}
+
+fn required_git_executable(path: Option<&Path>) -> Result<&Path, String> {
+    path.ok_or_else(|| "git executable is unavailable for project repository".to_string())
 }
 
 fn fallback_candidate_files(
@@ -442,4 +488,17 @@ fn hidden_path(path: &Path) -> bool {
     path.components().any(|component| {
         matches!(component, Component::Normal(value) if value.to_str().is_some_and(|value| value.starts_with('.')))
     })
+}
+
+#[cfg(test)]
+mod candidate_tests {
+    use super::*;
+
+    #[test]
+    fn repository_without_git_executable_is_an_error_not_a_fallback() {
+        assert_eq!(
+            required_git_executable(None).unwrap_err(),
+            "git executable is unavailable for project repository"
+        );
+    }
 }

@@ -33,6 +33,19 @@ fn run(root: &Path, id: AgentToolId, input: impl Into<String>) -> ToolObservatio
     )
 }
 
+fn init_git(root: &Path) {
+    let commands = command::CommandPaths::resolve(root);
+    let git = commands.path_for("git").expect("git executable");
+    let status = std::process::Command::new(git)
+        .args(["init", "--quiet"])
+        .current_dir(root)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", command::null_device())
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
 #[test]
 fn read_file_rejects_traversal_symlinks_binary_and_invalid_utf8() {
     let root = fixture("read-denied");
@@ -217,6 +230,102 @@ fn fallback_search_reads_only_the_bounded_gitignore_prefix() {
     fs::write(root.join(".gitignore"), ignore).unwrap();
     let result = run(&root, AgentToolId::SearchRepository, "needle");
     assert_eq!(result.content, "visible.txt:1:needle\n");
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn local_git_directory_overrides_external_core_worktree() {
+    let root = fixture("git-local-worktree");
+    let external = fixture("git-external-worktree");
+    init_git(&root);
+    fs::write(root.join("visible.txt"), "needle\n").unwrap();
+    fs::write(external.join("outside.txt"), "needle\n").unwrap();
+    let git = command::CommandPaths::resolve(&root)
+        .path_for("git")
+        .unwrap()
+        .to_path_buf();
+    let status = std::process::Command::new(git)
+        .arg(format!("--git-dir={}", root.join(".git").display()))
+        .args(["config", "core.worktree"])
+        .arg(&external)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let search = run(&root, AgentToolId::SearchRepository, "needle");
+    assert_eq!(search.content, "visible.txt:1:needle\n");
+    let status = run(
+        &root,
+        AgentToolId::RunReadOnlyCommand,
+        r#"["git","status","--short"]"#,
+    );
+    assert_eq!(status.status, ToolObservationStatus::Ok);
+    assert!(status.content.contains("visible.txt"));
+    assert!(!status.content.contains("outside.txt"));
+    fs::remove_dir_all(root).unwrap();
+    fs::remove_dir_all(external).unwrap();
+}
+
+#[test]
+fn git_file_layout_is_denied_instead_of_falling_back_or_discovering_parent() {
+    let root = fixture("git-file-layout");
+    let external = fixture("git-file-target");
+    init_git(&external);
+    fs::write(
+        root.join(".git"),
+        format!("gitdir: {}\n", external.join(".git").display()),
+    )
+    .unwrap();
+    fs::write(root.join("visible.txt"), "needle\n").unwrap();
+    assert_eq!(
+        run(&root, AgentToolId::SearchRepository, "needle").status,
+        ToolObservationStatus::Denied
+    );
+    assert_eq!(
+        run(
+            &root,
+            AgentToolId::RunReadOnlyCommand,
+            r#"["git","status"]"#,
+        )
+        .status,
+        ToolObservationStatus::Denied
+    );
+    fs::remove_dir_all(root).unwrap();
+    fs::remove_dir_all(external).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn symlinked_git_directory_is_denied() {
+    let root = fixture("git-symlink-layout");
+    let external = fixture("git-symlink-target");
+    init_git(&external);
+    std::os::unix::fs::symlink(external.join(".git"), root.join(".git")).unwrap();
+    assert_eq!(
+        run(&root, AgentToolId::SearchRepository, "needle").status,
+        ToolObservationStatus::Denied
+    );
+    assert_eq!(
+        run(
+            &root,
+            AgentToolId::RunReadOnlyCommand,
+            r#"["git","diff","--stat"]"#,
+        )
+        .status,
+        ToolObservationStatus::Denied
+    );
+    fs::remove_dir_all(root).unwrap();
+    fs::remove_dir_all(external).unwrap();
+}
+
+#[test]
+fn broken_local_repository_returns_tool_error_instead_of_fallback_search() {
+    let root = fixture("git-broken-repository");
+    fs::create_dir(root.join(".git")).unwrap();
+    fs::write(root.join("visible.txt"), "needle\n").unwrap();
+    let result = run(&root, AgentToolId::SearchRepository, "needle");
+    assert_eq!(result.status, ToolObservationStatus::ToolError);
+    assert!(!result.content.contains("visible.txt:1:needle"));
     fs::remove_dir_all(root).unwrap();
 }
 

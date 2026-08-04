@@ -26,6 +26,7 @@ require_text() {
 agent=src/runtime_core/agent.rs
 loop_state=src/app/tui_adapter/runtime/request/support/local_loop_state.rs
 local_execution=src/app/tui_adapter/runtime/request/support/local_execution.rs
+backend_chat=src/app/inference_adapter/backend/chat.rs
 backend_tests=src/adapters/llama_cpp/backend/tests.rs
 installer=src/adapters/llama_cpp/install.rs
 workflow=.github/workflows/refactor-candidate.yml
@@ -62,6 +63,11 @@ for terminal in ModelTurnBudget ToolCallBudget RepeatedToolCall ProtocolError Ca
   require_literal "$loop_state" "$terminal" "terminal state is missing: $terminal"
 done
 require_literal "$local_execution" 'LOCAL_TURN_DECISION_JSON_SCHEMA' 'production local execution is not wired to the local schema'
+require_literal "$local_execution" 'remaining_request_time(started.elapsed())' 'production local execution does not consume one request-wide deadline'
+require_literal "$local_execution" 'generate_structured_candidate_for_user_with_cancel_bounded' 'production local model turns are not bounded by the remaining request deadline'
+require_literal "$local_execution" 'state.tool_timeout().min(remaining)' 'production local tools are not bounded by the remaining request deadline'
+require_literal "$backend_chat" 'chat_once_with_input_for_intent_and_cancel_bounded' 'bounded structured backend entry point is missing'
+require_literal "$backend_chat" 'Some(timeout_ms)' 'bounded structured backend timeout is not forwarded to the transport deadline'
 
 require_literal "$installer" 'release_tag: "b9982"' 'managed llama.cpp revision drifted'
 require_literal "$backend_tests" 'fn managed_llama_parser_accepts_local_turn_schema()' 'ignored live parser probe is missing'
